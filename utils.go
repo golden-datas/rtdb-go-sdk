@@ -1,7 +1,15 @@
 package rtdb_api
 
 import "C"
-import "unsafe"
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
+	"io"
+	"unsafe"
+)
 
 func CCharArrayToString(p *C.char, n int) string {
 	b := C.GoBytes(unsafe.Pointer(p), C.int(n))
@@ -84,4 +92,31 @@ func Int64ToBool(v int64) bool {
 	} else {
 		return true
 	}
+}
+
+// GBKBytesToString GBK格式的bytes，转换为UTF8 string
+func GBKBytesToString(gbkBytes []byte) (string, error) {
+	// 创建GBK解码器
+	decoder := simplifiedchinese.GBK.NewDecoder()
+
+	// 使用transform进行解码转换
+	reader := transform.NewReader(bytes.NewReader(gbkBytes), decoder)
+
+	// 读取解码后的数据
+	utf8Bytes, err := io.ReadAll(reader)
+	if err != nil {
+		return "", fmt.Errorf("GBK转UTF-8失败: %w", err)
+	}
+
+	return string(utf8Bytes), nil
+}
+
+// StringToGBKBytes UTF8格式的string转换为GBK格式的bytes
+func StringToGBKBytes(str string) ([]byte, error) {
+	encoder := simplifiedchinese.GBK.NewEncoder()
+	buf, n, err := transform.Bytes(encoder, []byte(str))
+	if err != nil {
+		return nil, errors.New("str转换成GBK格式[]byte报错：" + err.Error())
+	}
+	return buf[:n], nil
 }

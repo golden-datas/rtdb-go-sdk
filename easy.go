@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"golang.org/x/text/encoding/simplifiedchinese"
-	"golang.org/x/text/transform"
 	"sort"
 	"strconv"
 	"time"
@@ -1074,15 +1072,7 @@ func GoTimeToRtdbTimestamp(timestamp time.Time, precision RtdbPrecision) (Timest
 }
 
 // RtdbTimestampToGoTime (TimestampType, SubtimeType) 转换成 time.Time
-func RtdbTimestampToGoTime(datetime TimestampType, subtime SubtimeType, precision RtdbPrecision) time.Time {
-	// switch precision {
-	// case RtdbPrecisionSecond:
-	// 	subtime = SubtimeType(0)
-	// case RtdbPrecisionMilli:
-	// 	subtime = subtime * 1000000
-	// case RtdbPrecisionMicro:
-	// 	subtime = subtime * 1000
-	// }
+func RtdbTimestampToGoTime(datetime TimestampType, subtime SubtimeType) time.Time {
 	return time.Unix(int64(datetime), int64(subtime))
 }
 
@@ -1125,12 +1115,11 @@ func (v *TVQ) GetRtdbStringBlob(osType RtdbOsType) ([]byte, error) {
 		if osType == RtdbOsLinux {
 			data = []byte(str)
 		} else if osType == RtdbOsWindows {
-			encoder := simplifiedchinese.GBK.NewEncoder()
-			buf, n, err := transform.Bytes(encoder, []byte(str))
+			buf, err := StringToGBKBytes(str)
 			if err != nil {
-				return nil, errors.New("str转换成GBK格式[]byte报错：" + err.Error())
+				return nil, err
 			}
-			data = buf[:n]
+			data = buf
 		} else {
 			panic("分支不可达, 未知的OsType")
 		}
@@ -2842,48 +2831,487 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 	return RtdbErrorListToErrorList(rtnRtes), nil
 }
 
-func (c *RtdbConnect) ReadValue(info *PointInfo, mode RtdbHisMode, timestamp time.Time) (TVQ, error) {
+// ReadValue 读取单个TVQ
+//
+// input:
+//   - info: 点信息
+//   - mode: 读取模式
+//   - timestamp: 时间戳
+//
+// output:
+//   - TVQ(tvq): 输出TVQ点值
+func (c *RtdbConnect) ReadValue(info *PointInfo, mode RtdbHisMode, timestamp time.Time) (PTVQ, error) {
 	rtdbType, _ := info.ValueType.ToRawType()
 	datetime, subtime := GoTimeToRtdbTimestamp(timestamp, info.Precision)
 	switch rtdbType {
 	case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
 		dt, ms, value, state, quality, rte := RawRtdbhGetSingleValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime)
 		if !RteIsOk(rte) {
-			return TVQ{}, rte.GoError()
+			return PTVQ{}, rte.GoError()
 		}
-		ts := RtdbTimestampToGoTime(dt, ms, info.Precision)
+		ts := RtdbTimestampToGoTime(dt, ms)
 		switch rtdbType {
 		case RtdbTypeBool:
-			return NewTvqBool(ts, Int64ToBool(state), quality), nil
+			return NewPTVQ(info, NewTvqBool(ts, Int64ToBool(state), quality)), nil
 		case RtdbTypeUint8:
-			return NewTvqUint8(ts, uint8(state), quality), nil
+			return NewPTVQ(info, NewTvqUint8(ts, uint8(state), quality)), nil
 		case RtdbTypeInt8:
-			return NewTvqInt8(ts, int8(state), quality), nil
+			return NewPTVQ(info, NewTvqInt8(ts, int8(state), quality)), nil
 		case RtdbTypeChar:
-			return NewTvqChar(ts, byte(state), quality), nil
+			return NewPTVQ(info, NewTvqChar(ts, byte(state), quality)), nil
 		case RtdbTypeUint16:
-			return NewTvqUint16(ts, uint16(state), quality), nil
+			return NewPTVQ(info, NewTvqUint16(ts, uint16(state), quality)), nil
 		case RtdbTypeInt16:
-			return NewTvqInt16(ts, int16(state), quality), nil
+			return NewPTVQ(info, NewTvqInt16(ts, int16(state), quality)), nil
 		case RtdbTypeUint32:
-			return NewTvqUint32(ts, uint32(state), quality), nil
+			return NewPTVQ(info, NewTvqUint32(ts, uint32(state), quality)), nil
 		case RtdbTypeInt32:
-			return NewTvqInt32(ts, int32(state), quality), nil
+			return NewPTVQ(info, NewTvqInt32(ts, int32(state), quality)), nil
 		case RtdbTypeInt64:
-			return NewTvqInt64(ts, state, quality), nil
+			return NewPTVQ(info, NewTvqInt64(ts, state, quality)), nil
 		case RtdbTypeReal16:
-			return NewTvqFloat16(ts, float32(value), quality), nil
+			return NewPTVQ(info, NewTvqFloat16(ts, float32(value), quality)), nil
 		case RtdbTypeReal32:
-			return NewTvqFloat32(ts, float32(value), quality), nil
+			return NewPTVQ(info, NewTvqFloat32(ts, float32(value), quality)), nil
 		case RtdbTypeReal64:
-			return NewTvqFloat64(ts, value, quality), nil
+			return NewPTVQ(info, NewTvqFloat64(ts, value, quality)), nil
 		case RtdbTypeFp16:
-			return NewTvqFp16(ts, float32(value), quality), nil
+			return NewPTVQ(info, NewTvqFp16(ts, float32(value), quality)), nil
 		case RtdbTypeFp32:
-			return NewTvqFp32(ts, float32(value), quality), nil
+			return NewPTVQ(info, NewTvqFp32(ts, float32(value), quality)), nil
 		case RtdbTypeFp64:
-			return NewTvqFp64(ts, value, quality), nil
+			return NewPTVQ(info, NewTvqFp64(ts, value, quality)), nil
 		}
+	case RtdbTypeCoor:
+		dt, ms, x, y, quality, rte := RawRtdbhGetSingleCoorValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime)
+		if !RteIsOk(rte) {
+			return PTVQ{}, rte.GoError()
+		}
+		ts := RtdbTimestampToGoTime(dt, ms)
+		return NewPTVQ(info, NewTvqCoordinates(ts, x, y, quality)), nil
+	case RtdbTypeString, RtdbTypeBlob:
+		dt, ms, blob, quality, rte := RawRtdbhGetSingleBlobValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime, c.StringBlobMaxLen)
+		if !RteIsOk(rte) {
+			return PTVQ{}, rte.GoError()
+		}
+		ts := RtdbTimestampToGoTime(dt, ms)
+		switch rtdbType {
+		case RtdbTypeString:
+			str := string(blob)
+			if c.ServerOsType == RtdbOsWindows {
+				s, err := GBKBytesToString(blob)
+				if err != nil {
+					return PTVQ{}, err
+				}
+				str = s
+			}
+			return NewPTVQ(info, NewTvqString(ts, str, quality)), nil
+		case RtdbTypeBlob:
+			return NewPTVQ(info, NewTvqBlob(ts, blob, quality)), nil
+		}
+	case RtdbTypeNamedT:
+		dt, ms, data, quality, rte := RawRtdbhGetSingleNamedTypeValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime, info.NamedType.Length)
+		if !RteIsOk(rte) {
+			return PTVQ{}, rte.GoError()
+		}
+		ts := RtdbTimestampToGoTime(dt, ms)
+		return NewPTVQ(info, NewTvqNamed(ts, info.ValueType, data, quality)), nil
+	case RtdbTypeDatetime:
+		dt, ms, data, quality, rte := RawRtdbhGetSingleDatetimeValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime, 0)
+		if !RteIsOk(rte) {
+			return PTVQ{}, rte.GoError()
+		}
+		ts := RtdbTimestampToGoTime(dt, ms)
+		return NewPTVQ(info, NewTvqString(ts, string(data), quality)), nil
 	}
-	return TVQ{}, nil
+	return PTVQ{}, errors.New("未知的数据类型")
+}
+
+// ReadLasts 批量读取实时快照值(当前标签点最后一个写入的TVQ)
+//
+// input:
+//   - infos: 标签点信息列表
+func (c *RtdbConnect) ReadLasts(infos []*PointInfo) ([]TVQ, []error, error) {
+	return nil, nil, nil
+	// rtnRtes := make([]RtdbError, len(ptvqs))
+	/*
+
+		// 数值 int&float
+		numberIds := make([]PointID, 0)
+		numberDatetimes := make([]TimestampType, 0)
+		numberSubtimes := make([]SubtimeType, 0)
+		numberValues := make([]float64, 0)
+		numberStates := make([]int64, 0)
+		numberQualities := make([]Quality, 0)
+		numberIdx := make([]int, 0)
+
+		// 坐标
+		coorIds := make([]PointID, 0)
+		coorDatetimes := make([]TimestampType, 0)
+		coorSubtimes := make([]SubtimeType, 0)
+		coorXs := make([]float32, 0)
+		coorYs := make([]float32, 0)
+		coorQualities := make([]Quality, 0)
+		coorIdx := make([]int, 0)
+
+		// String｜Blob
+		bIds := make([]PointID, 0)
+		bDatetimes := make([]TimestampType, 0)
+		bSubtimes := make([]SubtimeType, 0)
+		bDatas := make([][]byte, 0)
+		bQualities := make([]Quality, 0)
+		bIdx := make([]int, 0)
+
+		// named 自定义类型
+		namedIds := make([]PointID, 0)
+		namedDatetimes := make([]TimestampType, 0)
+		namedSubtimes := make([]SubtimeType, 0)
+		namedDatas := make([][]byte, 0)
+		namedQualities := make([]Quality, 0)
+		namedIdx := make([]int, 0)
+
+		// datetime 日期
+		dtIds := make([]PointID, 0)
+		dtDatetimes := make([]TimestampType, 0)
+		dtSubtimes := make([]SubtimeType, 0)
+		dtDates := make([]string, 0)
+		dtQualities := make([]Quality, 0)
+		dtIdx := make([]int, 0)
+
+		for i, ptvq := range ptvqs {
+			rtdbType, _ := ptvq.PointInfo.ValueType.ToRawType()
+			switch rtdbType {
+			case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
+				numberIds = append(numberIds, ptvq.PointInfo.ID)
+				datetime, subtime := ptvq.TVQ.GetRtdbTimestamp(ptvq.PointInfo.Precision)
+				numberDatetimes = append(numberDatetimes, datetime)
+				numberSubtimes = append(numberSubtimes, subtime)
+				numberQualities = append(numberQualities, ptvq.TVQ.GetRtdbQuality())
+				switch rtdbType {
+				case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64:
+					numberValues = append(numberValues, 0)
+					numberStates = append(numberStates, ptvq.TVQ.GetRtdbInt())
+				case RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
+					numberValues = append(numberValues, ptvq.TVQ.GetRtdbFloat())
+					numberStates = append(numberStates, 0)
+				}
+				numberIdx = append(numberIdx, i)
+			case RtdbTypeCoor:
+				coorIds = append(coorIds, ptvq.PointInfo.ID)
+				datetime, subtime := ptvq.TVQ.GetRtdbTimestamp(ptvq.PointInfo.Precision)
+				coorDatetimes = append(coorDatetimes, datetime)
+				coorSubtimes = append(coorSubtimes, subtime)
+				coorQualities = append(coorQualities, ptvq.TVQ.GetRtdbQuality())
+				xy := ptvq.TVQ.GetRtdbCoordinates()
+				coorXs = append(coorXs, xy.X)
+				coorYs = append(coorYs, xy.Y)
+				coorIdx = append(coorIdx, i)
+			case RtdbTypeString, RtdbTypeBlob:
+				bIds = append(bIds, ptvq.PointInfo.ID)
+				datetime, subtime := ptvq.TVQ.GetRtdbTimestamp(ptvq.PointInfo.Precision)
+				bDatetimes = append(bDatetimes, datetime)
+				bSubtimes = append(bSubtimes, subtime)
+				bQualities = append(bQualities, ptvq.TVQ.GetRtdbQuality())
+				data, err := ptvq.TVQ.GetRtdbStringBlob(c.ServerOsType)
+				if err != nil {
+					return nil, err
+				}
+				bDatas = append(bDatas, data)
+				bIdx = append(bIdx, i)
+			case RtdbTypeNamedT:
+				namedIds = append(namedIds, ptvq.PointInfo.ID)
+				datetime, subtime := ptvq.TVQ.GetRtdbTimestamp(ptvq.PointInfo.Precision)
+				namedDatetimes = append(namedDatetimes, datetime)
+				namedSubtimes = append(namedSubtimes, subtime)
+				namedQualities = append(namedQualities, ptvq.TVQ.GetRtdbQuality())
+				namedDatas = append(namedDatas, ptvq.TVQ.GetRtdbNamedObj())
+				namedIdx = append(namedIdx, i)
+			case RtdbTypeDatetime:
+				dtIds = append(dtIds, ptvq.PointInfo.ID)
+				datetime, subtime := ptvq.TVQ.GetRtdbTimestamp(ptvq.PointInfo.Precision)
+				dtDatetimes = append(dtDatetimes, datetime)
+				dtSubtimes = append(dtSubtimes, subtime)
+				dtQualities = append(dtQualities, ptvq.TVQ.GetRtdbQuality())
+				dtDates = append(dtDates, ptvq.TVQ.GetRtdbDatetime())
+				dtIdx = append(dtIdx, i)
+			}
+		}
+
+		if len(numberIds) != 0 {
+			rtes := make([]RtdbError, 0)
+			rte := RtdbError(0)
+			if fix {
+				rtes, rte = RawRtdbsFixSnapshots64Warp(c.ConnectHandle, numberIds, numberDatetimes, numberSubtimes, numberValues, numberStates, numberQualities)
+			} else {
+				rtes, rte = RawRtdbsPutSnapshots64Warp(c.ConnectHandle, numberIds, numberDatetimes, numberSubtimes, numberValues, numberStates, numberQualities)
+			}
+			if !RteIsOk(rte) {
+				return nil, rte.GoError()
+			}
+			aIndex := make([]int, 0)
+			aIds := make([]PointID, 0)
+			aDatetimes := make([]TimestampType, 0)
+			aSubtimes := make([]SubtimeType, 0)
+			aValues := make([]float64, 0)
+			aStates := make([]int64, 0)
+			aQualities := make([]Quality, 0)
+			for i, e := range rtes {
+				if errors.Is(e, RteTimestampEarlierThanSnapshot) {
+					aIndex = append(aIndex, i)
+					aIds = append(aIds, numberIds[i])
+					aDatetimes = append(aDatetimes, numberDatetimes[i])
+					aSubtimes = append(aSubtimes, numberSubtimes[i])
+					aValues = append(aValues, numberValues[i])
+					aStates = append(aStates, numberStates[i])
+					aQualities = append(aQualities, numberQualities[i])
+				}
+			}
+			if len(aIds) != 0 {
+				aRtes, aRte := RawRtdbhPutArchivedValues64Warp(c.ConnectHandle, aIds, aDatetimes, aSubtimes, aValues, aStates, aQualities)
+				if !RteIsOk(aRte) {
+					return nil, aRte.GoError()
+				}
+				for i, e := range aRtes {
+					rtes[aIndex[i]] = e
+				}
+				for i, e := range rtes {
+					rtnRtes[numberIdx[i]] = e
+				}
+			}
+		}
+
+		if len(coorIds) != 0 {
+			rtes := make([]RtdbError, 0)
+			rte := RtdbError(0)
+			if fix {
+				rtes, rte = RawRtdbsFixCoorSnapshots64Warp(c.ConnectHandle, coorIds, coorDatetimes, coorSubtimes, coorXs, coorYs, coorQualities)
+			} else {
+				rtes, rte = RawRtdbsPutCoorSnapshots64Warp(c.ConnectHandle, coorIds, coorDatetimes, coorSubtimes, coorXs, coorYs, coorQualities)
+			}
+			if !RteIsOk(rte) {
+				return nil, rte.GoError()
+			}
+			aIndex := make([]int, 0)
+			aIds := make([]PointID, 0)
+			aDatetimes := make([]TimestampType, 0)
+			aSubtimes := make([]SubtimeType, 0)
+			aXs := make([]float32, 0)
+			aYs := make([]float32, 0)
+			aQualities := make([]Quality, 0)
+			for i, e := range rtes {
+				if errors.Is(e, RteTimestampEarlierThanSnapshot) {
+					aIndex = append(aIndex, i)
+					aIds = append(aIds, coorIds[i])
+					aDatetimes = append(aDatetimes, coorDatetimes[i])
+					aSubtimes = append(aSubtimes, coorSubtimes[i])
+					aXs = append(aXs, coorXs[i])
+					aYs = append(aYs, coorYs[i])
+					aQualities = append(aQualities, coorQualities[i])
+				}
+			}
+			if len(aIds) != 0 {
+				aRtes, aRte := RawRtdbhPutArchivedCoorValues64Warp(c.ConnectHandle, aIds, aDatetimes, aSubtimes, aXs, aYs, aQualities)
+				if !RteIsOk(aRte) {
+					return nil, aRte.GoError()
+				}
+				for i, e := range aRtes {
+					rtes[aIndex[i]] = e
+				}
+				for i, e := range rtes {
+					rtnRtes[coorIdx[i]] = e
+				}
+			}
+		}
+
+		if len(bIds) != 0 {
+			rtes, rte := RawRtdbsPutBlobSnapshots64Warp(c.ConnectHandle, bIds, bDatetimes, bSubtimes, bDatas, bQualities)
+			if !RteIsOk(rte) {
+				return nil, rte.GoError()
+			}
+			aIndex := make([]int, 0)
+			aIds := make([]PointID, 0)
+			aDatetimes := make([]TimestampType, 0)
+			aSubtimes := make([]SubtimeType, 0)
+			aDatas := make([][]byte, 0)
+			aQualities := make([]Quality, 0)
+			for i, e := range rtes {
+				if errors.Is(e, RteTimestampEarlierThanSnapshot) {
+					aIndex = append(aIndex, i)
+					aIds = append(aIds, bIds[i])
+					aDatetimes = append(aDatetimes, bDatetimes[i])
+					aSubtimes = append(aSubtimes, bSubtimes[i])
+					aDatas = append(aDatas, bDatas[i])
+					aQualities = append(aQualities, bQualities[i])
+				}
+			}
+			if len(aIds) != 0 {
+				aRtes, aRte := RawRtdbhPutArchivedBlobValues64Warp(c.ConnectHandle, aIds, aDatetimes, aSubtimes, aDatas, aQualities)
+				if !RteIsOk(aRte) {
+					return nil, aRte.GoError()
+				}
+				for i, e := range aRtes {
+					rtes[aIndex[i]] = e
+				}
+				for i, e := range rtes {
+					rtnRtes[bIdx[i]] = e
+				}
+			}
+		}
+
+		if len(namedIds) != 0 {
+			rtes, rte := RawRtdbsPutNamedTypeSnapshots64Warp(c.ConnectHandle, namedIds, namedDatetimes, namedSubtimes, namedDatas, namedQualities)
+			if !RteIsOk(rte) {
+				return nil, rte.GoError()
+			}
+			aIndex := make([]int, 0)
+			aIds := make([]PointID, 0)
+			aDatetimes := make([]TimestampType, 0)
+			aSubtimes := make([]SubtimeType, 0)
+			aDatas := make([][]byte, 0)
+			aQualities := make([]Quality, 0)
+			for i, e := range rtes {
+				if errors.Is(e, RteTimestampEarlierThanSnapshot) {
+					aIndex = append(aIndex, i)
+					aIds = append(aIds, namedIds[i])
+					aDatetimes = append(aDatetimes, namedDatetimes[i])
+					aSubtimes = append(aSubtimes, namedSubtimes[i])
+					aDatas = append(aDatas, namedDatas[i])
+					aQualities = append(aQualities, namedQualities[i])
+				}
+			}
+			if len(aIds) != 0 {
+				aRtes, aRte := RawRtdbhPutArchivedNamedTypeValues64Warp(c.ConnectHandle, aIds, aDatetimes, aSubtimes, aDatas, aQualities)
+				if !RteIsOk(aRte) {
+					return nil, aRte.GoError()
+				}
+				for i, e := range aRtes {
+					rtes[aIndex[i]] = e
+				}
+				for i, e := range rtes {
+					rtnRtes[namedIdx[i]] = e
+				}
+			}
+		}
+
+		if len(dtIds) != 0 {
+			rtes, rte := RawRtdbsPutDatetimeSnapshots64Warp(c.ConnectHandle, dtIds, dtDatetimes, dtSubtimes, dtDates, dtQualities)
+			if !RteIsOk(rte) {
+				return nil, rte.GoError()
+			}
+			aIndex := make([]int, 0)
+			aIds := make([]PointID, 0)
+			aDatetimes := make([]TimestampType, 0)
+			aSubtimes := make([]SubtimeType, 0)
+			aDates := make([]string, 0)
+			aQualities := make([]Quality, 0)
+			for i, e := range rtes {
+				if errors.Is(e, RteTimestampEarlierThanSnapshot) {
+					aIndex = append(aIndex, i)
+					aIds = append(aIds, dtIds[i])
+					aDatetimes = append(aDatetimes, dtDatetimes[i])
+					aSubtimes = append(aSubtimes, dtSubtimes[i])
+					aDates = append(aDates, dtDates[i])
+					aQualities = append(aQualities, dtQualities[i])
+				}
+			}
+			if len(aIds) != 0 {
+				aRtes, aRte := RawRtdbhPutArchivedDatetimeValues64Warp(c.ConnectHandle, aIds, aDatetimes, aSubtimes, aDates, aQualities)
+				if !RteIsOk(aRte) {
+					return nil, aRte.GoError()
+				}
+				for i, e := range aRtes {
+					rtes[aIndex[i]] = e
+				}
+				for i, e := range rtes {
+					rtnRtes[dtIdx[i]] = e
+				}
+			}
+		}
+
+		return RtdbErrorListToErrorList(rtnRtes), nil
+	*/
+
+	/*
+		switch rtdbType {
+			dt, ms, value, state, quality, rte := RawRtdbhGetSingleValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime)
+			if !RteIsOk(rte) {
+				return TVQ{}, rte.GoError()
+			}
+			ts := RtdbTimestampToGoTime(dt, ms)
+			switch rtdbType {
+			case RtdbTypeBool:
+				return NewTvqBool(ts, Int64ToBool(state), quality), nil
+			case RtdbTypeUint8:
+				return NewTvqUint8(ts, uint8(state), quality), nil
+			case RtdbTypeInt8:
+				return NewTvqInt8(ts, int8(state), quality), nil
+			case RtdbTypeChar:
+				return NewTvqChar(ts, byte(state), quality), nil
+			case RtdbTypeUint16:
+				return NewTvqUint16(ts, uint16(state), quality), nil
+			case RtdbTypeInt16:
+				return NewTvqInt16(ts, int16(state), quality), nil
+			case RtdbTypeUint32:
+				return NewTvqUint32(ts, uint32(state), quality), nil
+			case RtdbTypeInt32:
+				return NewTvqInt32(ts, int32(state), quality), nil
+			case RtdbTypeInt64:
+				return NewTvqInt64(ts, state, quality), nil
+			case RtdbTypeReal16:
+				return NewTvqFloat16(ts, float32(value), quality), nil
+			case RtdbTypeReal32:
+				return NewTvqFloat32(ts, float32(value), quality), nil
+			case RtdbTypeReal64:
+				return NewTvqFloat64(ts, value, quality), nil
+			case RtdbTypeFp16:
+				return NewTvqFp16(ts, float32(value), quality), nil
+			case RtdbTypeFp32:
+				return NewTvqFp32(ts, float32(value), quality), nil
+			case RtdbTypeFp64:
+				return NewTvqFp64(ts, value, quality), nil
+			}
+		case RtdbTypeCoor:
+			dt, ms, x, y, quality, rte := RawRtdbhGetSingleCoorValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime)
+			if !RteIsOk(rte) {
+				return TVQ{}, rte.GoError()
+			}
+			ts := RtdbTimestampToGoTime(dt, ms)
+			return NewTvqCoordinates(ts, x, y, quality), nil
+		case RtdbTypeString, RtdbTypeBlob:
+			dt, ms, blob, quality, rte := RawRtdbhGetSingleBlobValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime, c.StringBlobMaxLen)
+			if !RteIsOk(rte) {
+				return TVQ{}, rte.GoError()
+			}
+			ts := RtdbTimestampToGoTime(dt, ms)
+			switch rtdbType {
+			case RtdbTypeString:
+				str := string(blob)
+				if c.ServerOsType == RtdbOsWindows {
+					s, err := GBKBytesToString(blob)
+					if err != nil {
+						return TVQ{}, err
+					}
+					str = s
+				}
+				return NewTvqString(ts, str, quality), nil
+			case RtdbTypeBlob:
+				return NewTvqBlob(ts, blob, quality), nil
+			}
+		case RtdbTypeNamedT:
+			dt, ms, data, quality, rte := RawRtdbhGetSingleNamedTypeValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime, info.NamedType.Length)
+			if !RteIsOk(rte) {
+				return TVQ{}, rte.GoError()
+			}
+			ts := RtdbTimestampToGoTime(dt, ms)
+			return NewTvqNamed(ts, info.ValueType, data, quality), nil
+		case RtdbTypeDatetime:
+			dt, ms, data, quality, rte := RawRtdbhGetSingleDatetimeValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime, 0)
+			if !RteIsOk(rte) {
+				return TVQ{}, rte.GoError()
+			}
+			ts := RtdbTimestampToGoTime(dt, ms)
+			return NewTvqString(ts, string(data), quality), nil
+		}
+		return TVQ{}, errors.New("未知的数据类型")
+	*/
 }

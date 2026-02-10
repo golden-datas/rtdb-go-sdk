@@ -736,12 +736,12 @@ func TestRtdbConnect_Value(t *testing.T) {
 		return
 	}
 	// 删除表
-	defer func() { _ = conn.DeleteTable(table.ID) }()
+	// defer func() { _ = conn.DeleteTable(table.ID) }()
 
 	time.Sleep(time.Second)
 
 	// 添加点
-	info := NewPointInfo(prefix+"xxx", 1, ValueTypeCoor, PointBase, RtdbPrecisionNano, "", "")
+	info := NewPointInfo(prefix+"xxx", table.ID, ValueTypeCoor, PointBase, RtdbPrecisionNano, "", "")
 	info.SetLimit(-100, 100, 0)
 	pInfo, err := conn.AddPoint(info)
 	if err != nil {
@@ -750,7 +750,7 @@ func TestRtdbConnect_Value(t *testing.T) {
 	}
 
 	// 删除点
-	defer func() { _ = conn.DeletePoint(pInfo.ID) }()
+	// defer func() { _ = conn.DeletePoint(pInfo.ID) }()
 
 	time.Sleep(time.Second)
 
