@@ -720,24 +720,7 @@ func TestRtdbConnect_GetPointCountFromValueType(t *testing.T) {
 	fmt.Println(count)
 }
 
-// 存档, TODO
-/*
-func TestRtdbConnect_Archive(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
-	if err != nil {
-		t.Fatal("登录用户失败", err)
-	}
-	defer func() { _ = conn.Logout() }()
-
-	err = conn.GetArchiveFileList()
-	if err != nil {
-		t.Error("获取存档列表失败：", err)
-		return
-	}
-}
-*/
-
-// 点值(TVQ)读写
+// 点值(TVQ)写入
 func TestRtdbConnect_Value(t *testing.T) {
 	prefix := "p6_"
 	conn, err := Login(Hostname, Port, Username, Password)
@@ -747,13 +730,13 @@ func TestRtdbConnect_Value(t *testing.T) {
 	defer func() { _ = conn.Logout() }()
 
 	// 创建表
-	// table, err := conn.CreateTable(prefix+"ppp", "ppp desc")
-	// if err != nil {
-	// 	t.Error("创建表失败：", err)
-	// 	return
-	// }
+	table, err := conn.CreateTable(prefix+"ppp", "ppp desc")
+	if err != nil {
+		t.Error("创建表失败：", err)
+		return
+	}
 	// 删除表
-	// defer func() { _ = conn.DeleteTable(table.ID) }()
+	defer func() { _ = conn.DeleteTable(table.ID) }()
 
 	time.Sleep(time.Second)
 
@@ -767,7 +750,7 @@ func TestRtdbConnect_Value(t *testing.T) {
 	}
 
 	// 删除点
-	// defer func() { _ = conn.DeletePoint(pInfo.ID) }()
+	defer func() { _ = conn.DeletePoint(pInfo.ID) }()
 
 	time.Sleep(time.Second)
 

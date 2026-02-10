@@ -1070,15 +1070,6 @@ func (v *TVQ) GetRtdbTimestamp(precision RtdbPrecision) (TimestampType, SubtimeT
 func GoTimeToRtdbTimestamp(timestamp time.Time, precision RtdbPrecision) (TimestampType, SubtimeType) {
 	datetime := TimestampType(timestamp.Unix())
 	subtime := SubtimeType(timestamp.Nanosecond())
-	// switch precision {
-	// case RtdbPrecisionSecond:
-	// 	subtime = SubtimeType(0)
-	// case RtdbPrecisionMilli:
-	// 	subtime = subtime / 1000000
-	// case RtdbPrecisionMicro:
-	// 	subtime = subtime / 1000
-	// }
-	fmt.Println(timestamp, datetime, subtime)
 	return datetime, subtime
 }
 
@@ -1227,6 +1218,12 @@ func Login(hostIp string, port int32, userName string, password string) (*RtdbCo
 		return nil, rte.GoError()
 	}
 	rtn.ConnectHandle = cHandle
+
+	// 设置默认时间戳精度为纳秒
+	rte = RawRtdbSetOptionWarp(RtdbApiOptionDefaultPrecision, 3)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
 
 	// 登录数据库
 	priv, rte := RawRtdbLoginWarp(rtn.ConnectHandle, rtn.UserName, rtn.Password)
@@ -2681,7 +2678,6 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			}
 		}
 		if len(aIds) != 0 {
-			fmt.Println("??????????!!!!")
 			aRtes, aRte := RawRtdbhPutArchivedValues64Warp(c.ConnectHandle, aIds, aDatetimes, aSubtimes, aValues, aStates, aQualities)
 			if !RteIsOk(aRte) {
 				return nil, aRte.GoError()
