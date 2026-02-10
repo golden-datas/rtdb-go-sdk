@@ -722,7 +722,7 @@ func TestRtdbConnect_GetPointCountFromValueType(t *testing.T) {
 
 // 点值(TVQ)写入
 func TestRtdbConnect_Value(t *testing.T) {
-	prefix := "p6_"
+	prefix := "p7_"
 	conn, err := Login(Hostname, Port, Username, Password)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
@@ -736,7 +736,7 @@ func TestRtdbConnect_Value(t *testing.T) {
 		return
 	}
 	// 删除表
-	defer func() { _ = conn.DeleteTable(table.ID) }()
+	// defer func() { _ = conn.DeleteTable(table.ID) }()
 
 	time.Sleep(time.Second)
 
@@ -750,7 +750,7 @@ func TestRtdbConnect_Value(t *testing.T) {
 	}
 
 	// 删除点
-	defer func() { _ = conn.DeletePoint(pInfo.ID) }()
+	// defer func() { _ = conn.DeletePoint(pInfo.ID) }()
 
 	time.Sleep(time.Second)
 
