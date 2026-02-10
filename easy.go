@@ -3059,7 +3059,7 @@ func (c *RtdbConnect) ReadLast(info *PointInfo) (PTVQ, error) {
 //   - TVQ(tvq): 输出TVQ点值
 func (c *RtdbConnect) ReadValue(info *PointInfo, mode RtdbHisMode, timestamp time.Time) (PTVQ, error) {
 	rtdbType, _ := info.ValueType.ToRawType()
-	datetime, subtime := GoTimeToRtdbTimestamp(timestamp, info.Precision)
+	datetime, subtime := GoTimeToRtdbTimestamp(timestamp)
 	switch rtdbType {
 	case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
 		dt, ms, value, state, quality, rte := RawRtdbhGetSingleValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime)
