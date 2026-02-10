@@ -10290,23 +10290,23 @@ func RawRtdbhArchivedValuesRealCount64Warp(handle ConnectHandle, id PointID, dat
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_get_archived_values64_warp(rtdb_int32 handle, rtdb_int32 id, rtdb_int32* count, rtdb_timestamp_type* datetimes, rtdb_subtime_type* subtimes, rtdb_float64* values, rtdb_int64* states, rtdb_int16* qualities)
-func RawRtdbhGetArchivedValues64Warp(handle ConnectHandle, id PointID, count int32, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]TimestampType, []SubtimeType, []float64, []int64, []Quality, RtdbError) {
+func RawRtdbhGetArchivedValues64Warp(handle ConnectHandle, id PointID, maxCount int32, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]TimestampType, []SubtimeType, []float64, []int64, []Quality, RtdbError) {
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
-	cCount := C.rtdb_int32(count)
-	datetimes := make([]TimestampType, count)
+	cCount := C.rtdb_int32(maxCount)
+	datetimes := make([]TimestampType, maxCount)
 	datetimes[0] = datetime1
-	datetimes[count-1] = datetime2
+	datetimes[maxCount-1] = datetime2
 	cDatetimes := (*C.rtdb_timestamp_type)(unsafe.Pointer(&datetimes[0]))
-	subtimes := make([]SubtimeType, count)
+	subtimes := make([]SubtimeType, maxCount)
 	subtimes[0] = subtime1
-	subtimes[count-1] = subtime2
+	subtimes[maxCount-1] = subtime2
 	cSubtimes := (*C.rtdb_subtime_type)(unsafe.Pointer(&subtimes[0]))
-	values := make([]float64, count)
+	values := make([]float64, maxCount)
 	cValues := (*C.rtdb_float64)(unsafe.Pointer(&values[0]))
-	states := make([]int64, count)
+	states := make([]int64, maxCount)
 	cStates := (*C.rtdb_int64)(unsafe.Pointer(&states[0]))
-	qualities := make([]Quality, count)
+	qualities := make([]Quality, maxCount)
 	cQualities := (*C.rtdb_int16)(unsafe.Pointer(&qualities[0]))
 	err := C.rtdbh_get_archived_values64_warp(cHandle, cId, &cCount, cDatetimes, cSubtimes, cValues, cStates, cQualities)
 	return datetimes[:cCount], subtimes[:cCount], values[:cCount], states[:cCount], qualities[:cCount], RtdbError(err)
@@ -10374,23 +10374,23 @@ func RawRtdbhGetArchivedValuesBackward64Warp(handle ConnectHandle, id PointID, c
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_get_archived_coor_values64_warp(rtdb_int32 handle, rtdb_int32 id, rtdb_int32* count, rtdb_timestamp_type* datetimes, rtdb_subtime_type* subtimes, rtdb_float32* x, rtdb_float32* y, rtdb_int16* qualities)
-func RawRtdbhGetArchivedCoorValues64Warp(handle ConnectHandle, id PointID, count int32, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]TimestampType, []SubtimeType, []float32, []float32, []Quality, RtdbError) {
+func RawRtdbhGetArchivedCoorValues64Warp(handle ConnectHandle, id PointID, maxCount int32, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]TimestampType, []SubtimeType, []float32, []float32, []Quality, RtdbError) {
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
-	cCount := C.rtdb_int32(count)
-	datetimes := make([]TimestampType, count)
+	cCount := C.rtdb_int32(maxCount)
+	datetimes := make([]TimestampType, maxCount)
 	datetimes[0] = datetime1
-	datetimes[count-1] = datetime2
+	datetimes[maxCount-1] = datetime2
 	cDatetimes := (*C.rtdb_timestamp_type)(unsafe.Pointer(&datetimes[0]))
-	subtimes := make([]SubtimeType, count)
+	subtimes := make([]SubtimeType, maxCount)
 	subtimes[0] = subtime1
-	subtimes[count-1] = subtime2
+	subtimes[maxCount-1] = subtime2
 	cSubtimes := (*C.rtdb_subtime_type)(unsafe.Pointer(&subtimes[0]))
-	xs := make([]float32, count)
+	xs := make([]float32, maxCount)
 	cXs := (*C.rtdb_float32)(unsafe.Pointer(&xs[0]))
-	ys := make([]float32, count)
+	ys := make([]float32, maxCount)
 	cYs := (*C.rtdb_float32)(unsafe.Pointer(&ys[0]))
-	qualities := make([]Quality, count)
+	qualities := make([]Quality, maxCount)
 	cQualities := (*C.rtdb_int16)(unsafe.Pointer(&qualities[0]))
 	err := C.rtdbh_get_archived_coor_values64_warp(cHandle, cId, &cCount, cDatetimes, cSubtimes, cXs, cYs, cQualities)
 	return datetimes[:cCount], subtimes[:cCount], xs[:cCount], ys[:cCount], qualities[:cCount], RtdbError(err)
@@ -10764,7 +10764,7 @@ func RawRtdbhGetSingleBlobValue64Warp(handle ConnectHandle, id PointID, mode Rtd
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_get_archived_blob_values64_warp(rtdb_int32 handle, rtdb_int32 id, rtdb_int32* count, rtdb_timestamp_type datetime1, rtdb_subtime_type subtime1, rtdb_timestamp_type datetime2, rtdb_subtime_type subtime2, rtdb_timestamp_type* datetimes, rtdb_subtime_type* subtimes, rtdb_length_type* lens, rtdb_byte* const* blobs, rtdb_int16* qualities)
-func RawRtdbhGetArchivedBlobValues64Warp(handle ConnectHandle, id PointID, maxLen int32, maxCount int32, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]TimestampType, []SubtimeType, [][]byte, []Quality, RtdbError) {
+func RawRtdbhGetArchivedBlobValues64Warp(handle ConnectHandle, id PointID, maxCount int32, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType, maxLen int32) ([]TimestampType, []SubtimeType, [][]byte, []Quality, RtdbError) {
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cCount := C.rtdb_int32(maxCount)
@@ -11743,7 +11743,7 @@ func RawRtdbhGetSingleNamedTypeValue64Warp(handle ConnectHandle, id PointID, mod
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_get_archived_named_type_values64_warp(rtdb_int32 handle, rtdb_int32 id, rtdb_timestamp_type datetime1, rtdb_subtime_type subtime1, rtdb_timestamp_type datetime2, rtdb_subtime_type subtime2, rtdb_length_type length, rtdb_int32* count, rtdb_timestamp_type* datetimes, rtdb_subtime_type* subtimes, void* const* objects, rtdb_int16* qualities)
-func RawRtdbhGetArchivedNamedTypeValues64Warp(handle ConnectHandle, id PointID, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType, length int32, maxCount int32) ([]TimestampType, []SubtimeType, [][]byte, []Quality, RtdbError) {
+func RawRtdbhGetArchivedNamedTypeValues64Warp(handle ConnectHandle, id PointID, maxCount int32, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType, length int32) ([]TimestampType, []SubtimeType, [][]byte, []Quality, RtdbError) {
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cLength := C.rtdb_length_type(length)
