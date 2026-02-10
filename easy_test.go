@@ -736,7 +736,7 @@ func TestRtdbConnect_Value(t *testing.T) {
 		return
 	}
 	// 删除表
-	// defer func() { _ = conn.DeleteTable(table.ID) }()
+	defer func() { _ = conn.DeleteTable(table.ID) }()
 
 	time.Sleep(time.Second)
 
@@ -750,7 +750,7 @@ func TestRtdbConnect_Value(t *testing.T) {
 	}
 
 	// 删除点
-	// defer func() { _ = conn.DeletePoint(pInfo.ID) }()
+	defer func() { _ = conn.DeletePoint(pInfo.ID) }()
 
 	time.Sleep(time.Second)
 
