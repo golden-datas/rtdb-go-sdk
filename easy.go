@@ -3253,3 +3253,61 @@ func (c *RtdbConnect) ReadRange(info *PointInfo, start time.Time, end time.Time)
 
 	return NewPTVQs(info, tvqs), nil
 }
+
+// ReadPlot 读取用于绘图的TVQ
+//
+// input:
+//   - info 标签点信息
+//   - interval 像素个数，比如1024像素的屏幕，interval建议少于1024
+//   - start 开始时间
+//   - end 结束时间
+//
+// output:
+//   - PTVQs(ptvqs) 点值列表
+func (c *RtdbConnect) ReadPlot(info *PointInfo, interval int32, start time.Time, end time.Time) (PTVQs, error) {
+	rtdbType, _ := info.ValueType.ToRawType()
+	datetime1, subtime1 := GoTimeToRtdbTimestamp(start)
+	datetime2, subtime2 := GoTimeToRtdbTimestamp(end)
+	dt, ms, values, states, qualities, rte := RawRtdbhGetPlotValues64Warp(c.ConnectHandle, info.ID, interval, datetime1, subtime1, datetime2, subtime2)
+	if !RteIsOk(rte) {
+		return PTVQs{}, rte.GoError()
+	}
+	tvqs := make([]TVQ, 0)
+	for i := 0; i < len(dt); i++ {
+		ts := RtdbTimestampToGoTime(dt[i], ms[i])
+		q := qualities[i]
+		switch rtdbType {
+		case RtdbTypeBool:
+			tvqs = append(tvqs, NewTvqBool(ts, Int64ToBool(states[i]), q))
+		case RtdbTypeUint8:
+			tvqs = append(tvqs, NewTvqUint8(ts, uint8(states[i]), q))
+		case RtdbTypeInt8:
+			tvqs = append(tvqs, NewTvqInt8(ts, int8(states[i]), q))
+		case RtdbTypeChar:
+			tvqs = append(tvqs, NewTvqChar(ts, byte(states[i]), q))
+		case RtdbTypeUint16:
+			tvqs = append(tvqs, NewTvqUint16(ts, uint16(states[i]), q))
+		case RtdbTypeInt16:
+			tvqs = append(tvqs, NewTvqInt16(ts, int16(states[i]), q))
+		case RtdbTypeUint32:
+			tvqs = append(tvqs, NewTvqUint32(ts, uint32(states[i]), q))
+		case RtdbTypeInt32:
+			tvqs = append(tvqs, NewTvqInt32(ts, int32(states[i]), q))
+		case RtdbTypeInt64:
+			tvqs = append(tvqs, NewTvqInt64(ts, states[i], q))
+		case RtdbTypeReal16:
+			tvqs = append(tvqs, NewTvqFloat16(ts, float32(values[i]), q))
+		case RtdbTypeReal32:
+			tvqs = append(tvqs, NewTvqFloat32(ts, float32(values[i]), q))
+		case RtdbTypeReal64:
+			tvqs = append(tvqs, NewTvqFloat64(ts, values[i], q))
+		case RtdbTypeFp16:
+			tvqs = append(tvqs, NewTvqFp16(ts, float32(values[i]), q))
+		case RtdbTypeFp32:
+			tvqs = append(tvqs, NewTvqFp32(ts, float32(values[i]), q))
+		case RtdbTypeFp64:
+			tvqs = append(tvqs, NewTvqFp64(ts, values[i], q))
+		}
+	}
+	return NewPTVQs(info, tvqs), nil
+}
