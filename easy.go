@@ -3413,12 +3413,12 @@ func (c *RtdbConnect) ReadInterpo(info *PointInfo, count int32, start time.Time,
 	datetime1, subtime1 := GoTimeToRtdbTimestamp(start)
 	datetime2, subtime2 := GoTimeToRtdbTimestamp(end)
 
-	dt := make([]TimestampType, 0)
-	ms := make([]SubtimeType, 0)
-	values := make([]float64, 0)
-	states := make([]int64, 0)
-	qualities := make([]Quality, 0)
-	rte := RteOk
+	var dt []TimestampType
+	var ms []SubtimeType
+	var values []float64
+	var states []int64
+	var qualities []Quality
+	var rte RtdbError
 
 	if filter == "" {
 		dt, ms, values, states, qualities, rte = RawRtdbhGetInterpoValues64Warp(c.ConnectHandle, info.ID, count, datetime1, subtime1, datetime2, subtime2)
@@ -3474,7 +3474,75 @@ func (c *RtdbConnect) ReadInterpo(info *PointInfo, count int32, start time.Time,
 	}
 }
 
-func (c *RtdbConnect) ReadInterval() {
-	// RawRtdbhGetIntervalValues64Warp()
-	// RawRtdbhGetIntervalValuesFilt64Warp()
+// ReadInterval 读取从start开始的等间隔差值
+//
+// input:
+//   - info 标签点信息
+//   - filter 过滤条件
+//   - start 开始时间
+//   - interval 时间间隔
+//   - count 要读取差值的个数
+//
+// output:
+//   - PTVQs(ptvqs) 点值列表
+func (c *RtdbConnect) ReadInterval(info *PointInfo, filter string, start time.Time, interval time.Duration, count int32) (PTVQs, error) {
+	rtdbType, _ := info.ValueType.ToRawType()
+	datetime1, subtime1 := GoTimeToRtdbTimestamp(start)
+
+	var dt []TimestampType
+	var ms []SubtimeType
+	var values []float64
+	var states []int64
+	var qualities []Quality
+	var rte RtdbError
+
+	if filter == "" {
+		dt, ms, values, states, qualities, rte = RawRtdbhGetIntervalValues64Warp(c.ConnectHandle, info.ID, interval, count, datetime1, subtime1)
+	} else {
+		dt, ms, values, states, qualities, rte = RawRtdbhGetIntervalValuesFilt64Warp(c.ConnectHandle, info.ID, filter, interval, count, datetime1, subtime1)
+	}
+
+	switch rtdbType {
+	case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
+		tvqs := make([]TVQ, 0)
+		for i := 0; i < len(dt); i++ {
+			ts := RtdbTimestampToGoTime(dt[i], ms[i])
+			q := qualities[i]
+			switch rtdbType {
+			case RtdbTypeBool:
+				tvqs = append(tvqs, NewTvqBool(ts, Int64ToBool(states[i]), q))
+			case RtdbTypeUint8:
+				tvqs = append(tvqs, NewTvqUint8(ts, uint8(states[i]), q))
+			case RtdbTypeInt8:
+				tvqs = append(tvqs, NewTvqInt8(ts, int8(states[i]), q))
+			case RtdbTypeChar:
+				tvqs = append(tvqs, NewTvqChar(ts, byte(states[i]), q))
+			case RtdbTypeUint16:
+				tvqs = append(tvqs, NewTvqUint16(ts, uint16(states[i]), q))
+			case RtdbTypeInt16:
+				tvqs = append(tvqs, NewTvqInt16(ts, int16(states[i]), q))
+			case RtdbTypeUint32:
+				tvqs = append(tvqs, NewTvqUint32(ts, uint32(states[i]), q))
+			case RtdbTypeInt32:
+				tvqs = append(tvqs, NewTvqInt32(ts, int32(states[i]), q))
+			case RtdbTypeInt64:
+				tvqs = append(tvqs, NewTvqInt64(ts, states[i], q))
+			case RtdbTypeReal16:
+				tvqs = append(tvqs, NewTvqFloat16(ts, float32(values[i]), q))
+			case RtdbTypeReal32:
+				tvqs = append(tvqs, NewTvqFloat32(ts, float32(values[i]), q))
+			case RtdbTypeReal64:
+				tvqs = append(tvqs, NewTvqFloat64(ts, values[i], q))
+			case RtdbTypeFp16:
+				tvqs = append(tvqs, NewTvqFp16(ts, float32(values[i]), q))
+			case RtdbTypeFp32:
+				tvqs = append(tvqs, NewTvqFp32(ts, float32(values[i]), q))
+			case RtdbTypeFp64:
+				tvqs = append(tvqs, NewTvqFp64(ts, values[i], q))
+			}
+		}
+		return NewPTVQs(info, tvqs), nil
+	default:
+		return PTVQs{}, errors.New("不支持的数据类型")
+	}
 }
