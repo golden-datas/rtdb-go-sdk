@@ -3550,3 +3550,111 @@ func (c *RtdbConnect) ReadInterval(info *PointInfo, filter string, start time.Ti
 		return PTVQs{}, errors.New("不支持的数据类型")
 	}
 }
+
+// ReadSection 读取断面
+//
+// input:
+//   - infos 标签点信息列表
+//   - mode 读取规则
+//   - timestamp 时间戳
+//
+// output:
+//   - []PTVQ(ptvqs) 点值列表
+//   - []error(errs) 错误列表
+func (c *RtdbConnect) ReadSection(infos []*PointInfo, mode RtdbHisMode, timestamp time.Time) ([]PTVQ, []error, error) {
+	numberInfos := make([]*PointInfo, 0)
+	numberIds := make([]PointID, 0)
+	numberIdx := make([]int, 0)
+
+	otherInfos := make([]*PointInfo, 0)
+	otherIdx := make([]int, 0)
+
+	for i, info := range infos {
+		rtdbType, _ := info.ValueType.ToRawType()
+		switch rtdbType {
+		case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
+			numberInfos = append(numberInfos, info)
+			numberIds = append(numberIds, info.ID)
+			numberIdx = append(numberIdx, i)
+		default:
+			otherInfos = append(otherInfos, info)
+			otherIdx = append(otherIdx, i)
+		}
+	}
+
+	datetime, subtime := GoTimeToRtdbTimestamp(timestamp)
+
+	numberPtvqs := make([]PTVQ, 0)
+	numberRtes := make([]RtdbError, 0)
+	if len(numberInfos) != 0 {
+		dt, ms, values, states, qualities, rtes, rte := RawRtdbhGetCrossSectionValues64Warp(c.ConnectHandle, numberIds, mode, datetime, subtime)
+		if !RteIsOk(rte) {
+			return nil, nil, rte.GoError()
+		}
+		numberRtes = rtes
+
+		for i, info := range numberInfos {
+			rtdbType, _ := info.ValueType.ToRawType()
+			switch rtdbType {
+			case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
+				ts := RtdbTimestampToGoTime(dt[i], ms[i])
+				q := qualities[i]
+				switch rtdbType {
+				case RtdbTypeBool:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqBool(ts, Int64ToBool(states[i]), q)))
+				case RtdbTypeUint8:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqUint8(ts, uint8(states[i]), q)))
+				case RtdbTypeInt8:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqInt8(ts, int8(states[i]), q)))
+				case RtdbTypeChar:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqChar(ts, byte(states[i]), q)))
+				case RtdbTypeUint16:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqUint16(ts, uint16(states[i]), q)))
+				case RtdbTypeInt16:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqInt16(ts, int16(states[i]), q)))
+				case RtdbTypeUint32:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqUint32(ts, uint32(states[i]), q)))
+				case RtdbTypeInt32:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqInt32(ts, int32(states[i]), q)))
+				case RtdbTypeInt64:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqInt64(ts, states[i], q)))
+				case RtdbTypeReal16:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqFloat16(ts, float32(values[i]), q)))
+				case RtdbTypeReal32:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqFloat32(ts, float32(values[i]), q)))
+				case RtdbTypeReal64:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqFloat64(ts, values[i], q)))
+				case RtdbTypeFp16:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqFp16(ts, float32(values[i]), q)))
+				case RtdbTypeFp32:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqFp32(ts, float32(values[i]), q)))
+				case RtdbTypeFp64:
+					numberPtvqs = append(numberPtvqs, NewPTVQ(info, NewTvqFp64(ts, values[i], q)))
+				}
+			}
+		}
+	}
+
+	otherPtvqs := make([]PTVQ, 0)
+	otherRtes := make([]error, 0)
+	for _, info := range otherInfos {
+		ptvq, rte := c.ReadValue(info, mode, timestamp)
+		otherPtvqs = append(otherPtvqs, ptvq)
+		otherRtes = append(otherRtes, rte)
+	}
+
+	rtnPtvqs := make([]PTVQ, len(infos))
+	rtnRtes := make([]error, len(infos))
+	for i := 0; i < len(numberInfos); i++ {
+		idx := numberIdx[i]
+		rtnPtvqs[idx] = numberPtvqs[i]
+		rtnRtes[idx] = numberRtes[i].GoError()
+	}
+	for i := 0; i < len(otherInfos); i++ {
+		idx := otherIdx[i]
+		rtnPtvqs[idx] = otherPtvqs[i]
+		rtnRtes[idx] = otherRtes[i]
+	}
+
+	return rtnPtvqs, rtnRtes, nil
+}
