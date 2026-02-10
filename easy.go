@@ -2835,11 +2835,11 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 // ReadLasts 批量读取实时快照值(当前标签点最后一个写入的TVQ)
 //
 // input:
-//   - infos: 标签点信息列表
+//   - infos 标签点信息列表
 //
 // output:
-//   - []PTVQ(ptvqs): 实时数值列表
-//   - []error(errs): 错误列表
+//   - []PTVQ(ptvqs) 实时数值列表
+//   - []error(errs) 错误列表
 func (c *RtdbConnect) ReadLasts(infos []*PointInfo) ([]PTVQ, []error, error) {
 	rtnRtes := make([]RtdbError, len(infos))
 	rtnPTVQs := make([]PTVQ, len(infos))
@@ -3051,12 +3051,12 @@ func (c *RtdbConnect) ReadLast(info *PointInfo) (PTVQ, error) {
 // ReadValue 读取单个TVQ
 //
 // input:
-//   - info: 点信息
-//   - mode: 读取模式
-//   - timestamp: 时间戳
+//   - info 点信息
+//   - mode 读取模式
+//   - timestamp 时间戳
 //
 // output:
-//   - TVQ(tvq): 输出TVQ点值
+//   - PTVQ(ptvq) 输出TVQ点值
 func (c *RtdbConnect) ReadValue(info *PointInfo, mode RtdbHisMode, timestamp time.Time) (PTVQ, error) {
 	rtdbType, _ := info.ValueType.ToRawType()
 	datetime, subtime := GoTimeToRtdbTimestamp(timestamp)
@@ -3145,6 +3145,14 @@ func (c *RtdbConnect) ReadValue(info *PointInfo, mode RtdbHisMode, timestamp tim
 }
 
 // ReadRange 读取某个时间段内的TVQ
+//
+// input:
+//   - info 标签点信息
+//   - start 开始时间
+//   - end 结束时间
+//
+// output:
+//   - PTVQs(ptvqs) 点值列表
 func (c *RtdbConnect) ReadRange(info *PointInfo, start time.Time, end time.Time) (PTVQs, error) {
 	rtdbType, _ := info.ValueType.ToRawType()
 	datetime1, subtime1 := GoTimeToRtdbTimestamp(start)
@@ -3310,4 +3318,91 @@ func (c *RtdbConnect) ReadPlot(info *PointInfo, interval int32, start time.Time,
 		}
 	}
 	return NewPTVQs(info, tvqs), nil
+}
+
+// ReadTimed 获取差值，每个差值都需要指定一个确定的时间戳
+//
+// input:
+//   - info 标签点信息
+//   - timestamps 时间戳列表
+//
+// output:
+//   - PTVQs(ptvqs) 点值列表
+func (c *RtdbConnect) ReadTimed(info *PointInfo, timestamps []time.Time) (PTVQs, error) {
+	rtdbType, _ := info.ValueType.ToRawType()
+	datetimes := make([]TimestampType, 0)
+	subtimes := make([]SubtimeType, 0)
+	for _, ts := range timestamps {
+		dt, ms := GoTimeToRtdbTimestamp(ts)
+		datetimes = append(datetimes, dt)
+		subtimes = append(subtimes, ms)
+	}
+	tvqs := make([]TVQ, 0)
+	switch rtdbType {
+	case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
+		values, states, qualities, rte := RawRtdbhGetTimedValues64Warp(c.ConnectHandle, info.ID, datetimes, subtimes)
+		if !RteIsOk(rte) {
+			return PTVQs{}, rte.GoError()
+		}
+		for i := 0; i < len(timestamps); i++ {
+			ts := timestamps[i]
+			q := qualities[i]
+			switch rtdbType {
+			case RtdbTypeBool:
+				tvqs = append(tvqs, NewTvqBool(ts, Int64ToBool(states[i]), q))
+			case RtdbTypeUint8:
+				tvqs = append(tvqs, NewTvqUint8(ts, uint8(states[i]), q))
+			case RtdbTypeInt8:
+				tvqs = append(tvqs, NewTvqInt8(ts, int8(states[i]), q))
+			case RtdbTypeChar:
+				tvqs = append(tvqs, NewTvqChar(ts, byte(states[i]), q))
+			case RtdbTypeUint16:
+				tvqs = append(tvqs, NewTvqUint16(ts, uint16(states[i]), q))
+			case RtdbTypeInt16:
+				tvqs = append(tvqs, NewTvqInt16(ts, int16(states[i]), q))
+			case RtdbTypeUint32:
+				tvqs = append(tvqs, NewTvqUint32(ts, uint32(states[i]), q))
+			case RtdbTypeInt32:
+				tvqs = append(tvqs, NewTvqInt32(ts, int32(states[i]), q))
+			case RtdbTypeInt64:
+				tvqs = append(tvqs, NewTvqInt64(ts, states[i], q))
+			case RtdbTypeReal16:
+				tvqs = append(tvqs, NewTvqFloat16(ts, float32(values[i]), q))
+			case RtdbTypeReal32:
+				tvqs = append(tvqs, NewTvqFloat32(ts, float32(values[i]), q))
+			case RtdbTypeReal64:
+				tvqs = append(tvqs, NewTvqFloat64(ts, values[i], q))
+			case RtdbTypeFp16:
+				tvqs = append(tvqs, NewTvqFp16(ts, float32(values[i]), q))
+			case RtdbTypeFp32:
+				tvqs = append(tvqs, NewTvqFp32(ts, float32(values[i]), q))
+			case RtdbTypeFp64:
+				tvqs = append(tvqs, NewTvqFp64(ts, values[i], q))
+			}
+		}
+		return NewPTVQs(info, tvqs), nil
+	case RtdbTypeCoor:
+		xs, ys, qualities, rte := RawRtdbhGetTimedCoorValues64Warp(c.ConnectHandle, info.ID, datetimes, subtimes)
+		if !RteIsOk(rte) {
+			return PTVQs{}, rte.GoError()
+		}
+		for i := 0; i < len(timestamps); i++ {
+			ts := timestamps[i]
+			q := qualities[i]
+			tvqs = append(tvqs, NewTvqCoordinates(ts, xs[i], ys[i], q))
+		}
+		return NewPTVQs(info, tvqs), nil
+	default:
+		return PTVQs{}, errors.New("不支持的数据类型")
+	}
+}
+
+func (c *RtdbConnect) ReadInterpo() {
+	// RawRtdbhGetInterpoValues64Warp()
+	// RawRtdbhGetInterpoValuesFilt64Warp()
+}
+
+func (c *RtdbConnect) ReadInterval() {
+	// RawRtdbhGetIntervalValues64Warp()
+	// RawRtdbhGetIntervalValuesFilt64Warp()
 }
