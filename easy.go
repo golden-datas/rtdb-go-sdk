@@ -3502,6 +3502,10 @@ func (c *RtdbConnect) ReadInterval(info *PointInfo, filter string, start time.Ti
 		dt, ms, values, states, qualities, rte = RawRtdbhGetIntervalValuesFilt64Warp(c.ConnectHandle, info.ID, filter, interval, count, datetime1, subtime1)
 	}
 
+	if !RteIsOk(rte) {
+		return PTVQs{}, rte.GoError()
+	}
+
 	switch rtdbType {
 	case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
 		tvqs := make([]TVQ, 0)
