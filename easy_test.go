@@ -761,9 +761,6 @@ func TestRtdbConnect_Value(t *testing.T) {
 	fmt.Println("server time:", serverTime.Format(time.RFC3339))
 	fmt.Println("client time:", time.Now().Format(time.RFC3339))
 
-	tt := time.Now()
-	fmt.Println(TimestampType(tt.Unix()), SubtimeType(tt.Nanosecond()))
-
 	// 写入数据
 	n := 100
 	for i := 0; i < n; i++ {
