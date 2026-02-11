@@ -3960,3 +3960,21 @@ func (c *RtdbConnect) GetPerfPointValue(ids []RtdbPerfTagID) ([]TVQ, []error, er
 	}
 	return tvqs, RtdbErrorListToErrorList(rtes), nil
 }
+
+// CreateRangedArchive 创建存档文件(按照时间范围创建)
+//
+// input:
+//   - path 存档文件路径
+//   - file 存档文件名称
+//   - begin 开始时间
+//   - end 结束时间
+//   - mbSize 存档文件大小，单位MB
+func (c *RtdbConnect) CreateRangedArchive(path string, file string, begin time.Time, end time.Time, mbSize int32) error {
+	datetime1, subtime1 := GoTimeToRtdbTimestamp(begin)
+	datetime2, subtime2 := GoTimeToRtdbTimestamp(end)
+	if subtime1 != 0 || subtime2 != 0 {
+		return errors.New("begin、end时间的亚秒部分应该为0")
+	}
+	rte := RawRtdbaCreateRangedArchive64Warp(c.ConnectHandle, path, file, datetime1, datetime2, mbSize)
+	return rte.GoError()
+}
