@@ -1183,6 +1183,13 @@ func NewPTVQs(info *PointInfo, tvqs []TVQ) PTVQs {
 	return PTVQs{info, tvqs}
 }
 
+// ArchivedBaseInfo 存档文件基本信息
+type ArchivedBaseInfo struct {
+	Path  string           // 存档文件路径
+	File  string           // 存档文件名称
+	State RtdbArchiveState // 存档文件状态
+}
+
 ////////////////////////////////////////////////
 //////////////////上面是一些结构//////////////////
 ////////////////////摆烂的分隔线/////////////////
@@ -3977,4 +3984,61 @@ func (c *RtdbConnect) CreateRangedArchive(path string, file string, begin time.T
 	}
 	rte := RawRtdbaCreateRangedArchive64Warp(c.ConnectHandle, path, file, datetime1, datetime2, mbSize)
 	return rte.GoError()
+}
+
+// AppendArchive 存档文件入列(将存档文件插入到存档队列中, 队列中的存档文件按照start、end依次排列，注意时间段不能有交叠的部分)
+//
+// input:
+//   - path 存档文件路径
+//   - file 存档文件名称
+//   - state 存档文件状态
+func (c *RtdbConnect) AppendArchive(path string, file string, state RtdbArchiveState) error {
+	rte := RawRtdbaAppendArchiveWarp(c.ConnectHandle, path, file, state)
+	return rte.GoError()
+}
+
+// RemoveArchive 存档文件解列
+//
+// input:
+//   - path 存档文件路径
+//   - file 存档文件名称
+func (c *RtdbConnect) RemoveArchive(path, file string) error {
+	rte := RawRtdbaRemoveArchiveWarp(c.ConnectHandle, path, file)
+	return rte.GoError()
+}
+
+// ShiftActived 切换活动文件
+//
+// remark:
+//   - 当前活动文件被写满时该事务被启动，
+//   - 改变当前活动文件的状态为普通状态，
+//   - 在所有历史数据存档文件中寻找未被使用过的
+//   - 插入到前活动文件的右侧并改为活动状态，
+//   - 若找不到则将前活动文件右侧的文件改为活动状态，
+//   - 并将active_archive_指向该文件。该事务进行过程中，
+//   - 用锁保证所有读写操作都暂停等待该事务完成。
+func (c *RtdbConnect) ShiftActived() error {
+	rte := RawRtdbaShiftActivedWarp(c.ConnectHandle)
+	return rte.GoError()
+}
+
+// GetArchives 获取存档文件的基本信息(返回全部存档文件的基本信息)
+func (c *RtdbConnect) GetArchives() ([]ArchivedBaseInfo, error) {
+	count, rte := RawRtdbaGetArchivesCountWarp(c.ConnectHandle)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+	paths, files, states, rte := RawRtdbaGetArchivesWarp(c.ConnectHandle, count)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+	infos := make([]ArchivedBaseInfo, 0)
+	for i := 0; i < len(paths); i++ {
+		infos = append(infos, ArchivedBaseInfo{
+			Path:  paths[i],
+			File:  files[i],
+			State: states[i],
+		})
+	}
+	return infos, nil
 }
