@@ -1185,9 +1185,12 @@ func NewPTVQs(info *PointInfo, tvqs []TVQ) PTVQs {
 
 // ArchivedBaseInfo 存档文件基本信息
 type ArchivedBaseInfo struct {
-	Path  string           // 存档文件路径
-	File  string           // 存档文件名称
-	State RtdbArchiveState // 存档文件状态
+	Path        string              // 存档文件路径
+	File        string              // 存档文件名称
+	State       RtdbArchiveState    // 存档文件状态
+	HeadPage    RtdbHeaderPage      // 存档首部信息
+	PerfInfo    RtdbArchivePerfData // 存档性能计数
+	SumPerfInfo RtdbArchivePerfData // 存档性能技术合计
 }
 
 ////////////////////////////////////////////////
@@ -4023,22 +4026,103 @@ func (c *RtdbConnect) ShiftActived() error {
 }
 
 // GetArchives 获取存档文件的基本信息(返回全部存档文件的基本信息)
-func (c *RtdbConnect) GetArchives() ([]ArchivedBaseInfo, error) {
+func (c *RtdbConnect) GetArchives() ([]ArchivedBaseInfo, []error, error) {
 	count, rte := RawRtdbaGetArchivesCountWarp(c.ConnectHandle)
 	if !RteIsOk(rte) {
-		return nil, rte.GoError()
+		return nil, nil, rte.GoError()
 	}
 	paths, files, states, rte := RawRtdbaGetArchivesWarp(c.ConnectHandle, count)
 	if !RteIsOk(rte) {
-		return nil, rte.GoError()
+		return nil, nil, rte.GoError()
 	}
+	_, _, headPages, rtes, rte := RawRtdbaGetArchivesInfoWarp(c.ConnectHandle, count)
+	if !RteIsOk(rte) {
+		return nil, nil, rte.GoError()
+	}
+
+	_, _, perfInfos, sumPerfInfos, rtes, rte := RawRtdbaGetArchivesPerfDataWarp(c.ConnectHandle, count)
+	if !RteIsOk(rte) {
+		return nil, nil, rte.GoError()
+	}
+
 	infos := make([]ArchivedBaseInfo, 0)
 	for i := 0; i < len(paths); i++ {
 		infos = append(infos, ArchivedBaseInfo{
-			Path:  paths[i],
-			File:  files[i],
-			State: states[i],
+			Path:        paths[i],
+			File:        files[i],
+			State:       states[i],
+			HeadPage:    headPages[i],
+			PerfInfo:    perfInfos[i],
+			SumPerfInfo: sumPerfInfos[i],
 		})
 	}
-	return infos, nil
+	return infos, RtdbErrorListToErrorList(rtes), nil
+}
+
+// UpdateArchive 更新存档文件选项
+//
+// input:
+//   - handle 连接句柄
+//   - path 文件所在目录路径，必须以"\"或"/"结尾。
+//   - file 文件名。
+//   - rated_capacity 文件额定大小，单位为 MB。
+//   - ex_capacity 附属文件大小，单位为 MB。
+//   - auto_merge 是否自动合并附属文件。
+//   - auto_arrange 是否自动整理存档文件。
+//   - 备注: rated_capacity 与 ex_capacity 参数可为 0，表示不修改对应的配置项。
+func (c *RtdbConnect) UpdateArchive(path string, file string, ratedCapacity int32, exCapacity int32, autoMerge int16, autoArrange int16) error {
+	rte := RawRtdbaUpdateArchiveWarp(c.ConnectHandle, path, file, ratedCapacity, exCapacity, autoMerge, autoArrange)
+	return rte.GoError()
+}
+
+// ArrangeArchive 整理存档文件(会重新调整数据块分布，使存档文件更加紧凑)
+//
+// input:
+//   - path 存档文件路径
+//   - file 存档文件名称
+func (c *RtdbConnect) ArrangeArchive(path string, file string) error {
+	rte := RawRtdbaArrangeArchiveWarp(c.ConnectHandle, path, file)
+	return rte.GoError()
+}
+
+// ReindexArchive 重建存档文件索引(用于进行数据恢复)
+//
+// input:
+//   - path 存档文件路径
+//   - file 存档文件名称
+func (c *RtdbConnect) ReindexArchive(path string, file string) error {
+	rte := RawRtdbaReindexArchiveWarp(c.ConnectHandle, path, file)
+	return rte.GoError()
+}
+
+// ConvertIndex 存档文件索引转换格式(老版本索引格式转换为新版本，新版本索引更快)
+//
+// input:
+//   - path 存档文件路径
+//   - file 存档文件名称
+func (c *RtdbConnect) ConvertIndex(path string, file string) error {
+	rte := RawRtdbaConvertIndexWarp(c.ConnectHandle, path, file)
+	return rte.GoError()
+}
+
+// BackupArchive 备份存档
+//
+// input:
+//   - path 存档文件路径
+//   - file 存档文件名称
+//   - dist 备份存档路径
+func (c *RtdbConnect) BackupArchive(path string, file string, dist string) error {
+	rte := RawRtdbaBackupArchiveWarp(c.ConnectHandle, path, file, dist)
+	return rte.GoError()
+}
+
+// MoveArchive 移动存档
+//
+// input:
+//   - path 存档文件路径
+//   - file 存档文件名称
+//   - dist 移动存档路径
+func (c *RtdbConnect) MoveArchive(path string, file string, dist string) error {
+	rte := RawRtdbaMoveArchiveWarp(c.ConnectHandle, path, file, dist)
+	return rte.GoError()
 }
