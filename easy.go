@@ -3691,7 +3691,7 @@ func (c *RtdbConnect) ReadSummary(info *PointInfo, filter string, start time.Tim
 //   - start 开始时间
 //   - end 结束时间
 func (c *RtdbConnect) ReadBatchesSummary(info *PointInfo, filter string, interval time.Duration, start time.Time, end time.Time) ([]RtdbSummaryData, []error, error) {
-	maxCount := (end.Sub(start) / interval) + 1
+	maxCount := int32((end.Sub(start) / interval) + 1)
 	datetime1, subtime1 := GoTimeToRtdbTimestamp(start)
 	datetime2, subtime2 := GoTimeToRtdbTimestamp(end)
 
