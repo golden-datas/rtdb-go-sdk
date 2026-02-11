@@ -4188,7 +4188,9 @@ func (c *RtdbConnect) SubscribeTags() (chan SubscribeTagsInfo, error) {
 		}
 		c.SubscribeTagsConn = con
 		ch := make(chan SubscribeTagsInfo, 1024)
-		SubscribeTagsChannelMap.Store(name, ch)
+		SubscribeTagsChannelLock.Lock()
+		defer SubscribeTagsChannelLock.Unlock()
+		SubscribeTagsChannelMap[name] = ch
 		cName, rte := RawRtdbbSubscribeTagsExWarp(c.SubscribeTagsConn.ConnectHandle, RtdbSubscribeOptionAutoConn, name)
 		if !RteIsOk(rte) {
 			return nil, rte.GoError()
@@ -4209,12 +4211,15 @@ func (c *RtdbConnect) CancelSubscribeTags() error {
 	if !RteIsOk(rte) {
 		return rte.GoError()
 	}
-	val, ok := SubscribeTagsChannelMap.Load(c.SubscribeTagsName)
+	SubscribeTagsChannelLock.Lock()
+	defer SubscribeTagsChannelLock.Unlock()
+	val, ok := SubscribeTagsChannelMap[c.SubscribeTagsName]
 	if !ok {
 		return errors.New("找不到订阅")
 	}
 	ch := val.(chan SubscribeTagsInfo)
 	close(ch)
+	delete(SubscribeTagsChannelMap, c.SubscribeTagsName)
 
 	c.SubscribeTagsConn = nil
 	c.SubscribeTagsName = ""
@@ -4348,6 +4353,7 @@ func (c *RtdbConnect) CancelSubscribeSnapshots() error {
 		return errors.New("找不到订阅")
 	}
 	close(pointAndCh.Ch)
+	delete(SubscribeSnapshotsMap, c.SubscribeSnapshotsName)
 
 	c.SubscribeSnapshotsConn = nil
 	c.SubscribeSnapshotsParam = nil

@@ -10,7 +10,8 @@ import (
 	"unsafe"
 )
 
-var SubscribeTagsChannelMap sync.Map
+var SubscribeTagsChannelLock sync.Mutex
+var SubscribeTagsChannelMap map[string]chan SubscribeTagsInfo
 
 type SubscribeTagsInfo struct {
 	Name      string    // 订阅名称（一个随机字符串，内部使用）
@@ -43,18 +44,17 @@ func goSubscribeTagsEx(
 		Ids:       pointIds,
 	}
 
-	val, ok := SubscribeTagsChannelMap.Load(name)
+	SubscribeTagsChannelLock.Lock()
+	defer SubscribeTagsChannelLock.Unlock()
+	ch, ok := SubscribeTagsChannelMap[name]
 	if !ok {
 		return C.rtdb_error(0)
 	}
-	ch := val.(chan SubscribeTagsInfo)
 	// 非阻塞发送，如果满了就丢弃
 	select {
 	case ch <- info:
 	default:
 	}
-
-	SubscribeTagsChannelMap.Store(name, ch)
 
 	return C.rtdb_error(0)
 }
