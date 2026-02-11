@@ -4126,3 +4126,46 @@ func (c *RtdbConnect) MoveArchive(path string, file string, dist string) error {
 	rte := RawRtdbaMoveArchiveWarp(c.ConnectHandle, path, file, dist)
 	return rte.GoError()
 }
+
+// CreateDatagram 创建数据流订阅
+//
+// input:
+//   - port 端口
+//   - remoteHost 对端IP地址
+//
+// output:
+//   - DatagramHandle(handle) 数据流句柄
+func (c *RtdbConnect) CreateDatagram(port int32, remoteHost string) (DatagramHandle, error) {
+	datagramHandle, rte := RawRtdbCreateDatagramHandleWarp(port, remoteHost)
+	if !RteIsOk(rte) {
+		return DatagramHandle{}, rte.GoError()
+	}
+	return datagramHandle, nil
+}
+
+// RemoveDatagram 取消数据流订阅
+//
+// input:
+//   - handle 数据流句柄
+func (c *RtdbConnect) RemoveDatagram(handle DatagramHandle) error {
+	rte := RawRtdbRemoveDatagramHandleWarp(handle)
+	return rte.GoError()
+}
+
+// RecvDatagram 从订阅数据流中获取数据
+//
+// input:
+//   - handle  数据流句柄
+//   - cacheLen 缓存大小，会创建对应大小的缓存，用于接收数据流返回的数据
+//   - remoteAddr 对端IP地址
+//   - timeout 超时时间(单位秒)
+//
+// output:
+//   - []byte(message) 返回数据流
+func (c *RtdbConnect) RecvDatagram(handle DatagramHandle, cacheLen int32, remoteAddr string, timeout int32) ([]byte, error) {
+	data, rte := RawRtdbRecvDatagramWarp(handle, cacheLen, remoteAddr, timeout)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+	return data, nil
+}
