@@ -132,10 +132,24 @@ func RandString(n int) string {
 	return string(b)
 }
 
-// ConvertCArrayToSlice C指针转换为[]int32
-func ConvertCArrayToSlice(ids *int32, count int) []int32 {
-	if ids == nil || count <= 0 {
+// SafeCopyToSlice C指针转换为Go切片
+func SafeCopyToSlice[T any](ptr unsafe.Pointer, count int) []T {
+	if ptr == nil || count <= 0 {
 		return nil
 	}
-	return unsafe.Slice(ids, count)
+
+	// 创建新的Go切片
+	result := make([]T, count)
+
+	// 计算总字节数
+	var zero T
+	elementSize := int(unsafe.Sizeof(zero))
+	totalSize := count * elementSize
+
+	// 复制内存数据
+	src := unsafe.Slice((*byte)(ptr), totalSize)
+	dst := unsafe.Slice((*byte)(unsafe.Pointer(&result[0])), totalSize)
+	copy(dst, src)
+
+	return result
 }

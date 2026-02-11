@@ -1201,19 +1201,22 @@ type ArchivedBaseInfo struct {
 ////////////////////////////////////////////////
 
 type RtdbConnect struct {
-	HostIp             string         // 服务端名称
-	Port               int32          // 服务端端口
-	UserName           string         // 用户名
-	Password           string         // 密码
-	ConnectHandle      ConnectHandle  // 连接句柄
-	Priv               PrivGroup      // 用户权限
-	SyncInfos          []RtdbSyncInfo // 元数据信息
-	SocketHandles      []SocketHandle // 套接字句柄
-	ServerOsType       RtdbOsType     // 服务端操作系统类型
-	StringBlobMaxLen   int32          // 最大支持String/Blob长度
-	SubscribeTagsConn  *RtdbConnect   // 订阅标签点属性更新专用连接
-	SubscribeTagsName  string         // 订阅标签点属性channel名称
-	SubscribeTagsParam unsafe.Pointer // 订阅标签点属性channel(c指针)
+	HostIp                  string         // 服务端名称
+	Port                    int32          // 服务端端口
+	UserName                string         // 用户名
+	Password                string         // 密码
+	ConnectHandle           ConnectHandle  // 连接句柄
+	Priv                    PrivGroup      // 用户权限
+	SyncInfos               []RtdbSyncInfo // 元数据信息
+	SocketHandles           []SocketHandle // 套接字句柄
+	ServerOsType            RtdbOsType     // 服务端操作系统类型
+	StringBlobMaxLen        int32          // 最大支持String/Blob长度
+	SubscribeTagsConn       *RtdbConnect   // 订阅标签点属性更新专用连接
+	SubscribeTagsName       string         // 订阅标签点属性channel名称
+	SubscribeTagsParam      unsafe.Pointer // 订阅标签点属性channel(c指针)
+	SubscribeSnapshotsConn  *RtdbConnect   // 订阅快照专用连接
+	SubscribeSnapshotsName  string         // 订阅快照channel名称
+	SubscribeSnapshotsParam unsafe.Pointer // 订阅快照channel(c指针)
 }
 
 // Login 登录数据库
@@ -4217,13 +4220,79 @@ func (c *RtdbConnect) CancelSubscribeTags() error {
 }
 
 // SubscribeSnapshots 订阅快照，只要快照发生变化，就会触发订阅
-func (c *RtdbConnect) SubscribeSnapshots() {
-	// RawRtdbsSubscribeSnapshotsEx64Warp()
+func (c *RtdbConnect) SubscribeSnapshots(infos []*PointInfo) (chan SubscribeSnapshotsInfo, []error, error) {
+	if c.SubscribeSnapshotsConn == nil {
+		ids := make([]PointID, 0)
+		for _, info := range infos {
+			ids = append(ids, info.ID)
+		}
+
+		name := RandString(10)
+		c.SubscribeSnapshotsName = name
+		con, err := Login(c.HostIp, c.Port, c.UserName, c.Password)
+		if err != nil {
+			return nil, nil, err
+		}
+		c.SubscribeSnapshotsConn = con
+
+		ch := make(chan SubscribeSnapshotsInfo, 1024)
+		pointMap := make(map[PointID]*PointInfo)
+		for _, info := range infos {
+			pointMap[info.ID] = info
+		}
+		val := SubscribeSnapshotsPointsAndChannel{
+			Ch:       ch,
+			PointMap: pointMap,
+		}
+		SubscribeSnapshotsMap.Store(name, val)
+
+		cName, rtes, rte := RawRtdbsSubscribeSnapshotsEx64Warp(c.SubscribeSnapshotsConn.ConnectHandle, ids, RtdbSubscribeOptionAutoConn, name)
+		if !RteIsOk(rte) {
+			return nil, nil, rte.GoError()
+		}
+		c.SubscribeSnapshotsParam = cName
+		return ch, RtdbErrorListToErrorList(rtes), nil
+	} else {
+		return nil, nil, errors.New("订阅快照失败，已存在订阅连接，不可重复订阅")
+	}
 }
 
 // SubscribeDeltaSnapshots 订阅Delta快照，快照变化需要超过Delta，才会触发订阅，这样可以节约流量
-func (c *RtdbConnect) SubscribeDeltaSnapshots() {
-	// RawRtdbsSubscribeDeltaSnapshots64Warp()
+func (c *RtdbConnect) SubscribeDeltaSnapshots(infos []*PointInfo, deltaValues []float64, deltaStates []int64) (chan SubscribeSnapshotsInfo, []error, error) {
+	if c.SubscribeSnapshotsConn == nil {
+		ids := make([]PointID, 0)
+		for _, info := range infos {
+			ids = append(ids, info.ID)
+		}
+
+		name := RandString(10)
+		c.SubscribeSnapshotsName = name
+		con, err := Login(c.HostIp, c.Port, c.UserName, c.Password)
+		if err != nil {
+			return nil, nil, err
+		}
+		c.SubscribeSnapshotsConn = con
+
+		ch := make(chan SubscribeSnapshotsInfo, 1024)
+		pointMap := make(map[PointID]*PointInfo)
+		for _, info := range infos {
+			pointMap[info.ID] = info
+		}
+		val := SubscribeSnapshotsPointsAndChannel{
+			Ch:       ch,
+			PointMap: pointMap,
+		}
+		SubscribeSnapshotsMap.Store(name, val)
+
+		cName, rtes, rte := RawRtdbsSubscribeDeltaSnapshots64Warp(c.SubscribeSnapshotsConn.ConnectHandle, ids, deltaValues, deltaStates, RtdbSubscribeOptionAutoConn, name)
+		if !RteIsOk(rte) {
+			return nil, nil, rte.GoError()
+		}
+		c.SubscribeSnapshotsParam = cName
+		return ch, RtdbErrorListToErrorList(rtes), nil
+	} else {
+		return nil, nil, errors.New("订阅快照失败，已存在订阅连接，不可重复订阅")
+	}
 }
 
 // ChangeSubscribeSnapshots 修改快照订阅设置，新增或删除标签点
@@ -4234,4 +4303,21 @@ func (c *RtdbConnect) ChangeSubscribeSnapshots() {
 // CancelSubscribeSnapshots 取消快照订阅
 func (c *RtdbConnect) CancelSubscribeSnapshots() {
 	// RawRtdbsCancelSubscribeSnapshotsWarp()
+	/*
+		if c.SubscribeTagsConn == nil && c.SubscribeTagsName == "" {
+			return errors.New("无订阅")
+		}
+		rte := RawRtdbbCancelSubscribeTagsWarp(c.SubscribeTagsConn.ConnectHandle, c.SubscribeTagsParam)
+		val, ok := SubscribeTagsChannelMap.Load(c.SubscribeTagsName)
+		if !ok {
+			return errors.New("找不到订阅")
+		}
+		ch := val.(chan SubscribeTagsInfo)
+		close(ch)
+
+		c.SubscribeTagsConn = nil
+		c.SubscribeTagsName = ""
+		c.SubscribeTagsParam = nil
+		return rte.GoError()
+	*/
 }
