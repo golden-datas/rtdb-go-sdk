@@ -3770,3 +3770,18 @@ func (c *RtdbConnect) UpdateValue(info *PointInfo, tvq TVQ) error {
 		return errors.New("不支持的数据类型")
 	}
 }
+
+// FlushArchivedValues 刷新历史缓存(把标签点的缓存进行手动归档)
+//
+// input:
+//   - info 标签点信息
+//
+// output:
+//   - int32(count) 补历史点值个数
+func (c *RtdbConnect) FlushArchivedValues(info *PointInfo) (int32, error) {
+	count, rte := RawRtdbhFlushArchivedValuesWarp(c.ConnectHandle, info.ID)
+	if !RteIsOk(rte) {
+		return 0, rte.GoError()
+	}
+	return count, nil
+}
