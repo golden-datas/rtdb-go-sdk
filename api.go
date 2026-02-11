@@ -7237,7 +7237,7 @@ func RawRtdbFormatMessageWarp(err RtdbError) (string, string) {
 //   - jobID RTDB_HOST_CONNECT_INFO::job 字段所表示的最近任务的描述
 //
 // output:
-//   - string(name) Job名称
+//   - string(name) Job名RTDB_HOST_CONNECT_INFO称
 //   - string(desc) Job描述
 //
 // raw_fn:

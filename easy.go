@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"path"
 	"sort"
 	"strconv"
 	"time"
@@ -3784,4 +3785,45 @@ func (c *RtdbConnect) FlushArchivedValues(info *PointInfo) (int32, error) {
 		return 0, rte.GoError()
 	}
 	return count, nil
+}
+
+// QueryBigJob 查询正在进行的大任务
+//
+// input:
+//   - processName 服务名称(大任务引擎被分为多个服务，相当于是一个线程，每个服务处理一个特定种类的大任务)
+//
+// output:
+//   - string(path) 大任务正在处理文件的路径
+//   - BigJobName(bitJobName) 大任务名称
+//   - RtdbError(state) 大任务的执行状态
+//   - time.Time(timestamp) 大任务的时间戳
+//   - float32(process) 大任务处理进度
+func (c *RtdbConnect) QueryBigJob(processName RtdbProcess) (string, BigJobName, RtdbError, time.Time, float32, error) {
+	dir, fileName, bigJobName, state, timestamp, process, rte := RawRtdbaQueryBigJob64Warp(c.ConnectHandle, processName)
+	if !RteIsOk(rte) {
+		return "", bigJobName, 0, time.Unix(0, 0), 0, rte.GoError()
+	}
+	return path.Join(dir, fileName), bigJobName, state, time.Unix(timestamp, 0), process, nil
+}
+
+// CancelBigJob 取消正在执行的大任务
+//
+// input:
+//   - processName 服务名称(大任务引擎被分为多个服务，相当于是一个线程，每个服务处理一个特定种类的大任务)
+func (c *RtdbConnect) CancelBigJob(processName RtdbProcess) error {
+	rte := RawRtdbaCancelBigJobWarp(c.ConnectHandle, processName)
+	return rte.GoError()
+}
+
+// JobMessage 获取任务描述
+//
+// input:
+//   - jobID 任务ID
+//
+// output:
+//   - string(name) 任务名称
+//   - string(desc) 任务描述
+func (c *RtdbConnect) JobMessage(jobID int32) (string, string) {
+	name, desc := RawRtdbJobMessageWarp(jobID)
+	return name, desc
 }
