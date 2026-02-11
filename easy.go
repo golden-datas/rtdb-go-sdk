@@ -3710,3 +3710,30 @@ func (c *RtdbConnect) ReadBatchesSummary(info *PointInfo, filter string, interva
 
 	return summaryDatas, RtdbErrorListToErrorList(rtes), nil
 }
+
+// RemoveValue 删除点值
+//
+// input:
+//   - info 标签点信息
+//   - timestamp 时间戳
+func (c *RtdbConnect) RemoveValue(info *PointInfo, timestamp time.Time) error {
+	datetime, subtime := GoTimeToRtdbTimestamp(timestamp)
+	rte := RawRtdbhRemoveValue64Warp(c.ConnectHandle, info.ID, datetime, subtime)
+	return rte.GoError()
+}
+
+// RemoveRangeValues 批量删除点值(从start到end的范围)
+//
+// input:
+//   - info 标签点信息
+//   - start 开始时间
+//   - end 结束时间
+//
+// output:
+//   - int32(count) 删除的点值个数
+func (c *RtdbConnect) RemoveRangeValues(info *PointInfo, start time.Time, end time.Time) (int32, error) {
+	datetime1, subtime1 := GoTimeToRtdbTimestamp(start)
+	datetime2, subtime2 := GoTimeToRtdbTimestamp(end)
+	count, rte := RawRtdbhRemoveValues64Warp(c.ConnectHandle, info.ID, datetime1, subtime1, datetime2, subtime2)
+	return count, rte.GoError()
+}
