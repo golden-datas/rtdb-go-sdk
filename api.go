@@ -8615,11 +8615,12 @@ func RawRtdbbClearRecyclerWarp(handle ConnectHandle) RtdbError {
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_subscribe_tags_ex_warp(rtdb_int32 handle, rtdb_uint32 options, void* param, rtdbb_tags_change_event_ex callback)
-func RawRtdbbSubscribeTagsExWarp(handle ConnectHandle, options RtdbSubscribeOption, param unsafe.Pointer) RtdbError {
+func RawRtdbbSubscribeTagsExWarp(handle ConnectHandle, options RtdbSubscribeOption, name string) (unsafe.Pointer, RtdbError) {
+	cName := C.CString(name)
 	cHandle := C.rtdb_int32(handle)
 	cOptions := C.rtdb_uint32(options)
-	err := C.rtdbb_subscribe_tags_ex_warp(cHandle, cOptions, param, (C.rtdbb_tags_change_event_ex)(unsafe.Pointer(C.goSubscribeTagsEx)))
-	return RtdbError(err)
+	err := C.rtdbb_subscribe_tags_ex_warp(cHandle, cOptions, cName, (C.rtdbb_tags_change_event_ex)(unsafe.Pointer(C.goSubscribeTagsEx)))
+	return cName, RtdbError(err)
 }
 
 // RawRtdbbCancelSubscribeTagsWarp 取消标签点属性更改通知订阅
@@ -8629,9 +8630,10 @@ func RawRtdbbSubscribeTagsExWarp(handle ConnectHandle, options RtdbSubscribeOpti
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_cancel_subscribe_tags_warp(rtdb_int32 handle)
-func RawRtdbbCancelSubscribeTagsWarp(handle ConnectHandle) RtdbError {
+func RawRtdbbCancelSubscribeTagsWarp(handle ConnectHandle, param unsafe.Pointer) RtdbError {
 	cHandle := C.rtdb_int32(handle)
 	err := C.rtdbb_cancel_subscribe_tags_warp(cHandle)
+	C.free(param)
 	return RtdbError(err)
 }
 

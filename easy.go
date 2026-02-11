@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"time"
+	"unsafe"
 )
 
 const (
@@ -1200,16 +1201,19 @@ type ArchivedBaseInfo struct {
 ////////////////////////////////////////////////
 
 type RtdbConnect struct {
-	HostIp           string         // 服务端名称
-	Port             int32          // 服务端端口
-	UserName         string         // 用户名
-	Password         string         // 密码
-	ConnectHandle    ConnectHandle  // 连接句柄
-	Priv             PrivGroup      // 用户权限
-	SyncInfos        []RtdbSyncInfo // 元数据信息
-	SocketHandles    []SocketHandle // 套接字句柄
-	ServerOsType     RtdbOsType     // 服务端操作系统类型
-	StringBlobMaxLen int32          // 最大支持String/Blob长度
+	HostIp             string         // 服务端名称
+	Port               int32          // 服务端端口
+	UserName           string         // 用户名
+	Password           string         // 密码
+	ConnectHandle      ConnectHandle  // 连接句柄
+	Priv               PrivGroup      // 用户权限
+	SyncInfos          []RtdbSyncInfo // 元数据信息
+	SocketHandles      []SocketHandle // 套接字句柄
+	ServerOsType       RtdbOsType     // 服务端操作系统类型
+	StringBlobMaxLen   int32          // 最大支持String/Blob长度
+	SubscribeTagsConn  *RtdbConnect   // 订阅标签点属性更新专用连接
+	SubscribeTagsName  string         // 订阅标签点属性channel名称
+	SubscribeTagsParam unsafe.Pointer // 订阅标签点属性channel(c指针)
 }
 
 // Login 登录数据库
@@ -4168,4 +4172,45 @@ func (c *RtdbConnect) RecvDatagram(handle DatagramHandle, cacheLen int32, remote
 		return nil, rte.GoError()
 	}
 	return data, nil
+}
+
+// SubscribeTags 订阅标签点属性更新
+func (c *RtdbConnect) SubscribeTags() (chan SubscribeTagsInfo, error) {
+	if c.SubscribeTagsConn == nil {
+		name := RandString(10)
+		c.SubscribeTagsName = name
+		con, err := Login(c.HostIp, c.Port, c.UserName, c.Password)
+		if err != nil {
+			return nil, err
+		}
+		c.SubscribeTagsConn = con
+		ch := make(chan SubscribeTagsInfo, 1024)
+		SubscribeTagsChannelMap.Store(name, ch)
+		cName, rte := RawRtdbbSubscribeTagsExWarp(c.SubscribeTagsConn.ConnectHandle, RtdbSubscribeOptionAutoConn, name)
+		if !RteIsOk(rte) {
+			return nil, rte.GoError()
+		}
+		c.SubscribeTagsParam = cName
+		return ch, nil
+	} else {
+		return nil, errors.New("已有标签点属性订阅，请不要重复订阅")
+	}
+}
+
+func (c *RtdbConnect) CancelSubscribeTags() error {
+	if c.SubscribeTagsConn == nil && c.SubscribeTagsName == "" {
+		return errors.New("无订阅")
+	}
+	rte := RawRtdbbCancelSubscribeTagsWarp(c.SubscribeTagsConn.ConnectHandle, c.SubscribeTagsParam)
+	val, ok := SubscribeTagsChannelMap.Load(c.SubscribeTagsName)
+	if !ok {
+		return errors.New("找不到订阅")
+	}
+	ch := val.(chan SubscribeTagsInfo)
+	close(ch)
+
+	c.SubscribeTagsConn = nil
+	c.SubscribeTagsName = ""
+	c.SubscribeTagsParam = nil
+	return rte.GoError()
 }

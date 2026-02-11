@@ -8,6 +8,7 @@ import (
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
 	"io"
+	"math/rand"
 	"unsafe"
 )
 
@@ -119,4 +120,22 @@ func StringToGBKBytes(str string) ([]byte, error) {
 		return nil, errors.New("str转换成GBK格式[]byte报错：" + err.Error())
 	}
 	return buf[:n], nil
+}
+
+// RandString 生成随机字符串
+func RandString(n int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
+// ConvertCArrayToSlice C指针转换为[]int32
+func ConvertCArrayToSlice(ids *C.rtdb_int32, count C.rtdb_int32) []int32 {
+	if ids == nil || count <= 0 {
+		return nil
+	}
+	return unsafe.Slice((*int32)(unsafe.Pointer(ids)), int(count))
 }
