@@ -3827,3 +3827,136 @@ func (c *RtdbConnect) JobMessage(jobID int32) (string, string) {
 	name, desc := RawRtdbJobMessageWarp(jobID)
 	return name, desc
 }
+
+// ComputeHistory 重算｜补算 补历史值或者修改历史值之后，对应的计算点可以按需进行重算|补算，保证计算点的数值正确
+//
+// input:
+//   - infos 标签点信息列表
+//   - flag 不为 0 表示进行重算，删除时间范围内已经存在历史数据；为 0 表示补算，保留时间范围内已经存在历史数据，覆盖同时刻的计算值。
+//   - start 开始时间
+//   - end 结束时间
+//
+// output:
+//   - []error(errs) 每个标签点的重算结果
+func (c *RtdbConnect) ComputeHistory(infos []*PointInfo, flag int16, start time.Time, end time.Time) ([]error, error) {
+	datetime1, subtime1 := GoTimeToRtdbTimestamp(start)
+	datetime2, subtime2 := GoTimeToRtdbTimestamp(end)
+	ids := make([]PointID, 0)
+	for _, info := range infos {
+		ids = append(ids, info.ID)
+	}
+	rtes, rte := RawRtdbeComputeHistory64Warp(c.ConnectHandle, ids, flag, datetime1, subtime1, datetime2, subtime2)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+	return RtdbErrorListToErrorList(rtes), nil
+}
+
+// GetPointEquation 获取标签点方程式
+//
+// input:
+//   - info 标签点信息
+func (c *RtdbConnect) GetPointEquation(info *PointInfo) ([]byte, error) {
+	equation, rte := RawRtdbbGetEquationByIdWarp(c.ConnectHandle, info.ID)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+	return equation, nil
+}
+
+// GetEquationGraph 获取标签点对应的方程式关联关系图(方程式本身是一个有向无环图，数据在这个图内的公式之间流转)
+//
+// input:
+//   - info 标签点信息
+//   - flag 拓扑关系类型
+//
+// output:
+//   - []RtdbGraph(graph) 关系图
+func (c *RtdbConnect) GetEquationGraph(info *PointInfo, flag RtdbGraphFlag) ([]RtdbGraph, error) {
+	count, rte := RawRtdbeGetEquationGraphCountWarp(c.ConnectHandle, info.ID, flag)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+	graph, rte := RawRtdbeGetEquationGraphDatasWarp(c.ConnectHandle, info.ID, flag, count)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+	return graph, nil
+}
+
+// GetPerfPointInfo 获取性能监控点的说明信息
+//
+// input:
+//   - ids 性能监控点ID列表
+//
+// output:
+//   - []RtdbPerfTagInfo(infos) 说明信息列表
+//   - []error(errs) 错误列表
+func (c *RtdbConnect) GetPerfPointInfo(ids []RtdbPerfTagID) ([]RtdbPerfTagInfo, []error, error) {
+	infos, rtes, rte := RawRtdbpGetPerfTagsInfoWarp(c.ConnectHandle, ids)
+	if !RteIsOk(rte) {
+		return nil, nil, rte.GoError()
+	}
+	return infos, RtdbErrorListToErrorList(rtes), nil
+}
+
+// GetPerfPointValue 获取性能监控点的实时值
+//
+// input:
+//   - ids []RtdbPerfTagID 性能监控点ID列表
+//
+// output:
+//   - []TVQ 实时值列表
+//   - []error 错误列表
+func (c *RtdbConnect) GetPerfPointValue(ids []RtdbPerfTagID) ([]TVQ, []error, error) {
+	infos, _, err := c.GetPerfPointInfo(ids)
+	if err != nil {
+		return nil, nil, err
+	}
+	datetimes, subtimes, values, states, qualities, rtes, rte := RawRtdbpGetPerfValues64Warp(c.ConnectHandle, ids)
+	if !RteIsOk(rte) {
+		return nil, nil, rte.GoError()
+	}
+
+	tvqs := make([]TVQ, 0)
+	for i := 0; i < len(ids); i++ {
+		ts := RtdbTimestampToGoTime(datetimes[i], subtimes[i])
+		q := qualities[i]
+
+		switch infos[i].Type {
+		case RtdbTypeBool:
+			tvqs = append(tvqs, NewTvqBool(ts, Int64ToBool(states[i]), q))
+		case RtdbTypeUint8:
+			tvqs = append(tvqs, NewTvqUint8(ts, uint8(states[i]), q))
+		case RtdbTypeInt8:
+			tvqs = append(tvqs, NewTvqInt8(ts, int8(states[i]), q))
+		case RtdbTypeChar:
+			tvqs = append(tvqs, NewTvqChar(ts, byte(states[i]), q))
+		case RtdbTypeUint16:
+			tvqs = append(tvqs, NewTvqUint16(ts, uint16(states[i]), q))
+		case RtdbTypeInt16:
+			tvqs = append(tvqs, NewTvqInt16(ts, int16(states[i]), q))
+		case RtdbTypeUint32:
+			tvqs = append(tvqs, NewTvqUint32(ts, uint32(states[i]), q))
+		case RtdbTypeInt32:
+			tvqs = append(tvqs, NewTvqInt32(ts, int32(states[i]), q))
+		case RtdbTypeInt64:
+			tvqs = append(tvqs, NewTvqInt64(ts, states[i], q))
+		case RtdbTypeReal16:
+			tvqs = append(tvqs, NewTvqFloat16(ts, float32(values[i]), q))
+		case RtdbTypeReal32:
+			tvqs = append(tvqs, NewTvqFloat32(ts, float32(values[i]), q))
+		case RtdbTypeReal64:
+			tvqs = append(tvqs, NewTvqFloat64(ts, values[i], q))
+		case RtdbTypeFp16:
+			tvqs = append(tvqs, NewTvqFp16(ts, float32(values[i]), q))
+		case RtdbTypeFp32:
+			tvqs = append(tvqs, NewTvqFp32(ts, float32(values[i]), q))
+		case RtdbTypeFp64:
+			tvqs = append(tvqs, NewTvqFp64(ts, values[i], q))
+		default:
+			return nil, nil, errors.New("不支持的数据类型，分支不可达")
+		}
+	}
+	return tvqs, RtdbErrorListToErrorList(rtes), nil
+}
