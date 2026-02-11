@@ -4206,6 +4206,9 @@ func (c *RtdbConnect) CancelSubscribeTags() error {
 		return errors.New("无订阅")
 	}
 	rte := RawRtdbbCancelSubscribeTagsWarp(c.SubscribeTagsConn.ConnectHandle, c.SubscribeTagsParam)
+	if !RteIsOk(rte) {
+		return rte.GoError()
+	}
 	val, ok := SubscribeTagsChannelMap.Load(c.SubscribeTagsName)
 	if !ok {
 		return errors.New("找不到订阅")
@@ -4216,7 +4219,7 @@ func (c *RtdbConnect) CancelSubscribeTags() error {
 	c.SubscribeTagsConn = nil
 	c.SubscribeTagsName = ""
 	c.SubscribeTagsParam = nil
-	return rte.GoError()
+	return nil
 }
 
 // SubscribeSnapshots 订阅快照，只要快照发生变化，就会触发订阅
@@ -4244,7 +4247,9 @@ func (c *RtdbConnect) SubscribeSnapshots(infos []*PointInfo) (chan SubscribeSnap
 			Ch:       ch,
 			PointMap: pointMap,
 		}
-		SubscribeSnapshotsMap.Store(name, val)
+		SubscribeSnapshotsLock.Lock()
+		defer SubscribeSnapshotsLock.Unlock()
+		SubscribeSnapshotsMap[name] = &val
 
 		cName, rtes, rte := RawRtdbsSubscribeSnapshotsEx64Warp(c.SubscribeSnapshotsConn.ConnectHandle, ids, RtdbSubscribeOptionAutoConn, name)
 		if !RteIsOk(rte) {
@@ -4282,7 +4287,9 @@ func (c *RtdbConnect) SubscribeDeltaSnapshots(infos []*PointInfo, deltaValues []
 			Ch:       ch,
 			PointMap: pointMap,
 		}
-		SubscribeSnapshotsMap.Store(name, val)
+		SubscribeSnapshotsLock.Lock()
+		defer SubscribeSnapshotsLock.Unlock()
+		SubscribeSnapshotsMap[name] = &val
 
 		cName, rtes, rte := RawRtdbsSubscribeDeltaSnapshots64Warp(c.SubscribeSnapshotsConn.ConnectHandle, ids, deltaValues, deltaStates, RtdbSubscribeOptionAutoConn, name)
 		if !RteIsOk(rte) {
@@ -4296,28 +4303,55 @@ func (c *RtdbConnect) SubscribeDeltaSnapshots(infos []*PointInfo, deltaValues []
 }
 
 // ChangeSubscribeSnapshots 修改快照订阅设置，新增或删除标签点
-func (c *RtdbConnect) ChangeSubscribeSnapshots() {
-	// RawRtdbsChangeSubscribeSnapshotsWarp()
+func (c *RtdbConnect) ChangeSubscribeSnapshots(infos []*PointInfo, deltaValues []float64, deltaStates []int64, changedTypes []RtdbSubscribeChangeType) ([]error, error) {
+	if c.SubscribeSnapshotsConn == nil {
+		return nil, errors.New("当前没有快照订阅，无法修改")
+	}
+	SubscribeSnapshotsLock.Lock()
+	defer SubscribeSnapshotsLock.Unlock()
+	pointAndCh, ok := SubscribeSnapshotsMap[c.SubscribeSnapshotsName]
+	if !ok {
+		return nil, errors.New("找不到订阅")
+	}
+	ids := make([]PointID, 0)
+	for i, info := range infos {
+		ids = append(ids, info.ID)
+		changedTyp := changedTypes[i]
+		switch changedTyp {
+		case RtdbSubscribeChangeTypeAdd:
+			pointAndCh.PointMap[info.ID] = info
+		case RtdbSubscribeChangeTypeRemove:
+			delete(pointAndCh.PointMap, info.ID)
+		}
+	}
+	rtes, rte := RawRtdbsChangeSubscribeSnapshotsWarp(c.SubscribeSnapshotsConn.ConnectHandle, ids, deltaValues, deltaStates, changedTypes)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+	return RtdbErrorListToErrorList(rtes), nil
 }
 
 // CancelSubscribeSnapshots 取消快照订阅
-func (c *RtdbConnect) CancelSubscribeSnapshots() {
-	// RawRtdbsCancelSubscribeSnapshotsWarp()
-	/*
-		if c.SubscribeTagsConn == nil && c.SubscribeTagsName == "" {
-			return errors.New("无订阅")
-		}
-		rte := RawRtdbbCancelSubscribeTagsWarp(c.SubscribeTagsConn.ConnectHandle, c.SubscribeTagsParam)
-		val, ok := SubscribeTagsChannelMap.Load(c.SubscribeTagsName)
-		if !ok {
-			return errors.New("找不到订阅")
-		}
-		ch := val.(chan SubscribeTagsInfo)
-		close(ch)
-
-		c.SubscribeTagsConn = nil
-		c.SubscribeTagsName = ""
-		c.SubscribeTagsParam = nil
+func (c *RtdbConnect) CancelSubscribeSnapshots() error {
+	if c.SubscribeSnapshotsConn == nil && c.SubscribeSnapshotsName == "" {
+		return errors.New("无订阅")
+	}
+	rte := RawRtdbsCancelSubscribeSnapshotsWarp(c.SubscribeSnapshotsConn.ConnectHandle, c.SubscribeSnapshotsParam)
+	if !RteIsOk(rte) {
 		return rte.GoError()
-	*/
+	}
+
+	SubscribeSnapshotsLock.Lock()
+	defer SubscribeSnapshotsLock.Unlock()
+	pointAndCh, ok := SubscribeSnapshotsMap[c.SubscribeSnapshotsName]
+	if !ok {
+		return errors.New("找不到订阅")
+	}
+	close(pointAndCh.Ch)
+
+	c.SubscribeSnapshotsConn = nil
+	c.SubscribeSnapshotsParam = nil
+	c.SubscribeSnapshotsName = ""
+
+	return nil
 }

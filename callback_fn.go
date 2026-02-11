@@ -59,7 +59,8 @@ func goSubscribeTagsEx(
 	return C.rtdb_error(0)
 }
 
-var SubscribeSnapshotsMap sync.Map
+var SubscribeSnapshotsMap map[string]*SubscribeSnapshotsPointsAndChannel
+var SubscribeSnapshotsLock sync.Mutex
 
 type SubscribeSnapshotsPointsAndChannel struct {
 	PointMap map[PointID]*PointInfo
@@ -101,11 +102,12 @@ func goSnapsEventEx(
 	cQualities := SafeCopyToSlice[C.rtdb_int16](unsafe.Pointer(qualities), int(count))
 	cErrs := SafeCopyToSlice[C.rtdb_error](unsafe.Pointer(errors), int(count))
 
-	val, ok := SubscribeSnapshotsMap.Load(name)
+	SubscribeSnapshotsLock.Lock()
+	defer SubscribeSnapshotsLock.Unlock()
+	pointsAndChannel, ok := SubscribeSnapshotsMap[name]
 	if !ok {
 		return C.rtdb_error(0)
 	}
-	pointsAndChannel := val.(SubscribeSnapshotsPointsAndChannel)
 	ptvqs := make([]PTVQ, 0)
 	for i := 0; i < int(count); i++ {
 		ts := RtdbTimestampToGoTime(TimestampType(cDatetimes[i]), SubtimeType(cSubtimes[i]))
@@ -168,8 +170,6 @@ func goSnapsEventEx(
 	case pointsAndChannel.Ch <- info:
 	default:
 	}
-
-	SubscribeSnapshotsMap.Store(name, pointsAndChannel)
 
 	return C.rtdb_error(0)
 }
