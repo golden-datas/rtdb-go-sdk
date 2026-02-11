@@ -4197,6 +4197,7 @@ func (c *RtdbConnect) SubscribeTags() (chan SubscribeTagsInfo, error) {
 	}
 }
 
+// CancelSubscribeTags 取消订阅标签点属性更新
 func (c *RtdbConnect) CancelSubscribeTags() error {
 	if c.SubscribeTagsConn == nil && c.SubscribeTagsName == "" {
 		return errors.New("无订阅")

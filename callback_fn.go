@@ -13,11 +13,11 @@ import (
 var SubscribeTagsChannelMap sync.Map
 
 type SubscribeTagsInfo struct {
-	Name      string
-	EventType int32
-	Handle    int32
-	What      int32
-	Ids       []PointID
+	Name      string    // 订阅名称（一个随机字符串，内部使用）
+	EventType int32     // 事件类型
+	Handle    int32     // 句柄
+	What      int32     // 想要做什么
+	Ids       []PointID // 更新Point的ID列表
 }
 
 //export goSubscribeTagsEx
