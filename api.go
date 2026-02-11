@@ -9483,15 +9483,16 @@ func RawRtdbsPutDatetimeSnapshots64Warp(handle ConnectHandle, ids []PointID, dat
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbs_subscribe_snapshots_ex64_warp(rtdb_int32 handle, rtdb_int32* count, const rtdb_int32* ids, rtdb_uint32 options, void* param, rtdbs_snaps_event_ex64 callback, rtdb_error* errors)
-func RawRtdbsSubscribeSnapshotsEx64Warp(handle ConnectHandle, ids []PointID, options RtdbSubscribeOption, param unsafe.Pointer) ([]RtdbError, RtdbError) {
+func RawRtdbsSubscribeSnapshotsEx64Warp(handle ConnectHandle, ids []PointID, options RtdbSubscribeOption, name string) (unsafe.Pointer, []RtdbError, RtdbError) {
+	cName := C.CString(name)
 	cHandle := C.rtdb_int32(handle)
 	cCount := C.rtdb_int32(len(ids))
 	cIds := (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
 	cOptions := C.rtdb_uint32(options)
 	errs := make([]RtdbError, len(ids))
 	cErrs := (*C.rtdb_error)(unsafe.Pointer(&errs[0]))
-	err := C.rtdbs_subscribe_snapshots_ex64_warp(cHandle, &cCount, cIds, cOptions, param, (C.rtdbs_snaps_event_ex64)(unsafe.Pointer(C.goSnapsEventEx)), cErrs)
-	return errs, RtdbError(err)
+	err := C.rtdbs_subscribe_snapshots_ex64_warp(cHandle, &cCount, cIds, cOptions, unsafe.Pointer(cName), (C.rtdbs_snaps_event_ex64)(unsafe.Pointer(C.goSnapsEventEx)), cErrs)
+	return unsafe.Pointer(cName), errs, RtdbError(err)
 }
 
 // RawRtdbsSubscribeDeltaSnapshots64Warp 批量标签点快照改变的通知订阅 (增量订阅，指的是数值超出一定变化后才会触发，可减少网络流量占用)
@@ -9544,7 +9545,8 @@ func RawRtdbsSubscribeSnapshotsEx64Warp(handle ConnectHandle, ids []PointID, opt
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbs_subscribe_delta_snapshots64_warp(rtdb_int32 handle, rtdb_int32* count, const rtdb_int32* ids, const rtdb_float64* delta_values, const rtdb_int64* delta_states, rtdb_uint32 options, void* param, rtdbs_snaps_event_ex64 callback, rtdb_error* errors)
-func RawRtdbsSubscribeDeltaSnapshots64Warp(handle ConnectHandle, ids []PointID, deltaValues []float64, deltaStates []int64, options RtdbSubscribeOption, param unsafe.Pointer) ([]RtdbError, RtdbError) {
+func RawRtdbsSubscribeDeltaSnapshots64Warp(handle ConnectHandle, ids []PointID, deltaValues []float64, deltaStates []int64, options RtdbSubscribeOption, name string) (unsafe.Pointer, []RtdbError, RtdbError) {
+	cName := C.CString(name)
 	cHandle := C.rtdb_int32(handle)
 	cCount := C.rtdb_int32(len(ids))
 	cIds := (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
@@ -9553,8 +9555,8 @@ func RawRtdbsSubscribeDeltaSnapshots64Warp(handle ConnectHandle, ids []PointID, 
 	cOptions := C.rtdb_uint32(options)
 	errs := make([]RtdbError, len(ids))
 	cErrs := (*C.rtdb_error)(unsafe.Pointer(&errs[0]))
-	err := C.rtdbs_subscribe_delta_snapshots64_warp(cHandle, &cCount, cIds, cDeltaValues, cDeltaStates, cOptions, param, (C.rtdbs_snaps_event_ex64)(unsafe.Pointer(C.goSnapsEventEx)), cErrs)
-	return errs, RtdbError(err)
+	err := C.rtdbs_subscribe_delta_snapshots64_warp(cHandle, &cCount, cIds, cDeltaValues, cDeltaStates, cOptions, unsafe.Pointer(cName), (C.rtdbs_snaps_event_ex64)(unsafe.Pointer(C.goSnapsEventEx)), cErrs)
+	return unsafe.Pointer(cName), errs, RtdbError(err)
 }
 
 // RawRtdbsChangeSubscribeSnapshotsWarp 批量修改订阅标签点信息
@@ -9592,9 +9594,10 @@ func RawRtdbsChangeSubscribeSnapshotsWarp(handle ConnectHandle, ids []PointID, d
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbs_cancel_subscribe_snapshots_warp(rtdb_int32 handle)
-func RawRtdbsCancelSubscribeSnapshotsWarp(handle ConnectHandle) RtdbError {
+func RawRtdbsCancelSubscribeSnapshotsWarp(handle ConnectHandle, param unsafe.Pointer) RtdbError {
 	cHandle := C.rtdb_int32(handle)
 	err := C.rtdbs_cancel_subscribe_snapshots_warp(cHandle)
+	C.free(param)
 	return RtdbError(err)
 }
 

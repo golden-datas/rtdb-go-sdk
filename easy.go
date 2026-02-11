@@ -4215,3 +4215,23 @@ func (c *RtdbConnect) CancelSubscribeTags() error {
 	c.SubscribeTagsParam = nil
 	return rte.GoError()
 }
+
+// SubscribeSnapshots 订阅快照，只要快照发生变化，就会触发订阅
+func (c *RtdbConnect) SubscribeSnapshots() {
+	// RawRtdbsSubscribeSnapshotsEx64Warp()
+}
+
+// SubscribeDeltaSnapshots 订阅Delta快照，快照变化需要超过Delta，才会触发订阅，这样可以节约流量
+func (c *RtdbConnect) SubscribeDeltaSnapshots() {
+	// RawRtdbsSubscribeDeltaSnapshots64Warp()
+}
+
+// ChangeSubscribeSnapshots 修改快照订阅设置，新增或删除标签点
+func (c *RtdbConnect) ChangeSubscribeSnapshots() {
+	// RawRtdbsChangeSubscribeSnapshotsWarp()
+}
+
+// CancelSubscribeSnapshots 取消快照订阅
+func (c *RtdbConnect) CancelSubscribeSnapshots() {
+	// RawRtdbsCancelSubscribeSnapshotsWarp()
+}
