@@ -3803,7 +3803,7 @@ func (c *RtdbConnect) QueryBigJob(processName RtdbProcess) (string, BigJobName, 
 	if !RteIsOk(rte) {
 		return "", bigJobName, 0, time.Unix(0, 0), 0, rte.GoError()
 	}
-	return path.Join(dir, fileName), bigJobName, state, time.Unix(timestamp, 0), process, nil
+	return path.Join(dir, fileName), bigJobName, state, time.Unix(int64(timestamp), 0), process, nil
 }
 
 // CancelBigJob 取消正在执行的大任务
