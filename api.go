@@ -8619,8 +8619,8 @@ func RawRtdbbSubscribeTagsExWarp(handle ConnectHandle, options RtdbSubscribeOpti
 	cName := C.CString(name)
 	cHandle := C.rtdb_int32(handle)
 	cOptions := C.rtdb_uint32(options)
-	err := C.rtdbb_subscribe_tags_ex_warp(cHandle, cOptions, cName, (C.rtdbb_tags_change_event_ex)(unsafe.Pointer(C.goSubscribeTagsEx)))
-	return cName, RtdbError(err)
+	err := C.rtdbb_subscribe_tags_ex_warp(cHandle, cOptions, unsafe.Pointer(cName), (C.rtdbb_tags_change_event_ex)(unsafe.Pointer(C.goSubscribeTagsEx)))
+	return unsafe.Pointer(cName), RtdbError(err)
 }
 
 // RawRtdbbCancelSubscribeTagsWarp 取消标签点属性更改通知订阅

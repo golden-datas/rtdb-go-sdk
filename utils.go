@@ -133,9 +133,9 @@ func RandString(n int) string {
 }
 
 // ConvertCArrayToSlice C指针转换为[]int32
-func ConvertCArrayToSlice(ids *C.rtdb_int32, count C.rtdb_int32) []int32 {
+func ConvertCArrayToSlice(ids *int32, count int) []int32 {
 	if ids == nil || count <= 0 {
 		return nil
 	}
-	return unsafe.Slice((*int32)(unsafe.Pointer(ids)), int(count))
+	return unsafe.Slice(ids, count)
 }

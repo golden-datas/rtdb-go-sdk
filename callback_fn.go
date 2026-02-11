@@ -29,8 +29,8 @@ func goSubscribeTagsEx(
 	ids *C.rtdb_int32,
 	what C.rtdb_int32,
 ) C.rtdb_error {
-	name := C.GoString(param)
-	goIds := ConvertCArrayToSlice(ids, count)
+	name := C.GoString((*C.char)(param))
+	goIds := ConvertCArrayToSlice((*int32)(ids), int(count))
 	pointIds := make([]PointID, 0)
 	for _, id := range goIds {
 		pointIds = append(pointIds, PointID(id))
