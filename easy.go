@@ -4217,7 +4217,6 @@ func (c *RtdbConnect) CancelSubscribeTags() error {
 	if !ok {
 		return errors.New("找不到订阅")
 	}
-	ch := val.(chan SubscribeTagsInfo)
 	close(ch)
 	delete(SubscribeTagsChannelMap, c.SubscribeTagsName)
 
