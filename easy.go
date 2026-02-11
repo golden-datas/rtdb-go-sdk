@@ -3740,3 +3740,33 @@ func (c *RtdbConnect) RemoveRangeValues(info *PointInfo, start time.Time, end ti
 	}
 	return count, nil
 }
+
+// UpdateValue
+//
+// input:
+//   - info 标签点信息
+//   - tvq 点值
+func (c *RtdbConnect) UpdateValue(info *PointInfo, tvq TVQ) error {
+	datetime, subtime := tvq.GetRtdbTimestamp()
+	quality := tvq.GetRtdbQuality()
+	rtdbType, _ := info.ValueType.ToRawType()
+	switch rtdbType {
+	case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
+		var value float64
+		var state int64
+		switch rtdbType {
+		case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64:
+			state = tvq.GetRtdbInt()
+		case RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
+			value = tvq.GetRtdbFloat()
+		}
+		rte := RawRtdbhUpdateValue64Warp(c.ConnectHandle, info.ID, datetime, subtime, value, state, quality)
+		return rte.GoError()
+	case RtdbTypeCoor:
+		coorValue := tvq.GetRtdbCoordinates()
+		rte := RawRtdbhUpdateCoorValue64Warp(c.ConnectHandle, info.ID, datetime, subtime, coorValue.X, coorValue.Y, quality)
+		return rte.GoError()
+	default:
+		return errors.New("不支持的数据类型")
+	}
+}
