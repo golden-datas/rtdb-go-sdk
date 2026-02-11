@@ -3404,7 +3404,7 @@ func (c *RtdbConnect) ReadTimed(info *PointInfo, timestamps []time.Time) (PTVQs,
 //   - count 要查询差值的数量
 //   - start 开始时间
 //   - end 结束时间
-//   - filter 过滤条件
+//   - filter 过滤条件, 可为""
 //
 // output:
 //   - PTVQs(ptvqs) 点值列表
@@ -3478,7 +3478,7 @@ func (c *RtdbConnect) ReadInterpo(info *PointInfo, count int32, start time.Time,
 //
 // input:
 //   - info 标签点信息
-//   - filter 过滤条件
+//   - filter 过滤条件, 可为""
 //   - start 开始时间
 //   - interval 时间间隔
 //   - count 要读取差值的个数
@@ -3657,4 +3657,56 @@ func (c *RtdbConnect) ReadSection(infos []*PointInfo, mode RtdbHisMode, timestam
 	}
 
 	return rtnPtvqs, rtnRtes, nil
+}
+
+// ReadSummary 获取统计值 (从start到end的统计值)
+//
+// input:
+//   - info 标签点信息
+//   - filter 过滤条件, 可为"“
+//   - start 开始时间
+//   - end 结束时间
+func (c *RtdbConnect) ReadSummary(info *PointInfo, filter string, start time.Time, end time.Time) (*RtdbSummaryData, error) {
+	datetime1, subtime1 := GoTimeToRtdbTimestamp(start)
+	datetime2, subtime2 := GoTimeToRtdbTimestamp(end)
+	var summary *RtdbSummaryData
+	var rte RtdbError
+	if filter == "" {
+		summary, rte = RawRtdbhSummaryDataWarp(c.ConnectHandle, info.ID, datetime1, subtime1, datetime2, subtime2)
+	} else {
+		summary, rte = RawRtdbhSummaryDataFiltWarp(c.ConnectHandle, info.ID, filter, datetime1, subtime1, datetime2, subtime2)
+	}
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+	return summary, nil
+}
+
+// ReadBatchesSummary 获取等间隔统计值 (在start和end之间，按照interval作为时间间隔计算每个间隔的统计值)
+//
+// input:
+//   - info 标签点信息
+//   - filter 过滤条件, 可为""
+//   - interval 时间间隔
+//   - start 开始时间
+//   - end 结束时间
+func (c *RtdbConnect) ReadBatchesSummary(info *PointInfo, filter string, interval time.Duration, start time.Time, end time.Time) ([]RtdbSummaryData, []error, error) {
+	maxCount := (end.Sub(start) / interval) + 1
+	datetime1, subtime1 := GoTimeToRtdbTimestamp(start)
+	datetime2, subtime2 := GoTimeToRtdbTimestamp(end)
+
+	var summaryDatas []RtdbSummaryData
+	var rtes []RtdbError
+	var rte RtdbError
+	if filter == "" {
+		summaryDatas, rtes, rte = RawRtdbhSummaryDataInBatchesWarp(c.ConnectHandle, info.ID, maxCount, interval, datetime1, subtime1, datetime2, subtime2)
+	} else {
+		summaryDatas, rtes, rte = RawRtdbhSummaryDataFiltInBatchesWarp(c.ConnectHandle, info.ID, filter, maxCount, interval, datetime1, subtime1, datetime2, subtime2)
+	}
+
+	if !RteIsOk(rte) {
+		return nil, nil, rte.GoError()
+	}
+
+	return summaryDatas, RtdbErrorListToErrorList(rtes), nil
 }
