@@ -3731,9 +3731,12 @@ func (c *RtdbConnect) RemoveValue(info *PointInfo, timestamp time.Time) error {
 //
 // output:
 //   - int32(count) 删除的点值个数
-func (c *RtdbConnect) RemoveRangeValues(info *PointInfo, start time.Time, end time.Time) error {
+func (c *RtdbConnect) RemoveRangeValues(info *PointInfo, start time.Time, end time.Time) (int32, error) {
 	datetime1, subtime1 := GoTimeToRtdbTimestamp(start)
 	datetime2, subtime2 := GoTimeToRtdbTimestamp(end)
-	_, rte := RawRtdbhRemoveValues64Warp(c.ConnectHandle, info.ID, datetime1, subtime1, datetime2, subtime2)
-	return rte.GoError()
+	count, rte := RawRtdbhRemoveValues64Warp(c.ConnectHandle, info.ID, datetime1, subtime1, datetime2, subtime2)
+	if !RteIsOk(rte) {
+		return 0, rte.GoError()
+	}
+	return count, nil
 }
