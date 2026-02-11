@@ -4213,7 +4213,7 @@ func (c *RtdbConnect) CancelSubscribeTags() error {
 	}
 	SubscribeTagsChannelLock.Lock()
 	defer SubscribeTagsChannelLock.Unlock()
-	val, ok := SubscribeTagsChannelMap[c.SubscribeTagsName]
+	ch, ok := SubscribeTagsChannelMap[c.SubscribeTagsName]
 	if !ok {
 		return errors.New("找不到订阅")
 	}
