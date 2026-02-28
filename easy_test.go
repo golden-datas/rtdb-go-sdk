@@ -774,3 +774,23 @@ func TestRtdbConnect_Value(t *testing.T) {
 		}
 	}
 }
+
+func TestRtdbConnect_ReadLast(t *testing.T) {
+	conn, err := Login(Hostname, Port, Username, Password)
+	if err != nil {
+		t.Fatal("登录用户失败", err)
+	}
+	defer func() { _ = conn.Logout() }()
+
+	infos, errs, err := conn.FindPoints([]string{"p7_ppp.p7_xxx"})
+	if err != nil {
+		t.Error("find point err：", err)
+	}
+	for _, err := range errs {
+		if err != nil {
+			t.Error("find point err2: ", err)
+		}
+	}
+	info := infos[0]
+	fmt.Println(info)
+}
