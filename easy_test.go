@@ -722,7 +722,7 @@ func TestRtdbConnect_GetPointCountFromValueType(t *testing.T) {
 
 // 点值(TVQ)写入
 func TestRtdbConnect_Value(t *testing.T) {
-	prefix := "p7_"
+	prefix := "p9_"
 	conn, err := Login(Hostname, Port, Username, Password)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
@@ -730,18 +730,18 @@ func TestRtdbConnect_Value(t *testing.T) {
 	defer func() { _ = conn.Logout() }()
 
 	// 创建表
-	table, err := conn.CreateTable(prefix+"ppp", "ppp desc")
-	if err != nil {
-		t.Error("创建表失败：", err)
-		return
-	}
+	// table, err := conn.CreateTable(prefix+"ppp", "ppp desc")
+	// if err != nil {
+	//	t.Error("创建表失败：", err)
+	//	return
+	// }
 	// 删除表
-	defer func() { _ = conn.DeleteTable(table.ID) }()
+	// defer func() { _ = conn.DeleteTable(table.ID) }()
 
 	time.Sleep(time.Second)
 
 	// 添加点
-	info := NewPointInfo(prefix+"xxx", table.ID, ValueTypeCoor, PointBase, RtdbPrecisionNano, "", "")
+	info := NewPointInfo(prefix+"xxx", 1, ValueTypeCoor, PointBase, RtdbPrecisionNano, "", "")
 	info.SetLimit(-100, 100, 0)
 	pInfo, err := conn.AddPoint(info)
 	if err != nil {
@@ -750,7 +750,7 @@ func TestRtdbConnect_Value(t *testing.T) {
 	}
 
 	// 删除点
-	defer func() { _ = conn.DeletePoint(pInfo.ID) }()
+	// defer func() { _ = conn.DeletePoint(pInfo.ID) }()
 
 	time.Sleep(time.Second)
 
@@ -782,7 +782,7 @@ func TestRtdbConnect_ReadLast(t *testing.T) {
 	}
 	defer func() { _ = conn.Logout() }()
 
-	infos, errs, err := conn.FindPoints([]string{"p7_ppp.p7_xxx"})
+	infos, errs, err := conn.FindPoints([]string{"p7_ppp.p8_xxx"})
 	if err != nil {
 		t.Error("find point err：", err)
 	}
@@ -793,4 +793,10 @@ func TestRtdbConnect_ReadLast(t *testing.T) {
 	}
 	info := infos[0]
 	fmt.Println(info)
+
+	ptvq, err := conn.ReadLast(info)
+	if err != nil {
+		t.Error("find point err：", err)
+	}
+	fmt.Println(ptvq)
 }

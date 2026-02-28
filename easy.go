@@ -1250,6 +1250,12 @@ func Login(hostIp string, port int32, userName string, password string) (*RtdbCo
 		return nil, rte.GoError()
 	}
 
+	// 设置服务端时间戳精度
+	rte = RawRtdbSetOptionWarp(RtdbApiOptionServerPrecision, 3)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+
 	// 登录数据库
 	priv, rte := RawRtdbLoginWarp(rtn.ConnectHandle, rtn.UserName, rtn.Password)
 	if !RteIsOk(rte) {
