@@ -782,7 +782,7 @@ func TestRtdbConnect_ReadLast(t *testing.T) {
 	}
 	defer func() { _ = conn.Logout() }()
 
-	infos, errs, err := conn.FindPoints([]string{"p7_ppp.p8_xxx"})
+	infos, errs, err := conn.FindPoints([]string{"p7_ppp.p9_xxx"})
 	if err != nil {
 		t.Error("find point err：", err)
 	}
