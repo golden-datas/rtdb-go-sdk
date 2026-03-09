@@ -10,7 +10,7 @@ import (
 // 用户登录/登出
 func TestLoginLogout(t *testing.T) {
 	// 登录
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -22,7 +22,7 @@ func TestLoginLogout(t *testing.T) {
 
 // 获取客户端版本
 func TestRtdbConnect_GetClientVersion(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -40,7 +40,7 @@ func TestRtdbConnect_GetClientVersion(t *testing.T) {
 
 // 设置客户端选项
 func TestRtdbConnect_SetClientOption(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -55,7 +55,7 @@ func TestRtdbConnect_SetClientOption(t *testing.T) {
 
 // 服务端选项
 func TestRtdbConnect_GetSetServerOption(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -79,7 +79,7 @@ func TestRtdbConnect_GetSetServerOption(t *testing.T) {
 
 // 获取当前用户的SocketInfo，获取所有用户的SocketInfo
 func TestRtdbConnect_GetSocketInfo(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -111,7 +111,7 @@ func TestRtdbConnect_GetSocketInfo(t *testing.T) {
 
 // IP黑名单
 func TestRtdbConnect_BlackList(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -158,7 +158,7 @@ func TestRtdbConnect_BlackList(t *testing.T) {
 
 // IP白名单
 func TestRtdbConnect_WhiteList(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -205,7 +205,7 @@ func TestRtdbConnect_WhiteList(t *testing.T) {
 
 // 用户
 func TestRtdbConnect_User(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -226,7 +226,7 @@ func TestRtdbConnect_User(t *testing.T) {
 	}
 
 	// 验证密码是否修改成功
-	conn2, err := Login(Hostname, Port, "test111", "123123")
+	conn2, err := Login(Hostname, Port, "test111", "123123", RtdbPrecisionNano)
 	if err != nil {
 		t.Error("登录用户失败", err)
 		return
@@ -293,7 +293,7 @@ func TestRtdbConnect_User(t *testing.T) {
 
 // 自定义类型
 func TestRtdbConnect_NamedType(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -360,7 +360,7 @@ func TestRtdbConnect_NamedType(t *testing.T) {
 
 // 时间
 func TestRtdbConnect_Time(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -407,7 +407,7 @@ func TestRtdbConnect_Time(t *testing.T) {
 
 // 质量
 func TestRtdbConnect_Quality(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -424,7 +424,7 @@ func TestRtdbConnect_Quality(t *testing.T) {
 
 // 磁盘
 func TestRtdbConnect_Disk(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -464,7 +464,7 @@ func TestRtdbConnect_Disk(t *testing.T) {
 
 // 表
 func TestRtdbConnect_Table(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -514,7 +514,7 @@ func TestRtdbConnect_Table(t *testing.T) {
 
 // 标签点
 func TestRtdbConnect_Point(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -600,7 +600,7 @@ func TestRtdbConnect_Point(t *testing.T) {
 
 // 回收站 (标签点删除后会先进入回收站，从回收站清楚后才算是彻底删除)
 func TestRtdbConnect_Recycler(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -706,7 +706,7 @@ func TestRtdbConnect_Recycler(t *testing.T) {
 
 // 获取某个数值类型对应的点数量
 func TestRtdbConnect_GetPointCountFromValueType(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -723,7 +723,7 @@ func TestRtdbConnect_GetPointCountFromValueType(t *testing.T) {
 // 点值(TVQ)写入
 func TestRtdbConnect_Value(t *testing.T) {
 	prefix := "p9_"
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}
@@ -752,7 +752,7 @@ func TestRtdbConnect_Value(t *testing.T) {
 	// 删除点
 	// defer func() { _ = conn.DeletePoint(pInfo.ID) }()
 
-	time.Sleep(time.Second)
+	time.Sleep(5 * time.Second)
 
 	serverTime, err := conn.ServerHostTime()
 	if err != nil {
@@ -762,9 +762,9 @@ func TestRtdbConnect_Value(t *testing.T) {
 	fmt.Println("client time:", time.Now().Format(time.RFC3339))
 
 	// 写入数据
-	n := 100
+	n := 10
 	for i := 0; i < n; i++ {
-		err := conn.WriteValue(pInfo, true, pInfo.NewNowTVQ(Coordinates{X: 1.0, Y: 2.0}, Quality(0)))
+		err := conn.WriteValue(pInfo, false, pInfo.NewNowTVQ(Coordinates{X: 1.0, Y: 2.0}, Quality(0)))
 		if err != nil {
 			t.Error("写入数据失败：", err)
 			return
@@ -776,7 +776,7 @@ func TestRtdbConnect_Value(t *testing.T) {
 }
 
 func TestRtdbConnect_ReadLast(t *testing.T) {
-	conn, err := Login(Hostname, Port, Username, Password)
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
 	}

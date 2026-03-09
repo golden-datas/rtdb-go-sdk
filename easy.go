@@ -401,7 +401,7 @@ func NewPointInfo(name string, tableId TableID, valueType ValueType, class Point
 		HighLimit:      100,
 		Step:           OFF,
 		Typical:        50,
-		Compress:       ON,
+		Compress:       OFF,
 		CompDev:        1,
 		CompDevPercent: 0,
 		CompTimeMax:    28800,
@@ -1217,6 +1217,7 @@ type RtdbConnect struct {
 	SubscribeSnapshotsConn  *RtdbConnect   // 订阅快照专用连接
 	SubscribeSnapshotsName  string         // 订阅快照channel名称
 	SubscribeSnapshotsParam unsafe.Pointer // 订阅快照channel(c指针)
+	Location                *time.Location // 时区
 }
 
 // Login 登录数据库
@@ -1229,12 +1230,24 @@ type RtdbConnect struct {
 //
 // output:
 //   - RtdbConnect(conn) 返回数据库连接
-func Login(hostIp string, port int32, userName string, password string) (*RtdbConnect, error) {
+func Login(hostIp string, port int32, userName string, password string, serverPrecision RtdbPrecision) (*RtdbConnect, error) {
 	rtn := RtdbConnect{
 		HostIp:   hostIp,
 		Port:     port,
 		UserName: userName,
 		Password: password,
+	}
+
+	// 设置默认时间戳精度为纳秒
+	rte := RawRtdbSetOptionWarp(RtdbApiOptionDefaultPrecision, 3)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+
+	// 设置服务端时间戳精度
+	rte = RawRtdbSetOptionWarp(RtdbApiOptionServerPrecision, int32(serverPrecision))
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
 	}
 
 	// 连接数据库
@@ -1243,18 +1256,6 @@ func Login(hostIp string, port int32, userName string, password string) (*RtdbCo
 		return nil, rte.GoError()
 	}
 	rtn.ConnectHandle = cHandle
-
-	// 设置默认时间戳精度为纳秒
-	rte = RawRtdbSetOptionWarp(RtdbApiOptionDefaultPrecision, 3)
-	if !RteIsOk(rte) {
-		return nil, rte.GoError()
-	}
-
-	// 设置服务端时间戳精度
-	rte = RawRtdbSetOptionWarp(RtdbApiOptionServerPrecision, 3)
-	if !RteIsOk(rte) {
-		return nil, rte.GoError()
-	}
 
 	// 登录数据库
 	priv, rte := RawRtdbLoginWarp(rtn.ConnectHandle, rtn.UserName, rtn.Password)
@@ -1298,7 +1299,23 @@ func Login(hostIp string, port int32, userName string, password string) (*RtdbCo
 	}
 	rtn.StringBlobMaxLen = maxLen
 
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		return nil, err
+	}
+	rtn.Location = loc
+
 	return &rtn, nil
+}
+
+// SetLocation 设置客户端时区，默认为亚洲东八
+func (c *RtdbConnect) SetLocation(locName string) error {
+	loc, err := time.LoadLocation(locName)
+	if err != nil {
+		return nil
+	}
+	c.Location = loc
+	return nil
 }
 
 // Logout 登出数据库
@@ -2558,7 +2575,11 @@ func (c *RtdbConnect) WriteValues(info *PointInfo, fix bool, tvqs []TVQ) ([]erro
 func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 	rtnRtes := make([]RtdbError, len(ptvqs))
 	sort.Slice(ptvqs, func(i, j int) bool {
-		return ptvqs[i].TVQ.Timestamp.UnixNano() < ptvqs[i].TVQ.Timestamp.UnixNano()
+		if ptvqs[i].TVQ.Timestamp.Compare(ptvqs[j].TVQ.Timestamp) > 0 {
+			return true
+		} else {
+			return false
+		}
 	})
 
 	// 数值 int&float
@@ -2670,6 +2691,7 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 		} else {
 			rtes, rte = RawRtdbsPutSnapshots64Warp(c.ConnectHandle, numberIds, numberDatetimes, numberSubtimes, numberValues, numberStates, numberQualities)
 		}
+		fmt.Println("s1111:", rtes)
 		if !RteIsOk(rte) {
 			return nil, rte.GoError()
 		}
@@ -2701,6 +2723,7 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			}
 			for i, e := range rtes {
 				rtnRtes[numberIdx[i]] = e
+				fmt.Println("1111111:", e)
 			}
 		}
 	}
@@ -2713,6 +2736,8 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 		} else {
 			rtes, rte = RawRtdbsPutCoorSnapshots64Warp(c.ConnectHandle, coorIds, coorDatetimes, coorSubtimes, coorXs, coorYs, coorQualities)
 		}
+		fmt.Println(coorDatetimes, coorSubtimes)
+		fmt.Println("s22222:", rtes)
 		if !RteIsOk(rte) {
 			return nil, rte.GoError()
 		}
@@ -2744,12 +2769,14 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			}
 			for i, e := range rtes {
 				rtnRtes[coorIdx[i]] = e
+				fmt.Println("22222:", e)
 			}
 		}
 	}
 
 	if len(bIds) != 0 {
 		rtes, rte := RawRtdbsPutBlobSnapshots64Warp(c.ConnectHandle, bIds, bDatetimes, bSubtimes, bDatas, bQualities)
+		fmt.Println("s3333333:", rtes)
 		if !RteIsOk(rte) {
 			return nil, rte.GoError()
 		}
@@ -2779,12 +2806,14 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			}
 			for i, e := range rtes {
 				rtnRtes[bIdx[i]] = e
+				fmt.Println("33333333:", e)
 			}
 		}
 	}
 
 	if len(namedIds) != 0 {
 		rtes, rte := RawRtdbsPutNamedTypeSnapshots64Warp(c.ConnectHandle, namedIds, namedDatetimes, namedSubtimes, namedDatas, namedQualities)
+		fmt.Println("s4444444:", rtes)
 		if !RteIsOk(rte) {
 			return nil, rte.GoError()
 		}
@@ -2814,12 +2843,14 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			}
 			for i, e := range rtes {
 				rtnRtes[namedIdx[i]] = e
+				fmt.Println("44444444:", e)
 			}
 		}
 	}
 
 	if len(dtIds) != 0 {
 		rtes, rte := RawRtdbsPutDatetimeSnapshots64Warp(c.ConnectHandle, dtIds, dtDatetimes, dtSubtimes, dtDates, dtQualities)
+		fmt.Println("s55555:", rtes)
 		if !RteIsOk(rte) {
 			return nil, rte.GoError()
 		}
@@ -2849,10 +2880,11 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			}
 			for i, e := range rtes {
 				rtnRtes[dtIdx[i]] = e
+				fmt.Println("55555555:", e)
 			}
 		}
 	}
-
+	fmt.Println(rtnRtes)
 	return RtdbErrorListToErrorList(rtnRtes), nil
 }
 
@@ -4188,7 +4220,7 @@ func (c *RtdbConnect) SubscribeTags() (chan SubscribeTagsInfo, error) {
 	if c.SubscribeTagsConn == nil {
 		name := RandString(10)
 		c.SubscribeTagsName = name
-		con, err := Login(c.HostIp, c.Port, c.UserName, c.Password)
+		con, err := Login(c.HostIp, c.Port, c.UserName, c.Password, RtdbPrecisionNano)
 		if err != nil {
 			return nil, err
 		}
@@ -4242,7 +4274,7 @@ func (c *RtdbConnect) SubscribeSnapshots(infos []*PointInfo) (chan SubscribeSnap
 
 		name := RandString(10)
 		c.SubscribeSnapshotsName = name
-		con, err := Login(c.HostIp, c.Port, c.UserName, c.Password)
+		con, err := Login(c.HostIp, c.Port, c.UserName, c.Password, RtdbPrecisionNano)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -4282,7 +4314,7 @@ func (c *RtdbConnect) SubscribeDeltaSnapshots(infos []*PointInfo, deltaValues []
 
 		name := RandString(10)
 		c.SubscribeSnapshotsName = name
-		con, err := Login(c.HostIp, c.Port, c.UserName, c.Password)
+		con, err := Login(c.HostIp, c.Port, c.UserName, c.Password, RtdbPrecisionNano)
 		if err != nil {
 			return nil, nil, err
 		}

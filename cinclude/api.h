@@ -13,7 +13,7 @@ extern "C" {
 typedef HMODULE LIBRARY_HANDLE;
 #else
 #include <dlfcn.h>
-#define LOAD_LIBRARY(name) dlopen(name, RTLD_LAZY)
+#define LOAD_LIBRARY(name) dlopen(name, RTLD_LAZY | RTLD_GLOBAL)
 #define GET_FUNCTION dlsym
 #define FREE_LIBRARY dlclose
 typedef void* LIBRARY_HANDLE;
