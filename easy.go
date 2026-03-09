@@ -2575,11 +2575,7 @@ func (c *RtdbConnect) WriteValues(info *PointInfo, fix bool, tvqs []TVQ) ([]erro
 func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 	rtnRtes := make([]RtdbError, len(ptvqs))
 	sort.Slice(ptvqs, func(i, j int) bool {
-		if ptvqs[i].TVQ.Timestamp.Compare(ptvqs[j].TVQ.Timestamp) > 0 {
-			return true
-		} else {
-			return false
-		}
+		return ptvqs[i].TVQ.Timestamp.Before(ptvqs[j].TVQ.Timestamp)
 	})
 
 	// 数值 int&float
@@ -2691,7 +2687,6 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 		} else {
 			rtes, rte = RawRtdbsPutSnapshots64Warp(c.ConnectHandle, numberIds, numberDatetimes, numberSubtimes, numberValues, numberStates, numberQualities)
 		}
-		fmt.Println("s1111:", rtes)
 		if !RteIsOk(rte) {
 			return nil, rte.GoError()
 		}
@@ -2723,7 +2718,6 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			}
 			for i, e := range rtes {
 				rtnRtes[numberIdx[i]] = e
-				fmt.Println("1111111:", e)
 			}
 		}
 	}
@@ -2736,8 +2730,6 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 		} else {
 			rtes, rte = RawRtdbsPutCoorSnapshots64Warp(c.ConnectHandle, coorIds, coorDatetimes, coorSubtimes, coorXs, coorYs, coorQualities)
 		}
-		fmt.Println(coorDatetimes, coorSubtimes)
-		fmt.Println("s22222:", rtes)
 		if !RteIsOk(rte) {
 			return nil, rte.GoError()
 		}
@@ -2769,14 +2761,12 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			}
 			for i, e := range rtes {
 				rtnRtes[coorIdx[i]] = e
-				fmt.Println("22222:", e)
 			}
 		}
 	}
 
 	if len(bIds) != 0 {
 		rtes, rte := RawRtdbsPutBlobSnapshots64Warp(c.ConnectHandle, bIds, bDatetimes, bSubtimes, bDatas, bQualities)
-		fmt.Println("s3333333:", rtes)
 		if !RteIsOk(rte) {
 			return nil, rte.GoError()
 		}
@@ -2806,14 +2796,12 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			}
 			for i, e := range rtes {
 				rtnRtes[bIdx[i]] = e
-				fmt.Println("33333333:", e)
 			}
 		}
 	}
 
 	if len(namedIds) != 0 {
 		rtes, rte := RawRtdbsPutNamedTypeSnapshots64Warp(c.ConnectHandle, namedIds, namedDatetimes, namedSubtimes, namedDatas, namedQualities)
-		fmt.Println("s4444444:", rtes)
 		if !RteIsOk(rte) {
 			return nil, rte.GoError()
 		}
@@ -2843,14 +2831,12 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			}
 			for i, e := range rtes {
 				rtnRtes[namedIdx[i]] = e
-				fmt.Println("44444444:", e)
 			}
 		}
 	}
 
 	if len(dtIds) != 0 {
 		rtes, rte := RawRtdbsPutDatetimeSnapshots64Warp(c.ConnectHandle, dtIds, dtDatetimes, dtSubtimes, dtDates, dtQualities)
-		fmt.Println("s55555:", rtes)
 		if !RteIsOk(rte) {
 			return nil, rte.GoError()
 		}
@@ -2880,11 +2866,9 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			}
 			for i, e := range rtes {
 				rtnRtes[dtIdx[i]] = e
-				fmt.Println("55555555:", e)
 			}
 		}
 	}
-	fmt.Println(rtnRtes)
 	return RtdbErrorListToErrorList(rtnRtes), nil
 }
 
