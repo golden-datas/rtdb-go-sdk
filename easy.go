@@ -4055,6 +4055,10 @@ func (c *RtdbConnect) ShiftActived() error {
 }
 
 // GetArchives 获取存档文件的基本信息(返回全部存档文件的基本信息)
+//
+// output:
+//   - []ArchivedBaseInfo(infos) 存档文件信息列表
+//   - []error(errs) 错误列表
 func (c *RtdbConnect) GetArchives() ([]ArchivedBaseInfo, []error, error) {
 	count, rte := RawRtdbaGetArchivesCountWarp(c.ConnectHandle)
 	if !RteIsOk(rte) {
@@ -4200,6 +4204,9 @@ func (c *RtdbConnect) RecvDatagram(handle DatagramHandle, cacheLen int32, remote
 }
 
 // SubscribeTags 订阅标签点属性更新
+//
+// output:
+//   - chan SubscribeTagsInfo(chan) 标签点属性更新订阅channel
 func (c *RtdbConnect) SubscribeTags() (chan SubscribeTagsInfo, error) {
 	if c.SubscribeTagsConn == nil {
 		name := RandString(10)
@@ -4249,6 +4256,9 @@ func (c *RtdbConnect) CancelSubscribeTags() error {
 }
 
 // SubscribeSnapshots 订阅快照，只要快照发生变化，就会触发订阅
+//
+// output:
+//   - chan SubscribeSnapshotsInfo(chan) 快照订阅channel
 func (c *RtdbConnect) SubscribeSnapshots(infos []*PointInfo) (chan SubscribeSnapshotsInfo, []error, error) {
 	if c.SubscribeSnapshotsConn == nil {
 		ids := make([]PointID, 0)
@@ -4289,6 +4299,9 @@ func (c *RtdbConnect) SubscribeSnapshots(infos []*PointInfo) (chan SubscribeSnap
 }
 
 // SubscribeDeltaSnapshots 订阅Delta快照，快照变化需要超过Delta，才会触发订阅，这样可以节约流量
+//
+// output:
+//   - chan SubscribeSnapshotsInfo(chan) 快照订阅channel
 func (c *RtdbConnect) SubscribeDeltaSnapshots(infos []*PointInfo, deltaValues []float64, deltaStates []int64) (chan SubscribeSnapshotsInfo, []error, error) {
 	if c.SubscribeSnapshotsConn == nil {
 		ids := make([]PointID, 0)
@@ -4329,6 +4342,9 @@ func (c *RtdbConnect) SubscribeDeltaSnapshots(infos []*PointInfo, deltaValues []
 }
 
 // ChangeSubscribeSnapshots 修改快照订阅设置，新增或删除标签点
+//
+// output:
+//   - []error(errs) 错误列表
 func (c *RtdbConnect) ChangeSubscribeSnapshots(infos []*PointInfo, deltaValues []float64, deltaStates []int64, changedTypes []RtdbSubscribeChangeType) ([]error, error) {
 	if c.SubscribeSnapshotsConn == nil {
 		return nil, errors.New("当前没有快照订阅，无法修改")
