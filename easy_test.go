@@ -720,8 +720,8 @@ func TestRtdbConnect_GetPointCountFromValueType(t *testing.T) {
 	fmt.Println(count)
 }
 
-// 点值(TVQ)写入， 读取实时值
-func TestRtdbConnect_Value(t *testing.T) {
+// 点值(TVQ)写入， 读取
+func TestRtdbConnect_ReadWriteValue(t *testing.T) {
 	prefix := "p9_"
 	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
@@ -760,6 +760,7 @@ func TestRtdbConnect_Value(t *testing.T) {
 	// 写入数据
 	n := 10
 	for i := 0; i < n; i++ {
+		// 单条时间序列，写单个TVQ
 		err := conn.WriteValue(pInfo, false, pInfo.NewNowTVQ(Coordinates{X: 1.0, Y: 2.0}, Quality(0)))
 		if err != nil {
 			t.Error("写入数据失败：", err)
@@ -768,11 +769,133 @@ func TestRtdbConnect_Value(t *testing.T) {
 		if i != n-1 {
 			time.Sleep(1 * time.Second)
 		}
+
+		// 单条时间序列，写多个TVQ
+		// errs, err := conn.WriteValues(pInfo, false, []TVQ{pInfo.NewNowTVQ(Coordinates{X: 1.0, Y: 2.0}, Quality(0))})
+
+		// 写断面 (可以是单条序列，也可以是多条序列，更灵活)
+		// errs, err := conn.WriteSection(false, []PTVQ{NewPTVQ(pInfo, pInfo.NewNowTVQ(Coordinates{X: 1.0, Y: 2.0}, Quality(0)))})
 	}
 
-	ptvq, err := conn.ReadLast(pInfo)
-	if err != nil {
-		t.Error("find point err：", err)
+	// 读取最新的实时值
+	{
+		ptvq, err := conn.ReadLast(pInfo)
+		if err != nil {
+			t.Error("read last err：", err)
+		}
+		fmt.Println(ptvq)
 	}
-	fmt.Println(ptvq)
+
+	// 读取单个TVQ
+	{
+		ptvq, err := conn.ReadValue(pInfo, RtdbHisModeExactOrPrev, time.Now())
+		if err != nil {
+			t.Error("read value err：", err)
+		}
+		fmt.Println(ptvq)
+	}
+
+	// 读取Range
+	{
+		ptvqs, err := conn.ReadRange(pInfo, time.Now().AddDate(0, 0, -1), time.Now())
+		if err != nil {
+			t.Error("read range err：", err)
+		}
+		fmt.Println(ptvqs)
+	}
+
+	// 读取Plot （用于绘图的TVQ）
+	{
+		ptvqs, err := conn.ReadPlot(pInfo, 1024, time.Now().AddDate(0, 0, -1), time.Now())
+		if err != nil {
+			t.Error("read plot err：", err)
+		}
+		fmt.Println(ptvqs)
+	}
+
+	// 读取差值（按照指定时间戳）
+	{
+		ptvqs, err := conn.ReadTimed(pInfo, []time.Time{time.Now()})
+		if err != nil {
+			t.Error("read timed err：", err)
+		}
+		fmt.Println(ptvqs)
+	}
+
+	// 读取差值（start、end之间等分成count份）
+	{
+		ptvqs, err := conn.ReadInterpo(pInfo, 128, time.Now().AddDate(0, 0, -1), time.Now(), "")
+		if err != nil {
+			t.Error("read interpo err：", err)
+		}
+		fmt.Println(ptvqs)
+	}
+
+	// 读取差值 (从start开始，每隔duration时间间隔读取一个差值，最多读取count个)
+	{
+		ptvqs, err := conn.ReadInterval(pInfo, "", time.Now().AddDate(0, 0, -1), time.Hour, 12)
+		if err != nil {
+			t.Error("read interval err：", err)
+		}
+		fmt.Println(ptvqs)
+	}
+
+	// 读取断面
+	{
+		ptvqs, errs, err := conn.ReadSection([]*PointInfo{pInfo}, RtdbHisModeExactOrPrev, time.Now())
+		if err != nil {
+			t.Error("read section err：", err)
+		}
+		fmt.Println(errs)
+		fmt.Println(ptvqs)
+	}
+
+	// 读取统计值
+	{
+		summary, err := conn.ReadSummary(pInfo, "", time.Now().AddDate(0, 0, -1), time.Now())
+		if err != nil {
+			t.Error("read summary err：", err)
+		}
+		fmt.Println(summary)
+	}
+
+	// 读取等间隔统计值
+	{
+		summaryList, errs, err := conn.ReadBatchesSummary(pInfo, "", time.Hour, time.Now().AddDate(0, 0, -1), time.Now())
+		if err != nil {
+			t.Error("read batches summary err：", err)
+		}
+		fmt.Println(errs)
+		fmt.Println(summaryList)
+	}
+
+	// 删除点值
+	{
+		err := conn.RemoveValue(pInfo, time.Now())
+		fmt.Println(err) // 报错事正常的，应该没有这个时间戳
+	}
+
+	// 批量删除点
+	{
+		count, err := conn.RemoveRangeValues(pInfo, time.Now().AddDate(0, 0, -1), time.Now())
+		if err != nil {
+			t.Error("remove range err:", err)
+		}
+		fmt.Println(count)
+	}
+
+	// 更新指定时间戳的VQ
+	{
+		err := conn.UpdateValue(pInfo, NewTvqCoordinates(time.Now(), 10, 20, Quality(0)))
+		fmt.Println(err) // 会报错，因为找不到T
+	}
+
+	// 刷新数据页缓存 (就是把内存中的快照数据，刷新到历史中)
+	{
+		count, err := conn.FlushArchivedValues(pInfo)
+		if err != nil {
+			t.Error("flush archived values err: ", err)
+		}
+		fmt.Println(count)
+	}
 }
