@@ -720,9 +720,8 @@ func TestRtdbConnect_GetPointCountFromValueType(t *testing.T) {
 	fmt.Println(count)
 }
 
-// 点值(TVQ)写入， 读取
+// 点值(TVQ)写入， 读取 - Float64类型
 func TestRtdbConnect_ReadWriteValue(t *testing.T) {
-	prefix := "p9_"
 	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
 		t.Fatal("登录用户失败", err)
@@ -730,7 +729,7 @@ func TestRtdbConnect_ReadWriteValue(t *testing.T) {
 	defer func() { _ = conn.Logout() }()
 
 	// 创建表
-	table, err := conn.CreateTable(prefix+"ppp", "ppp desc")
+	table, err := conn.CreateTable("ttt", "ttt desc")
 	if err != nil {
 		t.Error("创建表失败：", err)
 		return
@@ -738,8 +737,10 @@ func TestRtdbConnect_ReadWriteValue(t *testing.T) {
 	// 删除表
 	defer func() { _ = conn.DeleteTable(table.ID) }()
 
-	// 添加点
-	info := NewPointInfo(prefix+"xxx", 1, ValueTypeCoor, PointBase, RtdbPrecisionNano, "", "")
+	fmt.Println(table.ID)
+
+	// 添加Float64类型的点
+	info := NewPointInfo("aaa", table.ID, ValueTypeFloat64, PointBase, RtdbPrecisionNano, "°C", "")
 	info.SetLimit(-100, 100, 0)
 	pInfo, err := conn.AddPoint(info)
 	if err != nil {
@@ -761,20 +762,49 @@ func TestRtdbConnect_ReadWriteValue(t *testing.T) {
 	n := 10
 	for i := 0; i < n; i++ {
 		// 单条时间序列，写单个TVQ
-		err := conn.WriteValue(pInfo, false, pInfo.NewNowTVQ(Coordinates{X: 1.0, Y: 2.0}, Quality(0)))
+		value := 25.0 + float64(i)*0.5
+		err := conn.WriteValue(pInfo, false, pInfo.NewNowTVQ(value, Quality(0)))
 		if err != nil {
 			t.Error("写入数据失败：", err)
 			return
 		}
 		if i != n-1 {
-			time.Sleep(1 * time.Second)
+			time.Sleep(100 * time.Millisecond)
 		}
+	}
 
-		// 单条时间序列，写多个TVQ
-		// errs, err := conn.WriteValues(pInfo, false, []TVQ{pInfo.NewNowTVQ(Coordinates{X: 1.0, Y: 2.0}, Quality(0))})
+	// 单条时间序列，写多个TVQ
+	now := time.Now()
+	tvqs := []TVQ{
+		pInfo.NewTVQ(now.Add(-2*time.Second), 30.0, Quality(0)),
+		pInfo.NewTVQ(now.Add(-1*time.Second), 31.0, Quality(0)),
+		pInfo.NewTVQ(now, 32.0, Quality(0)),
+	}
+	errs, err := conn.WriteValues(pInfo, false, tvqs)
+	if err != nil {
+		t.Error("WriteValues写入数据失败：", err)
+		return
+	}
+	for i, e := range errs {
+		if e != nil {
+			t.Errorf("WriteValues第%d个数据写入失败: %v", i, e)
+		}
+	}
 
-		// 写断面 (可以是单条序列，也可以是多条序列，更灵活)
-		// errs, err := conn.WriteSection(false, []PTVQ{NewPTVQ(pInfo, pInfo.NewNowTVQ(Coordinates{X: 1.0, Y: 2.0}, Quality(0)))})
+	// 写断面 (可以是单条序列，也可以是多条序列，更灵活)
+	ptvqs := []PTVQ{
+		NewPTVQ(pInfo, pInfo.NewTVQ(now.Add(-1*time.Second), 33.0, Quality(0))),
+		NewPTVQ(pInfo, pInfo.NewTVQ(now, 34.0, Quality(0))),
+	}
+	errs, err = conn.WriteSection(false, ptvqs)
+	if err != nil {
+		t.Error("WriteSection写入数据失败：", err)
+		return
+	}
+	for i, e := range errs {
+		if e != nil {
+			t.Errorf("WriteSection第%d个数据写入失败: %v", i, e)
+		}
 	}
 
 	// 读取最新的实时值
@@ -782,8 +812,11 @@ func TestRtdbConnect_ReadWriteValue(t *testing.T) {
 		ptvq, err := conn.ReadLast(pInfo)
 		if err != nil {
 			t.Error("read last err：", err)
+		} else {
+			fmt.Printf("ReadLast: Time=%v, Value=%v, Quality=%d\n",
+				ptvq.TVQ.Timestamp.Format(time.RFC3339Nano),
+				ptvq.TVQ.Value.FloatValue, ptvq.TVQ.Quality)
 		}
-		fmt.Println(ptvq)
 	}
 
 	// 读取单个TVQ
@@ -791,53 +824,98 @@ func TestRtdbConnect_ReadWriteValue(t *testing.T) {
 		ptvq, err := conn.ReadValue(pInfo, RtdbHisModeExactOrPrev, time.Now())
 		if err != nil {
 			t.Error("read value err：", err)
+		} else {
+			fmt.Printf("ReadValue: Time=%v, Value=%v, Quality=%d\n",
+				ptvq.TVQ.Timestamp.Format(time.RFC3339Nano),
+				ptvq.TVQ.Value.FloatValue, ptvq.TVQ.Quality)
 		}
-		fmt.Println(ptvq)
 	}
 
 	// 读取Range
 	{
-		ptvqs, err := conn.ReadRange(pInfo, time.Now().AddDate(0, 0, -1), time.Now())
+		startTime := time.Now().Add(-1 * time.Hour)
+		endTime := time.Now()
+		ptvqs, err := conn.ReadRange(pInfo, startTime, endTime)
 		if err != nil {
 			t.Error("read range err：", err)
+		} else {
+			fmt.Printf("ReadRange: 读取到%d条数据\n", len(ptvqs.TVQs))
+			for i, tvq := range ptvqs.TVQs {
+				if i >= 5 {
+					fmt.Println("  ... (仅显示前5条)")
+					break
+				}
+				fmt.Printf("  [%d] Time=%v, Value=%v, Quality=%d\n",
+					i, tvq.Timestamp.Format(time.RFC3339Nano),
+					tvq.Value.FloatValue, tvq.Quality)
+			}
 		}
-		fmt.Println(ptvqs)
 	}
 
 	// 读取Plot （用于绘图的TVQ）
 	{
-		ptvqs, err := conn.ReadPlot(pInfo, 1024, time.Now().AddDate(0, 0, -1), time.Now())
+		startTime := time.Now().Add(-1 * time.Hour)
+		endTime := time.Now()
+		ptvqs, err := conn.ReadPlot(pInfo, 100, startTime, endTime)
 		if err != nil {
 			t.Error("read plot err：", err)
+		} else {
+			fmt.Printf("ReadPlot: 读取到%d条数据(最大100条)\n", len(ptvqs.TVQs))
 		}
-		fmt.Println(ptvqs)
 	}
 
 	// 读取差值（按照指定时间戳）
 	{
-		ptvqs, err := conn.ReadTimed(pInfo, []time.Time{time.Now()})
+		targetTimes := []time.Time{
+			time.Now().Add(-30 * time.Second),
+			time.Now().Add(-20 * time.Second),
+			time.Now().Add(-10 * time.Second),
+		}
+		ptvqs, err := conn.ReadTimed(pInfo, targetTimes)
 		if err != nil {
 			t.Error("read timed err：", err)
+		} else {
+			fmt.Printf("ReadTimed: 读取到%d条数据\n", len(ptvqs.TVQs))
+			for i, ptvq := range ptvqs.TVQs {
+				fmt.Printf("  [%d] TargetTime=%v, ActualTime=%v, Value=%v, Quality=%d\n",
+					i, targetTimes[i].Format(time.RFC3339Nano),
+					ptvq.Timestamp.Format(time.RFC3339Nano),
+					ptvq.Value.FloatValue, ptvq.Quality)
+			}
 		}
-		fmt.Println(ptvqs)
 	}
 
 	// 读取差值（start、end之间等分成count份）
 	{
-		ptvqs, err := conn.ReadInterpo(pInfo, 128, time.Now().AddDate(0, 0, -1), time.Now(), "")
+		startTime := time.Now().Add(-1 * time.Hour)
+		endTime := time.Now()
+		ptvqs, err := conn.ReadInterpo(pInfo, 10, startTime, endTime, "")
 		if err != nil {
 			t.Error("read interpo err：", err)
+		} else {
+			fmt.Printf("ReadInterpo: 读取到%d条数据\n", len(ptvqs.TVQs))
+			for i, ptvq := range ptvqs.TVQs {
+				fmt.Printf("  [%d] Time=%v, Value=%v, Quality=%d\n",
+					i, ptvq.Timestamp.Format(time.RFC3339Nano),
+					ptvq.Value.FloatValue, ptvq.Quality)
+			}
 		}
-		fmt.Println(ptvqs)
 	}
 
 	// 读取差值 (从start开始，每隔duration时间间隔读取一个差值，最多读取count个)
 	{
-		ptvqs, err := conn.ReadInterval(pInfo, "", time.Now().AddDate(0, 0, -1), time.Hour, 12)
+		startTime := time.Now().Add(-1 * time.Hour)
+		ptvqs, err := conn.ReadInterval(pInfo, "", startTime, 10*time.Minute, 6)
 		if err != nil {
 			t.Error("read interval err：", err)
+		} else {
+			fmt.Printf("ReadInterval: 读取到%d条数据\n", len(ptvqs.TVQs))
+			for i, ptvq := range ptvqs.TVQs {
+				fmt.Printf("  [%d] Time=%v, Value=%v, Quality=%d\n",
+					i, ptvq.Timestamp.Format(time.RFC3339Nano),
+					ptvq.Value.FloatValue, ptvq.Quality)
+			}
 		}
-		fmt.Println(ptvqs)
 	}
 
 	// 读取断面
@@ -845,49 +923,88 @@ func TestRtdbConnect_ReadWriteValue(t *testing.T) {
 		ptvqs, errs, err := conn.ReadSection([]*PointInfo{pInfo}, RtdbHisModeExactOrPrev, time.Now())
 		if err != nil {
 			t.Error("read section err：", err)
+		} else {
+			for i, e := range errs {
+				if e != nil {
+					t.Errorf("ReadSection第%d个点读取失败: %v", i, e)
+				}
+			}
+			fmt.Printf("ReadSection: 读取到%d个点的数据\n", len(ptvqs))
+			for i, ptvq := range ptvqs {
+				fmt.Printf("  [%d] PointID=%d, Time=%v, Value=%v, Quality=%d\n",
+					i, ptvq.PointInfo.ID, ptvq.TVQ.Timestamp.Format(time.RFC3339Nano),
+					ptvq.TVQ.Value.FloatValue, ptvq.TVQ.Quality)
+			}
 		}
-		fmt.Println(errs)
-		fmt.Println(ptvqs)
 	}
 
 	// 读取统计值
 	{
-		summary, err := conn.ReadSummary(pInfo, "", time.Now().AddDate(0, 0, -1), time.Now())
+		startTime := time.Now().Add(-1 * time.Hour)
+		endTime := time.Now()
+		summary, err := conn.ReadSummary(pInfo, "", startTime, endTime)
 		if err != nil {
 			t.Error("read summary err：", err)
+		} else {
+			fmt.Printf("ReadSummary:\n")
+			fmt.Printf("  Count=%d\n", summary.Count)
+			fmt.Printf("  Min=%v (Time=%v)\n", summary.MinValue, summary.MinTime)
+			fmt.Printf("  Max=%v (Time=%v)\n", summary.MaxValue, summary.MaxTime)
+			fmt.Printf("  PowerAvg=%v\n", summary.PowerAvg)
 		}
-		fmt.Println(summary)
 	}
 
 	// 读取等间隔统计值
 	{
-		summaryList, errs, err := conn.ReadBatchesSummary(pInfo, "", time.Hour, time.Now().AddDate(0, 0, -1), time.Now())
+		startTime := time.Now().Add(-1 * time.Hour)
+		endTime := time.Now()
+		summaryList, errs, err := conn.ReadBatchesSummary(pInfo, "", 15*time.Minute, startTime, endTime)
 		if err != nil {
 			t.Error("read batches summary err：", err)
+		} else {
+			for i, e := range errs {
+				if e != nil {
+					t.Errorf("ReadBatchesSummary第%d个统计段读取失败: %v", i, e)
+				}
+			}
+			fmt.Printf("ReadBatchesSummary: 读取到%d个时间段的统计值\n", len(summaryList))
+			for i, summary := range summaryList {
+				fmt.Printf("  [%d] Count=%d, Min=%v, Max=%v, Avg=%v\n",
+					i, summary.Count, summary.MinValue, summary.MaxValue, summary.PowerAvg)
+			}
 		}
-		fmt.Println(errs)
-		fmt.Println(summaryList)
 	}
 
 	// 删除点值
 	{
-		err := conn.RemoveValue(pInfo, time.Now())
-		fmt.Println(err) // 报错事正常的，应该没有这个时间戳
+		err := conn.RemoveValue(pInfo, time.Now().Add(1*time.Hour))
+		if err != nil {
+			fmt.Println("RemoveValue预期内的错误（时间戳不存在）:", err)
+		} else {
+			fmt.Println("Remove Value成功")
+		}
 	}
 
 	// 批量删除点
 	{
-		count, err := conn.RemoveRangeValues(pInfo, time.Now().AddDate(0, 0, -1), time.Now())
+		startTime := time.Now().Add(-2 * time.Hour)
+		endTime := time.Now().Add(-1 * time.Hour)
+		count, err := conn.RemoveRangeValues(pInfo, startTime, endTime)
 		if err != nil {
 			t.Error("remove range err:", err)
+		} else {
+			fmt.Printf("RemoveRangeValues: 删除了%d条数据\n", count)
 		}
-		fmt.Println(count)
 	}
 
 	// 更新指定时间戳的VQ
 	{
-		err := conn.UpdateValue(pInfo, NewTvqCoordinates(time.Now(), 10, 20, Quality(0)))
-		fmt.Println(err) // 会报错，因为找不到T
+		err := conn.UpdateValue(pInfo, NewTvqFloat64(time.Now().Add(1*time.Hour), 99.9, Quality(0)))
+		if err != nil {
+			fmt.Println("UpdateValue预期内的错误（时间戳不存在）:", err)
+		} else {
+			fmt.Println("UpdateValue 成功")
+		}
 	}
 
 	// 刷新数据页缓存 (就是把内存中的快照数据，刷新到历史中)
@@ -895,7 +1012,8 @@ func TestRtdbConnect_ReadWriteValue(t *testing.T) {
 		count, err := conn.FlushArchivedValues(pInfo)
 		if err != nil {
 			t.Error("flush archived values err: ", err)
+		} else {
+			fmt.Printf("FlushArchivedValues: 刷新了%d条数据\n", count)
 		}
-		fmt.Println(count)
 	}
 }
