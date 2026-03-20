@@ -793,8 +793,8 @@ func TestRtdbConnect_ReadWriteValue(t *testing.T) {
 
 	// 写断面 (可以是单条序列，也可以是多条序列，更灵活)
 	ptvqs := []PTVQ{
-		NewPTVQ(pInfo, pInfo.NewTVQ(now.Add(-1*time.Second), 33.0, Quality(0))),
-		NewPTVQ(pInfo, pInfo.NewTVQ(now, 34.0, Quality(0))),
+		NewPTVQ(pInfo, pInfo.NewTVQ(now.Add(-2*time.Second), 33.0, Quality(0))),
+		NewPTVQ(pInfo, pInfo.NewTVQ(now.Add(-1*time.Second), 34.0, Quality(0))),
 	}
 	errs, err = conn.WriteSection(false, ptvqs)
 	if err != nil {
@@ -975,35 +975,16 @@ func TestRtdbConnect_ReadWriteValue(t *testing.T) {
 		}
 	}
 
-	// 删除点值
+	// 批量删除点 - 删除历史数据范围
 	{
-		err := conn.RemoveValue(pInfo, time.Now().Add(1*time.Hour))
-		if err != nil {
-			fmt.Println("RemoveValue预期内的错误（时间戳不存在）:", err)
-		} else {
-			fmt.Println("Remove Value成功")
-		}
-	}
-
-	// 批量删除点
-	{
-		startTime := time.Now().Add(-2 * time.Hour)
-		endTime := time.Now().Add(-1 * time.Hour)
+		// 删除历史数据范围（1小时前到30分钟前）
+		startTime := time.Now().Add(-1 * time.Hour)
+		endTime := time.Now().Add(-30 * time.Minute)
 		count, err := conn.RemoveRangeValues(pInfo, startTime, endTime)
 		if err != nil {
-			t.Error("remove range err:", err)
+			t.Error("RemoveRangeValues删除失败:", err)
 		} else {
-			fmt.Printf("RemoveRangeValues: 删除了%d条数据\n", count)
-		}
-	}
-
-	// 更新指定时间戳的VQ
-	{
-		err := conn.UpdateValue(pInfo, NewTvqFloat64(time.Now().Add(1*time.Hour), 99.9, Quality(0)))
-		if err != nil {
-			fmt.Println("UpdateValue预期内的错误（时间戳不存在）:", err)
-		} else {
-			fmt.Println("UpdateValue 成功")
+			fmt.Printf("RemoveRangeValues成功: 删除了%d条历史数据\n", count)
 		}
 	}
 
@@ -1016,4 +997,179 @@ func TestRtdbConnect_ReadWriteValue(t *testing.T) {
 			fmt.Printf("FlushArchivedValues: 刷新了%d条数据\n", count)
 		}
 	}
+}
+
+// 修改单个点值测试 - 专门测试UpdateValue功能
+func TestRtdbConnect_UpdateSingleValue(t *testing.T) {
+	prefix := "p9_update_"
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
+	if err != nil {
+		t.Fatal("登录用户失败", err)
+	}
+	defer func() { _ = conn.Logout() }()
+
+	// 创建表
+	table, err := conn.CreateTable(prefix+"table", "update test table")
+	if err != nil {
+		t.Error("创建表失败：", err)
+		return
+	}
+	defer func() { _ = conn.DeleteTable(table.ID) }()
+
+	// 添加Float64类型的点
+	info := NewPointInfo(prefix+"point", table.ID, ValueTypeFloat64, PointBase, RtdbPrecisionNano, "°C", "更新测试点")
+	info.SetLimit(0, 200, 0)
+	pInfo, err := conn.AddPoint(info)
+	if err != nil {
+		t.Error("添加点失败: ", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(pInfo.ID) }()
+
+	// 测试场景1: 写入单个值（非快照），然后更新它
+	t.Run("UpdateSingleValue", func(t *testing.T) {
+		// 使用当前时间之前一点点的时间，确保不是最新快照
+		targetTime := time.Now().Add(-2 * time.Second)
+		originalValue := 50.0
+		updatedValue := 75.5
+
+		// 写入原始值
+		err := conn.WriteValue(pInfo, false, pInfo.NewTVQ(targetTime, originalValue, Quality(0)))
+		if err != nil {
+			t.Error("写入原始值失败:", err)
+			return
+		}
+		fmt.Printf("已写入原始值: %v @ %v\n", originalValue, targetTime.Format(time.RFC3339))
+
+		// 先刷新快照到历史，确保数据可被更新
+		_, err = conn.FlushArchivedValues(pInfo)
+		if err != nil {
+			t.Error("刷新快照失败:", err)
+			return
+		}
+
+		// 读取确认写入成功
+		ptvq, err := conn.ReadValue(pInfo, RtdbHisModeExactOrPrev, targetTime)
+		if err != nil {
+			t.Error("读取原始值失败:", err)
+			return
+		}
+		fmt.Printf("读取到原始值: %v @ %v\n", ptvq.TVQ.Value.FloatValue, ptvq.TVQ.Timestamp.Format(time.RFC3339))
+
+		// 更新值（修改Value和Quality，时间戳保持不变）
+		err = conn.UpdateValue(pInfo, NewTvqFloat64(targetTime, updatedValue, Quality(0)))
+		if err != nil {
+			t.Error("UpdateValue失败:", err)
+			return
+		}
+
+		// 验证更新成功
+		ptvq, err = conn.ReadValue(pInfo, RtdbHisModeExactOrPrev, targetTime)
+		if err != nil {
+			t.Error("读取更新后的值失败:", err)
+			return
+		}
+		if ptvq.TVQ.Value.FloatValue != updatedValue {
+			t.Errorf("更新后的值不匹配: 期望%v, 实际%v", updatedValue, ptvq.TVQ.Value.FloatValue)
+			return
+		}
+
+		fmt.Printf("UpdateValue成功: 值已从%v更新为%v @ %v\n",
+			originalValue, updatedValue, targetTime.Format(time.RFC3339))
+	})
+
+	// 测试场景2: 批量写入多个值，然后更新其中一个（非最新值）
+	t.Run("UpdateOneOfBatchValues", func(t *testing.T) {
+		// 使用当前时间之前的时间，避免与最新快照冲突
+		baseTime := time.Now().Add(-10 * time.Second)
+		tvqs := []TVQ{
+			pInfo.NewTVQ(baseTime, 10.0, Quality(0)),
+			pInfo.NewTVQ(baseTime.Add(2*time.Second), 20.0, Quality(0)),
+			pInfo.NewTVQ(baseTime.Add(4*time.Second), 30.0, Quality(0)),
+		}
+
+		// 批量写入
+		errs, err := conn.WriteValues(pInfo, false, tvqs)
+		if err != nil {
+			t.Error("批量写入失败:", err)
+			return
+		}
+		for i, e := range errs {
+			if e != nil {
+				t.Errorf("第%d个值写入失败: %v", i, e)
+				return
+			}
+		}
+		fmt.Printf("已批量写入%d个值\n", len(tvqs))
+
+		// 先刷新快照到历史
+		_, err = conn.FlushArchivedValues(pInfo)
+		if err != nil {
+			t.Error("刷新快照失败:", err)
+			return
+		}
+
+		// 更新中间的那个值（不是最新的那个）
+		updateTime := baseTime.Add(2 * time.Second)
+		newValue := 25.0
+		err = conn.UpdateValue(pInfo, NewTvqFloat64(updateTime, newValue, Quality(0)))
+		if err != nil {
+			t.Error("更新中间值失败:", err)
+			return
+		}
+
+		// 读取时间范围验证
+		ptvqs, err := conn.ReadRange(pInfo, baseTime, baseTime.Add(5*time.Second))
+		if err != nil {
+			t.Error("读取范围失败:", err)
+			return
+		}
+
+		fmt.Printf("UpdateOneOfBatchValues成功，当前数据:\n")
+		for i, tvq := range ptvqs.TVQs {
+			marker := ""
+			if tvq.Timestamp.Equal(updateTime) {
+				marker = " <- 已更新"
+			}
+			fmt.Printf("  [%d] Time=%v, Value=%v%s\n",
+				i, tvq.Timestamp.Format(time.RFC3339), tvq.Value.FloatValue, marker)
+		}
+	})
+
+	// 测试场景3: 验证快照值不允许更新（预期失败）
+	t.Run("UpdateLatestValue_ExpectedFail", func(t *testing.T) {
+		// 写入最新值（这会变成快照）
+		now := time.Now()
+		originalValue := 100.0
+		newValue := 150.0
+
+		err := conn.WriteValue(pInfo, false, pInfo.NewTVQ(now, originalValue, Quality(0)))
+		if err != nil {
+			t.Error("写入最新值失败:", err)
+			return
+		}
+
+		// 尝试更新这个最新值（预期会失败，因为快照不允许更新）
+		err = conn.UpdateValue(pInfo, NewTvqFloat64(now, newValue, Quality(0)))
+		if err != nil {
+			// 这是预期的行为，快照值不允许更新
+			fmt.Printf("预期内的失败: 快照值不允许更新 - %v\n", err)
+		} else {
+			t.Error("预期UpdateValue应该失败，但实际成功了")
+			return
+		}
+
+		// 验证值没有被修改
+		ptvq, err := conn.ReadLast(pInfo)
+		if err != nil {
+			t.Error("ReadLast失败:", err)
+			return
+		}
+
+		if ptvq.TVQ.Value.FloatValue == originalValue {
+			fmt.Printf("验证成功: 快照值保持原值%v，未被修改\n", originalValue)
+		} else {
+			t.Errorf("验证失败: 期望%v, 实际%v", originalValue, ptvq.TVQ.Value.FloatValue)
+		}
+	})
 }
