@@ -740,7 +740,16 @@ func TestRtdbConnect_ReadWriteValue(t *testing.T) {
 	fmt.Println(table.ID)
 
 	// 添加Float64类型的点
-	info := NewPointInfo("aaa", table.ID, ValueTypeFloat64, PointBase, RtdbPrecisionNano, "°C", "")
+	desc := "温"
+	fmt.Printf("Desc content: %s\n", desc)
+	fmt.Printf("Desc bytes: %v\n", []byte(desc))
+	fmt.Printf("Desc hex: %x\n", []byte(desc))
+	fmt.Printf("Desc length: %d bytes\n", len(desc))
+
+	// UTF-8 "温度数据" 应该是: e6 b8 a9 e5 ba a6 e6 95 b0 e6 8d ae (12字节)
+	// GBK "温度数据" 应该是: ce c2 b6 c8 ca fd be dd (8字节)
+
+	info := NewPointInfo("aaa", table.ID, ValueTypeFloat64, PointBase, RtdbPrecisionNano, "", desc)
 	info.SetLimit(-100, 100, 0)
 	pInfo, err := conn.AddPoint(info)
 	if err != nil {

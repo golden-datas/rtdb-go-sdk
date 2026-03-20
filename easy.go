@@ -2053,6 +2053,13 @@ func (c *RtdbConnect) UpdateTableDesc(id TableID, desc string) error {
 // output:
 //   - PointInfo(info) 输出点信息
 func (c *RtdbConnect) AddPoint(info *PointInfo) (*PointInfo, error) {
+	// 根据服务端操作系统类型，对Desc进行编码转换
+	if c.ServerOsType == RtdbOsWindows && info.Desc != "" {
+		gbkBytes, err := StringToGBKBytes(info.Desc)
+		if err == nil {
+			info.Desc = string(gbkBytes)
+		}
+	}
 	base, scan, calc, tName := PointInfoToRaw(info)
 	if base.Type == RtdbTypeNamedT {
 		if tName == "" {
