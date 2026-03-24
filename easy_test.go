@@ -740,7 +740,7 @@ func TestRtdbConnect_ReadWriteValue(t *testing.T) {
 	fmt.Println(table.ID)
 
 	// 添加Float64类型的点
-	desc := "温"
+	desc := "温度数据"
 	fmt.Printf("Desc content: %s\n", desc)
 	fmt.Printf("Desc bytes: %v\n", []byte(desc))
 	fmt.Printf("Desc hex: %x\n", []byte(desc))
@@ -772,7 +772,7 @@ func TestRtdbConnect_ReadWriteValue(t *testing.T) {
 	for i := 0; i < n; i++ {
 		// 单条时间序列，写单个TVQ
 		value := 25.0 + float64(i)*0.5
-		err := conn.WriteValue(pInfo, false, pInfo.NewNowTVQ(value, Quality(0)))
+		err := conn.WriteValue(pInfo, false, pInfo.NewNowTVQ(123, Quality(0)))
 		if err != nil {
 			t.Error("写入数据失败：", err)
 			return
