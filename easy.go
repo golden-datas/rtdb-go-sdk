@@ -2585,6 +2585,7 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 
 	// String｜Blob
 	bIds := make([]PointID, 0)
+	bIsString := make([]bool, 0)
 	bDatetimes := make([]TimestampType, 0)
 	bSubtimes := make([]SubtimeType, 0)
 	bDatas := make([][]byte, 0)
@@ -2637,6 +2638,11 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			coorIdx = append(coorIdx, i)
 		case RtdbTypeString, RtdbTypeBlob:
 			bIds = append(bIds, ptvq.PointInfo.ID)
+			if rtdbType == RtdbTypeString {
+				bIsString = append(bIsString, true)
+			} else {
+				bIsString = append(bIsString, false)
+			}
 			datetime, subtime := ptvq.TVQ.GetRtdbTimestamp()
 			bDatetimes = append(bDatetimes, datetime)
 			bSubtimes = append(bSubtimes, subtime)
@@ -2753,12 +2759,13 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 	}
 
 	if len(bIds) != 0 {
-		rtes, rte := RawRtdbsPutBlobSnapshots64Warp(c.ConnectHandle, bIds, bDatetimes, bSubtimes, bDatas, bQualities)
+		rtes, rte := RawRtdbsPutBlobSnapshots64Warp(c.ConnectHandle, bIds, bIsString, bDatetimes, bSubtimes, bDatas, bQualities)
 		if !RteIsOk(rte) {
 			return nil, rte.GoError()
 		}
 		aIndex := make([]int, 0)
 		aIds := make([]PointID, 0)
+		aIsString := make([]bool, 0)
 		aDatetimes := make([]TimestampType, 0)
 		aSubtimes := make([]SubtimeType, 0)
 		aDatas := make([][]byte, 0)
@@ -2767,6 +2774,7 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			if errors.Is(e, RteTimestampEarlierThanSnapshot) {
 				aIndex = append(aIndex, i)
 				aIds = append(aIds, bIds[i])
+				aIsString = append(aIsString, bIsString[i])
 				aDatetimes = append(aDatetimes, bDatetimes[i])
 				aSubtimes = append(aSubtimes, bSubtimes[i])
 				aDatas = append(aDatas, bDatas[i])
@@ -2774,7 +2782,7 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			}
 		}
 		if len(aIds) != 0 {
-			aRtes, aRte := RawRtdbhPutArchivedBlobValues64Warp(c.ConnectHandle, aIds, aDatetimes, aSubtimes, aDatas, aQualities)
+			aRtes, aRte := RawRtdbhPutArchivedBlobValues64Warp(c.ConnectHandle, aIds, aIsString, aDatetimes, aSubtimes, aDatas, aQualities)
 			if !RteIsOk(aRte) {
 				return nil, aRte.GoError()
 			}
@@ -2881,6 +2889,7 @@ func (c *RtdbConnect) ReadLasts(infos []*PointInfo) ([]PTVQ, []error, error) {
 
 	// String｜Blob
 	bIds := make([]PointID, 0)
+	bIsString := make([]bool, 0)
 	bIdx := make([]int, 0)
 
 	// named 自定义类型
@@ -2902,6 +2911,11 @@ func (c *RtdbConnect) ReadLasts(infos []*PointInfo) ([]PTVQ, []error, error) {
 			coorIdx = append(coorIdx, i)
 		case RtdbTypeBlob, RtdbTypeString:
 			bIds = append(bIds, info.ID)
+			if rtdbType == RtdbTypeString {
+				bIsString = append(bIsString, true)
+			} else {
+				bIsString = append(bIsString, false)
+			}
 			bIdx = append(bIdx, i)
 		case RtdbTypeNamedT:
 			namedIds = append(namedIds, info.ID)
@@ -2989,7 +3003,7 @@ func (c *RtdbConnect) ReadLasts(infos []*PointInfo) ([]PTVQ, []error, error) {
 	}
 
 	if len(bIds) != 0 {
-		dt, ms, blobs, qualities, rtes, rte := RawRtdbsGetBlobSnapshots64Warp(c.ConnectHandle, bIds, c.StringBlobMaxLen)
+		dt, ms, blobs, qualities, rtes, rte := RawRtdbsGetBlobSnapshots64Warp(c.ConnectHandle, bIds, bIsString, c.StringBlobMaxLen)
 		if !RteIsOk(rte) {
 			return nil, nil, rte.GoError()
 		}
@@ -3228,7 +3242,11 @@ func (c *RtdbConnect) ReadRange(info *PointInfo, start time.Time, end time.Time)
 			tvqs = append(tvqs, NewTvqCoordinates(ts, xs[i], ys[i], q))
 		}
 	case RtdbTypeBlob, RtdbTypeString:
-		dt, ms, blobs, qualities, rte := RawRtdbhGetArchivedBlobValues64Warp(c.ConnectHandle, info.ID, maxCount, datetime1, subtime1, datetime2, subtime2, c.StringBlobMaxLen)
+		isString := false
+		if rtdbType == RtdbTypeString {
+			isString = true
+		}
+		dt, ms, blobs, qualities, rte := RawRtdbhGetArchivedBlobValues64Warp(c.ConnectHandle, info.ID, maxCount, isString, datetime1, subtime1, datetime2, subtime2, c.StringBlobMaxLen)
 		if !RteIsOk(rte) {
 			return PTVQs{}, rte.GoError()
 		}

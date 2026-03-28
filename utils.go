@@ -2,7 +2,14 @@ package rtdb_api
 
 import "C"
 import (
+	"bytes"
+	"errors"
+	"fmt"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
+	"io"
 	"math/rand"
+	"runtime"
 	"unsafe"
 )
 
@@ -89,7 +96,15 @@ func Int64ToBool(v int64) bool {
 	}
 }
 
-/*
+// ClientIsWindows 客户端是Windows
+func ClientIsWindows() bool {
+	if runtime.GOOS == "windows" {
+		return true
+	} else {
+		return false
+	}
+}
+
 // GBKBytesToString GBK格式的bytes，转换为UTF8 string
 func GBKBytesToString(gbkBytes []byte) (string, error) {
 	// 创建GBK解码器
@@ -116,7 +131,26 @@ func StringToGBKBytes(str string) ([]byte, error) {
 	}
 	return buf[:n], nil
 }
-*/
+
+// StringInDB 字符串向数据库输入
+func StringInDB(str string) string {
+	if ClientIsWindows() {
+		data, _ := StringToGBKBytes(str)
+		return string(data)
+	} else {
+		return str
+	}
+}
+
+// StringOutDB 数据库字符串输出
+func StringOutDB(str string) string {
+	if ClientIsWindows() {
+		data, _ := GBKBytesToString([]byte(str))
+		return data
+	} else {
+		return str
+	}
+}
 
 // RandString 生成随机字符串
 func RandString(n int) string {

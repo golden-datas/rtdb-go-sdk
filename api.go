@@ -4204,14 +4204,14 @@ type RtdbHostConnectInfoIpv6 struct {
 func cToRtdbHostConnectInfoIpv6(cInfo *C.RTDB_HOST_CONNECT_INFO_IPV6) RtdbHostConnectInfoIpv6 {
 	goInfo := RtdbHostConnectInfoIpv6{
 		IpAddr:      int32(cInfo.ipaddr),
-		IpAddr6:     CCharArrayToString(&cInfo.ipaddr6[0], len(cInfo.ipaddr6)),
+		IpAddr6:     StringOutDB(CCharArrayToString(&cInfo.ipaddr6[0], len(cInfo.ipaddr6))),
 		Port:        uint16(cInfo.port),
 		Job:         int32(cInfo.job),
 		JobTime:     DateTimeType(cInfo.job_time),
 		ConnectTime: DateTimeType(cInfo.connect_time),
-		Client:      CCharArrayToString(&cInfo.client[0], len(cInfo.client)),
-		Process:     CCharArrayToString(&cInfo.process[0], len(cInfo.process)),
-		User:        CCharArrayToString(&cInfo.user[0], len(cInfo.user)),
+		Client:      StringOutDB(CCharArrayToString(&cInfo.client[0], len(cInfo.client))),
+		Process:     StringOutDB(CCharArrayToString(&cInfo.process[0], len(cInfo.process))),
+		User:        StringOutDB(CCharArrayToString(&cInfo.user[0], len(cInfo.user))),
 		Length:      int32(cInfo.length),
 	}
 	return goInfo
@@ -4262,7 +4262,7 @@ type RtdbUserInfo struct {
 
 func cToRtdbUserInfo(cInfo *C.RTDB_USER_INFO) RtdbUserInfo {
 	goInfo := RtdbUserInfo{
-		User:      CCharArrayToString(&cInfo.user[0], len(cInfo.user)),
+		User:      StringOutDB(CCharArrayToString(&cInfo.user[0], len(cInfo.user))),
 		Privilege: PrivGroup(cInfo.privilege),
 		IsLocked:  Switch(cInfo.islocked),
 	}
@@ -4320,8 +4320,8 @@ func cToRtdbTable(table *C.RTDB_TABLE) RtdbTable {
 	rtn := RtdbTable{
 		ID:   TableID(table.id),
 		Type: int32(table._type),
-		Name: CCharArrayToString(&table.name[0], int(C.RTDB_TAG_SIZE)),
-		Desc: CCharArrayToString(&table.desc[0], int(C.RTDB_DESC_SIZE)),
+		Name: StringOutDB(CCharArrayToString(&table.name[0], int(C.RTDB_TAG_SIZE))),
+		Desc: StringOutDB(CCharArrayToString(&table.desc[0], int(C.RTDB_DESC_SIZE))),
 	}
 	return rtn
 }
@@ -4770,12 +4770,12 @@ func goToCRtdbPoint(p *RtdbPoint) *C.RTDB_POINT {
 	}
 
 	rtn := C.RTDB_POINT{}
-	GoStringToCCharArray(p.Tag, &rtn.tag[0], int(C.RTDB_TAG_SIZE))
+	GoStringToCCharArray(StringInDB(p.Tag), &rtn.tag[0], int(C.RTDB_TAG_SIZE))
 	rtn.id = C.int(p.ID)
 	rtn._type = C.int(p.Type)
 	rtn.table = C.int(p.Table)
-	GoStringToCCharArray(p.Desc, &rtn.desc[0], int(C.RTDB_DESC_SIZE))
-	GoStringToCCharArray(p.Unit, &rtn.unit[0], int(C.RTDB_UNIT_SIZE))
+	GoStringToCCharArray(StringInDB(p.Desc), &rtn.desc[0], int(C.RTDB_DESC_SIZE))
+	GoStringToCCharArray(StringInDB(p.Unit), &rtn.unit[0], int(C.RTDB_UNIT_SIZE))
 	rtn.archive = C.rtdb_byte(p.Archive)
 	rtn.digits = C.short(p.Digits)
 	rtn.shutdown = C.rtdb_byte(p.Shutdown)
@@ -4794,15 +4794,15 @@ func goToCRtdbPoint(p *RtdbPoint) *C.RTDB_POINT {
 	rtn.exctimemin = C.int(p.ExcTimeMin)
 	rtn.classof = C.uint(p.Class)
 	rtn.changedate = C.rtdb_datetime_type(p.ChangeDate)
-	GoStringToCCharArray(p.Changer, &rtn.changer[0], int(C.RTDB_USER_SIZE))
+	GoStringToCCharArray(StringInDB(p.Changer), &rtn.changer[0], int(C.RTDB_USER_SIZE))
 	rtn.createdate = C.rtdb_datetime_type(p.CreateDate)
-	GoStringToCCharArray(p.Creator, &rtn.creator[0], int(C.RTDB_USER_SIZE))
+	GoStringToCCharArray(StringInDB(p.Creator), &rtn.creator[0], int(C.RTDB_USER_SIZE))
 	rtn.mirror = C.rtdb_byte(p.Mirror)
 	rtn.millisecond = C.rtdb_byte(p.MilliSecond)
 	rtn.scanindex = C.uint(p.ScanIndex)
 	rtn.calcindex = C.uint(p.CalcIndex)
 	rtn.alarmindex = C.uint(p.AlarmIndex)
-	GoStringToCCharArray(p.TableDotTag, &rtn.table_dot_tag[0], int(C.RTDB_TAG_SIZE+C.RTDB_TAG_SIZE))
+	GoStringToCCharArray(StringInDB(p.TableDotTag), &rtn.table_dot_tag[0], int(C.RTDB_TAG_SIZE+C.RTDB_TAG_SIZE))
 	rtn.summary = C.rtdb_byte(p.Summary)
 	rtn.named_type_id = C.rtdb_uint16(p.NamedTypeID)
 	rtn.precision = C.rtdb_precision_type(p.Precision)
@@ -4816,12 +4816,12 @@ func cToRtdbPoint(p *C.RTDB_POINT) *RtdbPoint {
 	}
 
 	rtn := RtdbPoint{
-		Tag:            CCharArrayToString(&p.tag[0], int(C.RTDB_TAG_SIZE)),
+		Tag:            StringOutDB(CCharArrayToString(&p.tag[0], int(C.RTDB_TAG_SIZE))),
 		ID:             PointID(p.id),
 		Type:           RtdbType(p._type),
 		Table:          TableID(p.table),
-		Desc:           CCharArrayToString(&p.desc[0], int(C.RTDB_DESC_SIZE)),
-		Unit:           CCharArrayToString(&p.unit[0], int(C.RTDB_UNIT_SIZE)),
+		Desc:           StringOutDB(CCharArrayToString(&p.desc[0], int(C.RTDB_DESC_SIZE))),
+		Unit:           StringOutDB(CCharArrayToString(&p.unit[0], int(C.RTDB_UNIT_SIZE))),
 		Archive:        Switch(p.archive),
 		Digits:         int16(p.digits),
 		Shutdown:       Switch(p.shutdown),
@@ -4840,15 +4840,15 @@ func cToRtdbPoint(p *C.RTDB_POINT) *RtdbPoint {
 		ExcTimeMin:     int32(p.exctimemin),
 		Class:          RtdbClass(p.classof),
 		ChangeDate:     DateTimeType(p.changedate),
-		Changer:        CCharArrayToString(&p.changer[0], int(C.RTDB_USER_SIZE)),
+		Changer:        StringOutDB(CCharArrayToString(&p.changer[0], int(C.RTDB_USER_SIZE))),
 		CreateDate:     DateTimeType(p.createdate),
-		Creator:        CCharArrayToString(&p.creator[0], int(C.RTDB_USER_SIZE)),
+		Creator:        StringOutDB(CCharArrayToString(&p.creator[0], int(C.RTDB_USER_SIZE))),
 		Mirror:         RtdbMirror(p.mirror),
 		MilliSecond:    int8(p.millisecond),
 		ScanIndex:      uint32(p.scanindex),
 		CalcIndex:      uint32(p.calcindex),
 		AlarmIndex:     uint32(p.alarmindex),
-		TableDotTag:    CCharArrayToString(&p.table_dot_tag[0], int(C.RTDB_TAG_SIZE+C.RTDB_TAG_SIZE)),
+		TableDotTag:    StringOutDB(CCharArrayToString(&p.table_dot_tag[0], int(C.RTDB_TAG_SIZE+C.RTDB_TAG_SIZE))),
 		Summary:        Switch(p.summary),
 		NamedTypeID:    uint16(p.named_type_id),
 		Precision:      RtdbPrecision(p.precision),
@@ -4905,9 +4905,9 @@ func cToRtdbScan(p *C.RTDB_SCAN_POINT) *RtdbScan {
 
 	rtn := RtdbScan{
 		ID:         PointID(p.id),
-		Source:     CCharArrayToString(&p.source[0], int(C.RTDB_SOURCE_SIZE)),
+		Source:     StringOutDB(CCharArrayToString(&p.source[0], int(C.RTDB_SOURCE_SIZE))),
 		Scan:       Switch(p.scan),
-		Instrument: CCharArrayToString(&p.instrument[0], int(C.RTDB_INSTRUMENT_SIZE)),
+		Instrument: StringOutDB(CCharArrayToString(&p.instrument[0], int(C.RTDB_INSTRUMENT_SIZE))),
 	}
 	for i := 0; i < int(RtdbConstLocationsSize); i++ {
 		rtn.Locations[i] = int32(p.locations[i])
@@ -4929,9 +4929,9 @@ func goToCRtdbScan(p *RtdbScan) *C.RTDB_SCAN_POINT {
 
 	rtn := C.RTDB_SCAN_POINT{}
 	rtn.id = C.int(p.ID)
-	GoStringToCCharArray(p.Source, &rtn.source[0], int(C.RTDB_SOURCE_SIZE))
+	GoStringToCCharArray(StringInDB(p.Source), &rtn.source[0], int(C.RTDB_SOURCE_SIZE))
 	rtn.scan = C.rtdb_byte(p.Scan)
-	GoStringToCCharArray(p.Instrument, &rtn.instrument[0], int(C.RTDB_INSTRUMENT_SIZE))
+	GoStringToCCharArray(StringInDB(p.Instrument), &rtn.instrument[0], int(C.RTDB_INSTRUMENT_SIZE))
 	for i := 0; i < int(RtdbConstLocationsSize); i++ {
 		rtn.locations[i] = C.int(p.Locations[i])
 	}
@@ -4987,7 +4987,7 @@ func cToRtdbCalc(p *C.RTDB_MAX_CALC_POINT) *RtdbCalc {
 
 	rtn := RtdbCalc{
 		ID:       PointID(p.id),
-		Equation: CCharArrayToString(&p.equation[0], int(C.RTDB_MAX_EQUATION_SIZE)),
+		Equation: StringOutDB(CCharArrayToString(&p.equation[0], int(C.RTDB_MAX_EQUATION_SIZE))),
 		Trigger:  RtdbTrigger(p.trigger),
 		TimeCopy: RtdbTimeCopy(p.timecopy),
 		Period:   int32(p.period),
@@ -5003,7 +5003,7 @@ func goToCRtdbCalc(p *RtdbCalc) *C.RTDB_MAX_CALC_POINT {
 
 	rtn := C.RTDB_MAX_CALC_POINT{}
 	rtn.id = C.int(p.ID)
-	GoStringToCCharArray(p.Equation, &rtn.equation[0], int(C.RTDB_MAX_EQUATION_SIZE))
+	GoStringToCCharArray(StringInDB(p.Equation), &rtn.equation[0], int(C.RTDB_MAX_EQUATION_SIZE))
 	rtn.trigger = C.rtdb_byte(p.Trigger)
 	rtn.timecopy = C.rtdb_byte(p.TimeCopy)
 	rtn.period = C.int(p.Period)
@@ -5355,19 +5355,19 @@ type RtdbDataTypeField struct {
 
 func goToCRtdbDataTypeField(field *RtdbDataTypeField) *C.RTDB_DATA_TYPE_FIELD {
 	rtn := C.RTDB_DATA_TYPE_FIELD{}
-	GoStringToCCharArray(field.Name, &rtn.name[0], int(C.RTDB_TYPE_NAME_SIZE))
+	GoStringToCCharArray(StringInDB(field.Name), &rtn.name[0], int(C.RTDB_TYPE_NAME_SIZE))
 	rtn._type = C.rtdb_int32(field.Type)
 	rtn.length = C.rtdb_int32(field.Length)
-	GoStringToCCharArray(field.Desc, &rtn.desc[0], int(C.RTDB_DESC_SIZE))
+	GoStringToCCharArray(StringInDB(field.Desc), &rtn.desc[0], int(C.RTDB_DESC_SIZE))
 	return &rtn
 }
 
 func cToRtdbDataTypeField(field *C.RTDB_DATA_TYPE_FIELD) *RtdbDataTypeField {
 	rtn := RtdbDataTypeField{
-		Name:   CCharArrayToString(&field.name[0], int(C.RTDB_TYPE_NAME_SIZE)),
+		Name:   StringOutDB(CCharArrayToString(&field.name[0], int(C.RTDB_TYPE_NAME_SIZE))),
 		Type:   RtdbType(field._type),
 		Length: int32(field.length),
-		Desc:   CCharArrayToString(&field.desc[0], int(C.RTDB_DESC_SIZE)),
+		Desc:   StringOutDB(CCharArrayToString(&field.desc[0], int(C.RTDB_DESC_SIZE))),
 	}
 	return &rtn
 }
@@ -5558,7 +5558,7 @@ func cToGoRtdbHeaderPage(page *C.RTDB_HEADER_PAGE) *RtdbHeaderPage {
 		Merged:        byte(page.merged),
 		Arranged:      byte(page.arranged),
 		IndexType:     byte(page.index_type),
-		FileName:      CCharArrayToString(&page.file_name[0], int(C.RTDB_FILE_NAME_SIZE)),
+		FileName:      StringOutDB(CCharArrayToString(&page.file_name[0], int(C.RTDB_FILE_NAME_SIZE))),
 		Crc32:         uint32(page.crc32),
 		IndexInMem:    byte(page.index_in_mem),
 		ManageType:    byte(page.manage_type),
@@ -5569,7 +5569,7 @@ func cToGoRtdbHeaderPage(page *C.RTDB_HEADER_PAGE) *RtdbHeaderPage {
 		DelBlockSize:  int64(page.del_block_size),
 		TotalCount:    int64(page.total_count),
 		BigPageSize:   int16(page.big_page_size),
-		VerCode:       CCharArrayToString(&page.vercode[0], int(C.RTDB_VER_CODE_SIZE)),
+		VerCode:       StringOutDB(CCharArrayToString(&page.vercode[0], int(C.RTDB_VER_CODE_SIZE))),
 	}
 	return &rtn
 }
@@ -6160,9 +6160,9 @@ func goToCRtdbPerfTagInfo(info *RtdbPerfTagInfo) *C.RTDB_PERF_TAG_INFO {
 func cToGoRtdbPerfTagInfo(info *C.RTDB_PERF_TAG_INFO) *RtdbPerfTagInfo {
 	rtn := RtdbPerfTagInfo{
 		PerfID:  RtdbPerfTagID(info.perf_id),
-		TagName: CCharArrayToString(&info.tag_name[0], int(C.RTDB_TAG_SIZE)),
-		Desc:    CCharArrayToString(&info.desc[0], int(C.RTDB_DESC_SIZE)),
-		Unit:    CCharArrayToString(&info.unit[0], int(C.RTDB_UNIT_SIZE)),
+		TagName: StringOutDB(CCharArrayToString(&info.tag_name[0], int(C.RTDB_TAG_SIZE))),
+		Desc:    StringOutDB(CCharArrayToString(&info.desc[0], int(C.RTDB_DESC_SIZE))),
+		Unit:    StringOutDB(CCharArrayToString(&info.unit[0], int(C.RTDB_UNIT_SIZE))),
 		Type:    RtdbType(info._type),
 	}
 	return &rtn
@@ -6200,8 +6200,8 @@ func goToCRtdbGraph(graph *C.RTDB_GRAPH) *RtdbGraph {
 	rtn := RtdbGraph{
 		ID:       int32(graph.id),
 		ParentID: int32(graph.parent_id),
-		Tag:      CCharArrayToString(&graph.tag[0], int(C.RTDB_TAG_SIZE)),
-		ErrorMsg: CCharArrayToString(&graph.error_msg[0], int(C.RTDB_DESC_SIZE)),
+		Tag:      StringOutDB(CCharArrayToString(&graph.tag[0], int(C.RTDB_TAG_SIZE))),
+		ErrorMsg: StringOutDB(CCharArrayToString(&graph.error_msg[0], int(C.RTDB_DESC_SIZE))),
 	}
 	return &rtn
 }
@@ -6369,6 +6369,8 @@ func RawRtdbSetOptionWarp(optionType RtdbApiOption, value int32) RtdbError {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_create_datagram_handle_warp(rtdb_int32 port, const char* remotehost, rtdb_datagram_handle* handle)
 func RawRtdbCreateDatagramHandleWarp(port int32, remoteHost string) (DatagramHandle, RtdbError) {
+	remoteHost = StringInDB(remoteHost)
+
 	var handle C.rtdb_datagram_handle
 	cPort := C.rtdb_int32(port)
 	cRemoteHost := C.CString(remoteHost)
@@ -6403,6 +6405,8 @@ func RawRtdbRemoveDatagramHandleWarp(handle DatagramHandle) RtdbError {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_recv_datagram_warp(char* message, rtdb_int32* message_len, rtdb_datagram_handle handle, char* remote_addr, rtdb_int32 timeout)
 func RawRtdbRecvDatagramWarp(handle DatagramHandle, cacheLen int32, remoteAddr string, timeout int32) ([]byte, RtdbError) {
+	remoteAddr = StringInDB(remoteAddr)
+
 	message := make([]byte, cacheLen)
 	cMessage := (*C.char)(unsafe.Pointer(&message[0]))
 	messageLen := C.rtdb_int32(cacheLen)
@@ -6425,6 +6429,8 @@ func RawRtdbRecvDatagramWarp(handle DatagramHandle, cacheLen int32, remoteAddr s
 // raw_fn:
 // - rtdb_error RTDBAPI_CALLRULE rtdb_connect_warp(const char *hostname, rtdb_int32 port, rtdb_int32 *handle)
 func RawRtdbConnectWarp(hostname string, port int32) (ConnectHandle, RtdbError) {
+	hostname = StringInDB(hostname)
+
 	cHostname := C.CString(hostname)
 	defer C.free(unsafe.Pointer(cHostname))
 	cPort := C.rtdb_int32(port)
@@ -6446,6 +6452,9 @@ func RawRtdbConnectWarp(hostname string, port int32) (ConnectHandle, RtdbError) 
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_login_warp(rtdb_int32 handle, const char *user, const char *password, rtdb_int32 *priv)
 func RawRtdbLoginWarp(handle ConnectHandle, user string, password string) (PrivGroup, RtdbError) {
+	user = StringInDB(user)
+	password = StringInDB(password)
+
 	cHandle := C.rtdb_int32(handle)
 	cUser := C.CString(user)
 	defer C.free(unsafe.Pointer(cUser))
@@ -6488,7 +6497,8 @@ func RawRtdbGetDbInfo1Warp(handle ConnectHandle, param RtdbParam) (ParamString, 
 	cSize := C.rtdb_int32(RtdbConstApiServerDescriptionLen)
 	err := C.rtdb_get_db_info1_warp(cHandle, cParam, cStr, cSize)
 	rtn := C.GoString((*C.char)(unsafe.Pointer(&goStr[0])))
-	return ParamString(rtn), RtdbError(err)
+
+	return ParamString(StringOutDB(rtn)), RtdbError(err)
 }
 
 // RawRtdbGetDbInfo2Warp 获得整型数据库系统参数
@@ -6520,6 +6530,8 @@ func RawRtdbGetDbInfo2Warp(handle ConnectHandle, param RtdbParam) (ParamInt, Rtd
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_set_db_info1_warp(rtdb_int32 handle, rtdb_int32 index, const char *str)
 func RawRtdbSetDbInfo1Warp(handle ConnectHandle, param RtdbParam, value ParamString) RtdbError {
+	value = ParamString(StringInDB(string(value)))
+
 	cHandle := C.rtdb_int32(handle)
 	cParam := C.rtdb_int32(param)
 	cValue := C.CString(string(value))
@@ -6676,6 +6688,9 @@ func RawRtdbOsType(handle ConnectHandle) (RtdbOsType, RtdbError) {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_change_password_warp(rtdb_int32 handle, const char *user, const char *password)
 func RawRtdbChangePasswordWarp(handle ConnectHandle, user string, password string) RtdbError {
+	user = StringInDB(user)
+	password = StringOutDB(password)
+
 	cHandle := C.rtdb_int32(handle)
 	cUser := C.CString(user)
 	defer C.free(unsafe.Pointer(cUser))
@@ -6695,6 +6710,9 @@ func RawRtdbChangePasswordWarp(handle ConnectHandle, user string, password strin
 // raw_fn
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_change_my_password_warp(rtdb_int32 handle, const char *old_pwd, const char *new_pwd)
 func RawRtdbChangeMyPasswordWarp(handle ConnectHandle, oldPwd string, newPwd string) RtdbError {
+	oldPwd = StringInDB(oldPwd)
+	newPwd = StringInDB(newPwd)
+
 	cHandle := C.rtdb_int32(handle)
 	cOldPwd := C.CString(oldPwd)
 	defer C.free(unsafe.Pointer(cOldPwd))
@@ -6730,6 +6748,8 @@ func RawRtdbGetPrivWarp(handle ConnectHandle) (PrivGroup, RtdbError) {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_change_priv_warp(rtdb_int32 handle, const char *user, rtdb_int32 priv)
 func RawRtdbChangePrivWarp(handle ConnectHandle, user string, priv PrivGroup) RtdbError {
+	user = StringInDB(user)
+
 	cHandle := C.rtdb_int32(handle)
 	cUser := C.CString(user)
 	defer C.free(unsafe.Pointer(cUser))
@@ -6749,6 +6769,9 @@ func RawRtdbChangePrivWarp(handle ConnectHandle, user string, priv PrivGroup) Rt
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_add_user_warp(rtdb_int32 handle, const char *user, const char *password, rtdb_int32 priv)
 func RawRtdbAddUserWarp(handle ConnectHandle, user string, password string, priv PrivGroup) RtdbError {
+	user = StringInDB(user)
+	password = StringInDB(password)
+
 	cHandle := C.rtdb_int32(handle)
 	cUser := C.CString(user)
 	defer C.free(unsafe.Pointer(cUser))
@@ -6768,6 +6791,8 @@ func RawRtdbAddUserWarp(handle ConnectHandle, user string, password string, priv
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_remove_user_warp(rtdb_int32 handle, const char *user)
 func RawRtdbRemoveUserWarp(handle ConnectHandle, user string) RtdbError {
+	user = StringInDB(user)
+
 	cHandle := C.rtdb_int32(handle)
 	cUser := C.CString(user)
 	defer C.free(unsafe.Pointer(cUser))
@@ -6785,6 +6810,8 @@ func RawRtdbRemoveUserWarp(handle ConnectHandle, user string) RtdbError {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_lock_user_warp(rtdb_int32 handle, const char *user, rtdb_int8 lock)
 func RawRtdbLockUserWarp(handle ConnectHandle, user string, lock Switch) RtdbError {
+	user = StringInDB(user)
+
 	cHandle := C.rtdb_int32(handle)
 	cUser := C.CString(user)
 	defer C.free(unsafe.Pointer(cUser))
@@ -6826,6 +6853,10 @@ func RawRtdbGetUsersWarp(handle ConnectHandle) ([]RtdbUserInfo, RtdbError) {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_add_blacklist_warp(rtdb_int32 handle, const char *addr, const char *mask, const char *desc)
 func RawRtdbAddBlacklistWarp(handle ConnectHandle, addr string, mask string, desc string) RtdbError {
+	addr = StringInDB(addr)
+	mask = StringInDB(mask)
+	desc = StringInDB(desc)
+
 	cHandle := C.rtdb_int32(handle)
 	cAddr := C.CString(addr)
 	defer C.free(unsafe.Pointer(cAddr))
@@ -6850,6 +6881,12 @@ func RawRtdbAddBlacklistWarp(handle ConnectHandle, addr string, mask string, des
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_update_blacklist_warp(rtdb_int32 handle, const char *addr, const char *mask, const char *addr_new, const char *mask_new, const char *desc)
 func RawRtdbUpdateBlacklistWarp(handle ConnectHandle, oldAddr string, oldMask string, newAddr string, newMask string, newDesc string) RtdbError {
+	oldAddr = StringInDB(oldAddr)
+	oldMask = StringInDB(oldMask)
+	newAddr = StringInDB(newAddr)
+	newMask = StringInDB(newMask)
+	newDesc = StringInDB(newDesc)
+
 	cHandle := C.rtdb_int32(handle)
 	cOldAddr := C.CString(oldAddr)
 	defer C.free(unsafe.Pointer(cOldAddr))
@@ -6875,6 +6912,9 @@ func RawRtdbUpdateBlacklistWarp(handle ConnectHandle, oldAddr string, oldMask st
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_remove_blacklist_warp(rtdb_int32 handle, const char *addr, const char *mask)
 func RawRtdbRemoveBlacklistWarp(handle ConnectHandle, addr string, mask string) RtdbError {
+	addr = StringInDB(addr)
+	mask = StringInDB(mask)
+
 	cHandle := C.rtdb_int32(handle)
 	cAddr := C.CString(addr)
 	defer C.free(unsafe.Pointer(cAddr))
@@ -6935,9 +6975,9 @@ func RawRtdbGetBlacklistWarp(handle ConnectHandle) ([]BlackList, RtdbError) {
 	rtn := make([]BlackList, 0)
 	for i := int32(0); i < int32(cCount); i++ {
 		rtn = append(rtn, BlackList{
-			Addr: CCharArrayToString(cAddrs[i], 32),
-			Mask: CCharArrayToString(cMakes[i], 32),
-			Desc: CCharArrayToString(cDescs[i], 512),
+			Addr: StringOutDB(CCharArrayToString(cAddrs[i], 32)),
+			Mask: StringOutDB(CCharArrayToString(cMakes[i], 32)),
+			Desc: StringOutDB(CCharArrayToString(cDescs[i], 512)),
 		})
 	}
 	return rtn, RtdbError(err)
@@ -6955,6 +6995,10 @@ func RawRtdbGetBlacklistWarp(handle ConnectHandle) ([]BlackList, RtdbError) {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_add_authorization_warp(rtdb_int32 handle, const char *addr, const char *mask, rtdb_int32 priv, const char *desc)
 func RawRtdbAddAuthorizationWarp(handle ConnectHandle, addr string, mask string, desc string, priv PrivGroup) RtdbError {
+	addr = StringInDB(addr)
+	mask = StringInDB(mask)
+	desc = StringInDB(desc)
+
 	cHandle := C.rtdb_int32(handle)
 	cAddr := C.CString(addr)
 	defer C.free(unsafe.Pointer(cAddr))
@@ -6981,6 +7025,12 @@ func RawRtdbAddAuthorizationWarp(handle ConnectHandle, addr string, mask string,
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_update_authorization_warp(rtdb_int32 handle, const char *addr, const char *mask, const char *addr_new, const char *mask_new, rtdb_int32 priv, const char *desc)
 func RawRtdbUpdateAuthorizationWarp(handle ConnectHandle, oldAddr string, oldMask string, newAddr string, newMask string, newDesc string, priv PrivGroup) RtdbError {
+	oldAddr = StringInDB(oldAddr)
+	oldMask = StringInDB(oldMask)
+	newAddr = StringInDB(newAddr)
+	newMask = StringInDB(newMask)
+	newDesc = StringInDB(newDesc)
+
 	cHandle := C.rtdb_int32(handle)
 	cOldAddr := C.CString(oldAddr)
 	defer C.free(unsafe.Pointer(cOldAddr))
@@ -7007,6 +7057,9 @@ func RawRtdbUpdateAuthorizationWarp(handle ConnectHandle, oldAddr string, oldMas
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_remove_authorization_warp(rtdb_int32 handle, const char *addr, const char *mask)
 func RawRtdbRemoveAuthorizationWarp(handle ConnectHandle, addr string, mask string) RtdbError {
+	addr = StringInDB(addr)
+	mask = StringInDB(mask)
+
 	cHandle := C.rtdb_int32(handle)
 	cAddr := C.CString(addr)
 	defer C.free(unsafe.Pointer(cAddr))
@@ -7069,9 +7122,9 @@ func RawRtdbGetAuthorizationsWarp(handle ConnectHandle) ([]AuthorizationsList, R
 	rtn := make([]AuthorizationsList, 0)
 	for i := int32(0); i < int32(cCount); i++ {
 		rtn = append(rtn, AuthorizationsList{
-			Addr: CCharArrayToString(cAddrs[i], 32),
-			Mask: CCharArrayToString(cMakes[i], 32),
-			Desc: CCharArrayToString(cDescs[i], 512),
+			Addr: StringOutDB(CCharArrayToString(cAddrs[i], 32)),
+			Mask: StringOutDB(CCharArrayToString(cMakes[i], 32)),
+			Desc: StringOutDB(CCharArrayToString(cDescs[i], 512)),
 			Priv: privs[i],
 		})
 	}
@@ -7131,7 +7184,7 @@ func RawRtdbFormatTimespanWarp(timespan int32) (string, RtdbError) {
 	defer C.free(unsafe.Pointer(cStr))
 	cDatetime := C.rtdb_int32(timespan)
 	err := C.rtdb_format_timespan_warp(cStr, cDatetime)
-	tStr := C.GoString(cStr)
+	tStr := StringOutDB(C.GoString(cStr))
 	return tStr, RtdbError(err)
 }
 
@@ -7156,6 +7209,8 @@ func RawRtdbFormatTimespanWarp(timespan int32) (string, RtdbError) {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_parse_timespan_warp(const char *str, rtdb_int32 *timespan)
 func RawRtdbParseTimespanWarp(tStr string) (DateTimeType, RtdbError) {
+	tStr = StringInDB(tStr)
+
 	cStr := C.CString(tStr)
 	defer C.free(unsafe.Pointer(cStr))
 	duration := C.rtdb_int32(0)
@@ -7201,6 +7256,8 @@ func RawRtdbParseTimespanWarp(tStr string) (DateTimeType, RtdbError) {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_parse_time_warp(const char *str, rtdb_int64 *datetime, rtdb_int16 *ms)
 func RawRtdbParseTimeWarp(tStr string) (TimestampType, SubtimeType, RtdbError) {
+	tStr = StringInDB(tStr)
+
 	cStr := C.CString(tStr)
 	defer C.free(unsafe.Pointer(cStr))
 	datetime := C.rtdb_int64(0)
@@ -7228,7 +7285,7 @@ func RawRtdbFormatMessageWarp(err RtdbError) (string, string) {
 	defer C.free(unsafe.Pointer(cName))
 	cSize := C.rtdb_int32(10240)
 	C.rtdb_format_message_warp(cErr, cMessage, cName, cSize)
-	return C.GoString(cName), C.GoString(cMessage)
+	return StringOutDB(C.GoString(cName)), StringOutDB(C.GoString(cMessage))
 }
 
 // RawRtdbJobMessageWarp 获取任务的简短描述
@@ -7250,7 +7307,7 @@ func RawRtdbJobMessageWarp(jobID int32) (string, string) {
 	cSize := C.rtdb_int32(1024)
 	cJob := C.rtdb_int32(jobID)
 	C.rtdb_job_message_warp(cJob, cDesc, cName, cSize)
-	return C.GoString(cName), C.GoString(cDesc)
+	return StringOutDB(C.GoString(cName)), StringOutDB(C.GoString(cDesc))
 }
 
 // RawRtdbSetTimeoutWarp 设置连接超时时间
@@ -7322,7 +7379,7 @@ func RawRtdbGetLogicalDriversWarp(handle ConnectHandle) ([]string, RtdbError) {
 	sDs := C.GoString(cDrives)
 	rtn := make([]string, 0)
 	for _, c := range sDs {
-		rtn = append(rtn, string(c))
+		rtn = append(rtn, StringOutDB(string(c)))
 	}
 	return rtn, RtdbError(err)
 }
@@ -7336,6 +7393,8 @@ func RawRtdbGetLogicalDriversWarp(handle ConnectHandle) ([]string, RtdbError) {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_open_path_warp(rtdb_int32 handle, const char *dir)
 func RawRtdbOpenPathWarp(handle ConnectHandle, dir string) RtdbError {
+	dir = StringInDB(dir)
+
 	cHandle := C.rtdb_int32(handle)
 	cDir := C.CString(dir)
 	defer C.free(unsafe.Pointer(cDir))
@@ -7419,7 +7478,7 @@ func RawRtdbReadPath64Warp(handle ConnectHandle) (DirItem, RtdbError) {
 	rtnSize := int64(cSize)
 
 	item := DirItem{
-		Path:  rtnPath,
+		Path:  StringOutDB(rtnPath),
 		IsDir: rtnIsDir,
 		ATime: rtnATime,
 		CTime: rtnCTime,
@@ -7452,6 +7511,8 @@ func RawRtdbClosePathWarp(handle ConnectHandle) RtdbError {
 // output:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_mkdir_warp(rtdb_int32 handle, const char *dir)
 func RawRtdbMkdirWarp(handle ConnectHandle, dirName string) RtdbError {
+	dirName = StringInDB(dirName)
+
 	cDirName := C.CString(dirName)
 	defer C.free(unsafe.Pointer(cDirName))
 	err := C.rtdb_mkdir_warp(C.rtdb_int32(handle), cDirName)
@@ -7470,6 +7531,8 @@ func RawRtdbMkdirWarp(handle ConnectHandle, dirName string) RtdbError {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_get_file_size_warp(rtdb_int32 handle, const char *file, rtdb_int64 *size)
 func RawRtdbGetFileSizeWarp(handle ConnectHandle, filePath string) (int64, RtdbError) {
+	filePath = StringInDB(filePath)
+
 	cHandle := C.rtdb_int32(handle)
 	cFilePath := C.CString(filePath)
 	defer C.free(unsafe.Pointer(cFilePath))
@@ -7491,6 +7554,8 @@ func RawRtdbGetFileSizeWarp(handle ConnectHandle, filePath string) (int64, RtdbE
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_read_file_warp(rtdb_int32 handle, const char *file, char *content, rtdb_int64 pos, rtdb_int64 *size)
 func RawRtdbReadFileWarp(handle ConnectHandle, filePath string, pos int64, cacheSize int64) ([]byte, RtdbError) {
+	filePath = StringInDB(filePath)
+
 	cHandle := C.rtdb_int32(handle)
 	cFilePath := C.CString(filePath)
 	defer C.free(unsafe.Pointer(cFilePath))
@@ -7557,7 +7622,7 @@ func RawRtdbFormatQualityWarp(handle ConnectHandle, qualities []Quality) ([]stri
 	rtnDefinitions := make([]string, 0)
 	for i := 0; i < int(cCount); i++ {
 		bs := C.GoBytes(unsafe.Pointer(definitions[i]), 256)
-		st := string(bs[3:lens[i]])
+		st := StringOutDB(string(bs[3:lens[i]]))
 		rtnDefinitions = append(rtnDefinitions, st)
 	}
 
@@ -7611,6 +7676,9 @@ func RawRtdbJudgeConnectStatusWarp(handle ConnectHandle) RtdbError {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_append_table_warp(rtdb_int32 handle, RTDB_TABLE *field)
 func RawRtdbbAppendTableWarp(handle ConnectHandle, tableName, tableDesc string) (RtdbTable, RtdbError) {
+	tableName = StringInDB(tableName)
+	tableDesc = StringInDB(tableDesc)
+
 	cHandle := C.rtdb_int32(handle)
 	table := C.RTDB_TABLE{}
 	GoStringToCCharArray(tableName, &table.name[0], int(C.RTDB_TAG_SIZE))
@@ -7643,6 +7711,8 @@ func RawRtdbbRemoveTableByIdWarp(handle ConnectHandle, tableID TableID) RtdbErro
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_remove_table_by_name_warp(rtdb_int32 handle, const char *name)
 func RawRtdbbRemoveTableByNameWarp(handle ConnectHandle, name string) RtdbError {
+	name = StringInDB(name)
+
 	cHandle := C.rtdb_int32(handle)
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
@@ -7721,6 +7791,8 @@ func RawRtdbbGetTableSizeByIdWarp(handle ConnectHandle, tableID TableID) (int32,
 // raw_fn:
 // rtdb_error RTDBAPI_CALLRULE rtdbb_get_table_size_by_name_warp(rtdb_int32 handle, const char *name, rtdb_int32 *size)
 func RawRtdbbGetTableSizeByNameWarp(handle ConnectHandle, tableName string) (int32, RtdbError) {
+	tableName = StringInDB(tableName)
+
 	cHandle := C.rtdb_int32(handle)
 	cSize := C.rtdb_int32(0)
 	cName := C.CString(tableName)
@@ -7778,6 +7850,8 @@ func RawRtdbbGetTablePropertyByIdWarp(handle ConnectHandle, tableID TableID) (Rt
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_get_table_property_by_name_warp(rtdb_int32 handle, RTDB_TABLE *field)
 func RawRtdbbGetTablePropertyByNameWarp(handle ConnectHandle, tableName string) (RtdbTable, RtdbError) {
+	tableName = StringInDB(tableName)
+
 	cHandle := C.rtdb_int32(handle)
 	table := C.RTDB_TABLE{}
 	GoStringToCCharArray(tableName, &table.name[0], int(C.RTDB_TAG_SIZE))
@@ -7847,6 +7921,8 @@ func RawRtdbbRemovePointByIdWarp(handle ConnectHandle, id PointID) RtdbError {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_remove_point_by_name_warp(rtdb_int32 handle, const char *table_dot_tag)
 func RawRtdbbRemovePointByNameWarp(handle ConnectHandle, tableDotTag string) RtdbError {
+	tableDotTag = StringInDB(tableDotTag)
+
 	cHandle := C.rtdb_int32(handle)
 	cTableDotTag := C.CString(tableDotTag)
 	defer C.free(unsafe.Pointer(cTableDotTag))
@@ -7898,6 +7974,8 @@ func RawRtdbbRemovePointByNameWarp(handle ConnectHandle, tableDotTag string) Rtd
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_insert_named_type_point_warp(rtdb_int32 handle, RTDB_POINT *base, RTDB_SCAN_POINT *scan, const char* name)
 func RawRtdbbInsertNamedTypePointWarp(handle ConnectHandle, base *RtdbPoint, scan *RtdbScan, name string) (*RtdbPoint, *RtdbScan, RtdbError) {
+	name = StringInDB(name)
+
 	cHandle := C.rtdb_int32(handle)
 	cBase := goToCRtdbPoint(base)
 	cScan := goToCRtdbScan(scan)
@@ -7917,6 +7995,8 @@ func RawRtdbbInsertNamedTypePointWarp(handle ConnectHandle, base *RtdbPoint, sca
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_move_point_by_id_warp(rtdb_int32 handle, rtdb_int32 id, const char* dest_table_name)
 func RawRtdbbMovePointByIdWarp(handle ConnectHandle, id PointID, tableName string) RtdbError {
+	tableName = StringInDB(tableName)
+
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cTableName := C.CString(tableName)
@@ -8046,6 +8126,13 @@ func RawRtdbbGetMaxPointsPropertyWarp(handle ConnectHandle, ids []PointID) ([]Rt
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_search_in_batches_warp(rtdb_int32 handle, rtdb_int32 start, const char *tagmask, const char *tablemask, const char *source, const char *unit, const char *desc, const char *instrument, rtdb_int32 mode, rtdb_int32 *ids, rtdb_int32 *count)
 func RawRtdbbSearchInBatchesWarp(handle ConnectHandle, start int32, count int32, tagMask, tableMask, source, unit, desc, instrument string, model RtdbSortFlag) ([]PointID, RtdbError) {
+	tagMask = StringInDB(tagMask)
+	tableMask = StringInDB(tableMask)
+	source = StringInDB(source)
+	unit = StringInDB(unit)
+	desc = StringInDB(desc)
+	instrument = StringInDB(instrument)
+
 	cHandle := C.rtdb_int32(handle)
 	cStart := C.rtdb_int32(start)
 	if strings.TrimSpace(tagMask) == "" {
@@ -8100,6 +8187,15 @@ func RawRtdbbSearchInBatchesWarp(handle ConnectHandle, start int32, count int32,
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_search_ex_warp(rtdb_int32 handle, const char *tagmask, const char *tablemask, const char *source, const char *unit, const char *desc, const char *instrument, const char *typemask, rtdb_int32 classofmask, rtdb_int32 timeunitmask, rtdb_int32 othertypemask, const char *othertypemaskvalue, rtdb_int32 mode, rtdb_int32 *ids, rtdb_int32 *count)
 func RawRtdbbSearchExWarp(handle ConnectHandle, maxCount int32, tagMask, tableMask, source, unit, desc, instrument, typeMask string, classOfMask RtdbType, timeUnitMask RtdbPrecision, otherTypeMask RtdbSearch, otherTypeMaskValue string, model RtdbSortFlag) ([]PointID, RtdbError) {
+	tagMask = StringInDB(tagMask)
+	tableMask = StringInDB(tableMask)
+	source = StringInDB(source)
+	unit = StringInDB(unit)
+	desc = StringInDB(desc)
+	instrument = StringInDB(instrument)
+	typeMask = StringInDB(typeMask)
+	otherTypeMaskValue = StringInDB(otherTypeMaskValue)
+
 	if maxCount == 0 {
 		return []PointID{}, RteOk
 	}
@@ -8161,6 +8257,15 @@ func RawRtdbbSearchExWarp(handle ConnectHandle, maxCount int32, tagMask, tableMa
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_search_points_count_warp(rtdb_int32 handle, const char *tagmask, const char *tablemask, const char *source, const char *unit, const char *desc, const char *instrument, const char *typemask, rtdb_int32 classofmask, rtdb_int32 timeunitmask, rtdb_int32 othertypemask, const char *othertypemaskvalue, rtdb_int32 *count)
 func RawRtdbbSearchPointsCountWarp(handle ConnectHandle, tagMask, tableMask, source, unit, desc, instrument, typeMask string, classOfMask RtdbType, timeUnitMask RtdbPrecision, otherTypeMask RtdbSearch, otherTypeMaskValue string) (int32, RtdbError) {
+	tagMask = StringInDB(tagMask)
+	tableMask = StringInDB(tableMask)
+	source = StringInDB(source)
+	unit = StringInDB(unit)
+	desc = StringInDB(desc)
+	instrument = StringInDB(instrument)
+	typeMask = StringInDB(typeMask)
+	otherTypeMaskValue = StringInDB(otherTypeMaskValue)
+
 	cHandle := C.rtdb_int32(handle)
 	if strings.TrimSpace(tagMask) == "" {
 		tagMask = "*"
@@ -8299,7 +8404,7 @@ func RawRtdbbFindPointsExWarp(handle ConnectHandle, tableDotTags []string) ([]Po
 	cHandle := C.rtdb_int32(handle)
 	tableDotTagsList := make([]*C.char, count)
 	for i := 0; i < count; i++ {
-		tableDotTagsList[i] = C.CString(tableDotTags[i])
+		tableDotTagsList[i] = C.CString(StringInDB(tableDotTags[i]))
 	}
 	defer func() {
 		for i := 0; i < count; i++ {
@@ -8356,6 +8461,8 @@ func RawRtdbbSortPointsWarp(handle ConnectHandle, ids []PointID, index RtdbTagIn
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_update_table_name_warp(rtdb_int32 handle, rtdb_int32 tab_id, const char *name)
 func RawRtdbbUpdateTableNameWarp(handle ConnectHandle, id TableID, name string) RtdbError {
+	name = StringInDB(name)
+
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cName := C.CString(name)
@@ -8374,6 +8481,8 @@ func RawRtdbbUpdateTableNameWarp(handle ConnectHandle, id TableID, name string) 
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_update_table_desc_by_id_warp(rtdb_int32 handle, rtdb_int32 tab_id, const char *desc)
 func RawRtdbbUpdateTableDescByIdWarp(handle ConnectHandle, id TableID, desc string) RtdbError {
+	desc = StringInDB(desc)
+
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cDesc := C.CString(desc)
@@ -8392,6 +8501,9 @@ func RawRtdbbUpdateTableDescByIdWarp(handle ConnectHandle, id TableID, desc stri
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_update_table_desc_by_name_warp(rtdb_int32 handle, const char *name, const char *desc)
 func RawRtdbbUpdateTableDescByNameWarp(handle ConnectHandle, name string, desc string) RtdbError {
+	name = StringInDB(name)
+	desc = StringInDB(desc)
+
 	cHandle := C.rtdb_int32(handle)
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
@@ -8518,6 +8630,13 @@ func RawRtdbbGetRecycledPointsWarp(handle ConnectHandle, count int32) ([]PointID
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_search_recycled_points_in_batches_warp(rtdb_int32 handle, rtdb_int32 start, const char *tagmask, const char *fullmask, const char *source, const char *unit, const char *desc, const char *instrument, rtdb_int32 mode, rtdb_int32 *ids, rtdb_int32 *count)
 func RawRtdbbSearchRecycledPointsInBatchesWarp(handle ConnectHandle, start int32, count int32, tagMask, fullMask, source, unit, desc, instrument string, mode RtdbSortFlag) ([]PointID, RtdbError) {
+	tagMask = StringInDB(tagMask)
+	fullMask = StringInDB(fullMask)
+	source = StringInDB(source)
+	unit = StringInDB(unit)
+	desc = StringInDB(desc)
+	instrument = StringInDB(instrument)
+
 	if count == 0 {
 		return []PointID{}, RteOk
 	}
@@ -8616,6 +8735,8 @@ func RawRtdbbClearRecyclerWarp(handle ConnectHandle) RtdbError {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_subscribe_tags_ex_warp(rtdb_int32 handle, rtdb_uint32 options, void* param, rtdbb_tags_change_event_ex callback)
 func RawRtdbbSubscribeTagsExWarp(handle ConnectHandle, options RtdbSubscribeOption, name string) (unsafe.Pointer, RtdbError) {
+	name = StringInDB(name)
+
 	cName := C.CString(name)
 	cHandle := C.rtdb_int32(handle)
 	cOptions := C.rtdb_uint32(options)
@@ -8647,6 +8768,9 @@ func RawRtdbbCancelSubscribeTagsWarp(handle ConnectHandle, param unsafe.Pointer)
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_create_named_type_warp(rtdb_int32 handle, const char* name, rtdb_int32 field_count, const RTDB_DATA_TYPE_FIELD* fields, char desc[RTDB_DESC_SIZE])
 func RawRtdbbCreateNamedTypeWarp(handle ConnectHandle, name string, desc string, fields ...RtdbDataTypeField) RtdbError {
+	name = StringInDB(name)
+	desc = StringInDB(desc)
+
 	cHandle := C.rtdb_int32(handle)
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
@@ -8711,7 +8835,7 @@ func RawRtdbbGetAllNamedTypesWarp(handle ConnectHandle, count int32) ([]string, 
 	err := C.rtdbb_get_all_named_types_warp(cHandle, &cCount, cNames, cCounts)
 	goNames := make([]string, 0)
 	for i := 0; i < int(cCount); i++ {
-		goNames = append(goNames, C.GoString(names[i]))
+		goNames = append(goNames, StringOutDB(C.GoString(names[i])))
 	}
 	return goNames, counts[:cCount], RtdbError(err)
 }
@@ -8731,6 +8855,8 @@ func RawRtdbbGetAllNamedTypesWarp(handle ConnectHandle, count int32) ([]string, 
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_get_named_type_warp(rtdb_int32 handle, const char* name, rtdb_int32* field_count, RTDB_DATA_TYPE_FIELD* fields, rtdb_int32* type_size, char desc[RTDB_DESC_SIZE])
 func RawRtdbbGetNamedTypeWarp(handle ConnectHandle, name string, fieldCount int32) ([]RtdbDataTypeField, int32, string, RtdbError) {
+	name = StringInDB(name)
+
 	cHandle := C.rtdb_int32(handle)
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
@@ -8743,7 +8869,7 @@ func RawRtdbbGetNamedTypeWarp(handle ConnectHandle, name string, fieldCount int3
 	for _, field := range fields[:cFieldCount] {
 		rtn = append(rtn, *cToRtdbDataTypeField(&field))
 	}
-	goDesc := CCharArrayToString(&desc[0], int(C.RTDB_DESC_SIZE))
+	goDesc := StringOutDB(CCharArrayToString(&desc[0], int(C.RTDB_DESC_SIZE)))
 	return rtn, int32(typeSize), goDesc, RtdbError(err)
 }
 
@@ -8756,6 +8882,8 @@ func RawRtdbbGetNamedTypeWarp(handle ConnectHandle, name string, fieldCount int3
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_remove_named_type_warp(rtdb_int32 handle, const char* name, rtdb_int32 reserved GAPI_DEFAULT_VALUE(0))
 func RawRtdbbRemoveNamedTypeWarp(handle ConnectHandle, name string) RtdbError {
+	name = StringInDB(name)
+
 	cHandle := C.rtdb_int32(handle)
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
@@ -8798,7 +8926,7 @@ func RawRtdbbGetNamedTypeNamesPropertyWarp(handle ConnectHandle, ids []PointID) 
 	err := C.rtdbb_get_named_type_names_property_warp(cHandle, &cCount, cIds, cNamedTypeNames, cCounts, cErrs)
 	names := make([]string, 0)
 	for i := 0; i < count; i++ {
-		names = append(names, C.GoString(namedTypeNames[i]))
+		names = append(names, StringOutDB(C.GoString(namedTypeNames[i])))
 	}
 	return names, counts, errs, RtdbError(err)
 }
@@ -8838,7 +8966,7 @@ func RawRtdbbGetRecycledNamedTypeNamesPropertyWarp(handle ConnectHandle, ids []P
 	err := C.rtdbb_get_recycled_named_type_names_property_warp(cHandle, &cCount, cIds, cNamedTypeNames, cCounts, cErrs)
 	names := make([]string, 0)
 	for i := 0; i < int(count); i++ {
-		names = append(names, C.GoString(namedTypeNames[i]))
+		names = append(names, StringOutDB(C.GoString(namedTypeNames[i])))
 	}
 	return names, fieldCounts, errs, RtdbError(err)
 }
@@ -8855,6 +8983,8 @@ func RawRtdbbGetRecycledNamedTypeNamesPropertyWarp(handle ConnectHandle, ids []P
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_get_named_type_points_count_warp(rtdb_int32 handle, const char* name, rtdb_int32 *points_count)
 func RawRtdbbGetNamedTypePointsCountWarp(handle ConnectHandle, name string) (int32, RtdbError) {
+	name = StringInDB(name)
+
 	cHandle := C.rtdb_int32(handle)
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
@@ -8895,17 +9025,19 @@ func RawRtdbbGetBaseTypePointsCountWarp(handle ConnectHandle, rtdbType RtdbType)
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_modify_named_type_warp(rtdb_int32 handle, const char* name, const char* modify_name, const char* modify_desc, const char* modify_field_name[RTDB_TYPE_NAME_SIZE], const char* modify_field_desc[RTDB_DESC_SIZE], rtdb_int32 field_count)
 func RawRtdbbModifyNamedTypeWarp(handle ConnectHandle, name string, modifyName *string, modifyDesc *string, fieldNames []string, fieldDescs []string) RtdbError {
+	name = StringInDB(name)
+
 	cHandle := C.rtdb_int32(handle)
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	cModifyName := (*C.char)(unsafe.Pointer(nil))
 	if modifyName != nil {
-		cModifyName = C.CString(*modifyName)
+		cModifyName = C.CString(StringInDB(*modifyName))
 		defer C.free(unsafe.Pointer(cModifyName))
 	}
 	cModifyDesc := (*C.char)(unsafe.Pointer(nil))
 	if modifyDesc != nil {
-		cModifyDesc = C.CString(*modifyDesc)
+		cModifyDesc = C.CString(StringInDB(*modifyDesc))
 		defer C.free(unsafe.Pointer(cModifyDesc))
 	}
 	if len(fieldNames) == 0 {
@@ -8915,7 +9047,7 @@ func RawRtdbbModifyNamedTypeWarp(handle ConnectHandle, name string, modifyName *
 		cFieldLen := C.rtdb_int32(len(fieldNames))
 		names := make([]*C.char, len(fieldNames))
 		for i, n := range fieldNames {
-			names[i] = C.CString(n)
+			names[i] = C.CString(StringInDB(n))
 		}
 		defer func() {
 			for _, n := range names {
@@ -8925,7 +9057,7 @@ func RawRtdbbModifyNamedTypeWarp(handle ConnectHandle, name string, modifyName *
 		cNames := (**C.char)(unsafe.Pointer(&names[0]))
 		descs := make([]*C.char, len(fieldDescs))
 		for i, d := range fieldDescs {
-			descs[i] = C.CString(d)
+			descs[i] = C.CString(StringInDB(d))
 		}
 		defer func() {
 			for _, d := range descs {
@@ -9206,7 +9338,7 @@ func RawRtdbsFixCoorSnapshots64Warp(handle ConnectHandle, ids []PointID, datetim
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbs_get_blob_snapshot64_warp(rtdb_int32 handle, rtdb_int32 id, rtdb_timestamp_type* datetime, rtdb_subtime_type* subtime, rtdb_byte* blob, rtdb_length_type* len, rtdb_int16* quality)
-func RawRtdbsGetBlobSnapshot64Warp(handle ConnectHandle, id PointID, maxLen int32) (TimestampType, SubtimeType, []byte, Quality, RtdbError) {
+func RawRtdbsGetBlobSnapshot64Warp(handle ConnectHandle, id PointID, isString bool, maxLen int32) (TimestampType, SubtimeType, []byte, Quality, RtdbError) {
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	datetime := C.rtdb_timestamp_type(0)
@@ -9216,6 +9348,9 @@ func RawRtdbsGetBlobSnapshot64Warp(handle ConnectHandle, id PointID, maxLen int3
 	quality := C.rtdb_int16(0)
 	length := C.rtdb_length_type(len(blob))
 	e := C.rtdbs_get_blob_snapshot64_warp(cHandle, cId, &datetime, &subtime, cBlob, &length, &quality)
+	if isString {
+		blob = []byte(StringOutDB(string(blob[:length])))
+	}
 	return TimestampType(datetime), SubtimeType(subtime), blob[:length], Quality(quality), RtdbError(e)
 }
 
@@ -9234,7 +9369,7 @@ func RawRtdbsGetBlobSnapshot64Warp(handle ConnectHandle, id PointID, maxLen int3
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbs_get_blob_snapshots64_warp(rtdb_int32 handle, rtdb_int32* count, const rtdb_int32* ids, rtdb_timestamp_type* datetimes, rtdb_subtime_type* subtimes, rtdb_byte* const* blobs, rtdb_length_type* lens, rtdb_int16* qualities, rtdb_error* errors)
-func RawRtdbsGetBlobSnapshots64Warp(handle ConnectHandle, ids []PointID, maxLen int32) ([]TimestampType, []SubtimeType, [][]byte, []Quality, []RtdbError, RtdbError) {
+func RawRtdbsGetBlobSnapshots64Warp(handle ConnectHandle, ids []PointID, isString []bool, maxLen int32) ([]TimestampType, []SubtimeType, [][]byte, []Quality, []RtdbError, RtdbError) {
 	cHandle := C.rtdb_int32(handle)
 	cCount := C.rtdb_int32(len(ids))
 	cIds := (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
@@ -9264,7 +9399,11 @@ func RawRtdbsGetBlobSnapshots64Warp(handle ConnectHandle, ids []PointID, maxLen 
 	err := C.rtdbs_get_blob_snapshots64_warp(cHandle, &cCount, cIds, cDatetimes, cSubtimes, cBlobs, cLens, cQualities, cErrs)
 	goBlobs := make([][]byte, 0)
 	for i := 0; i < len(ids); i++ {
-		goBlobs = append(goBlobs, C.GoBytes(unsafe.Pointer(blobs[i]), C.int(lens[i])))
+		if isString[i] {
+			goBlobs = append(goBlobs, []byte(StringOutDB(string(C.GoBytes(unsafe.Pointer(blobs[i]), C.int(lens[i]))))))
+		} else {
+			goBlobs = append(goBlobs, C.GoBytes(unsafe.Pointer(blobs[i]), C.int(lens[i])))
+		}
 	}
 	return datetimes, subtimes, goBlobs, qualities, errs, RtdbError(err)
 }
@@ -9281,7 +9420,11 @@ func RawRtdbsGetBlobSnapshots64Warp(handle ConnectHandle, ids []PointID, maxLen 
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbs_put_blob_snapshot64_warp(rtdb_int32 handle, rtdb_int32 id, rtdb_timestamp_type datetime, rtdb_subtime_type subtime, const rtdb_byte* blob, rtdb_length_type len, rtdb_int16 quality)
-func RawRtdbsPutBlobSnapshot64Warp(handle ConnectHandle, id PointID, datetime TimestampType, subtime SubtimeType, blob []byte, quality Quality) RtdbError {
+func RawRtdbsPutBlobSnapshot64Warp(handle ConnectHandle, id PointID, isString bool, datetime TimestampType, subtime SubtimeType, blob []byte, quality Quality) RtdbError {
+	if isString {
+		blob = []byte(StringInDB(string(blob)))
+	}
+
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cDatetime := C.rtdb_timestamp_type(datetime)
@@ -9307,7 +9450,13 @@ func RawRtdbsPutBlobSnapshot64Warp(handle ConnectHandle, id PointID, datetime Ti
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbs_put_blob_snapshots64_warp(rtdb_int32 handle, rtdb_int32* count, const rtdb_int32* ids, const rtdb_timestamp_type* datetimes, const rtdb_subtime_type* subtimes, const rtdb_byte* const* blobs, const rtdb_length_type* lens, const rtdb_int16* qualities, rtdb_error* errors)
-func RawRtdbsPutBlobSnapshots64Warp(handle ConnectHandle, ids []PointID, datetimes []TimestampType, subtimes []SubtimeType, blobs [][]byte, qualities []Quality) ([]RtdbError, RtdbError) {
+func RawRtdbsPutBlobSnapshots64Warp(handle ConnectHandle, ids []PointID, isString []bool, datetimes []TimestampType, subtimes []SubtimeType, blobs [][]byte, qualities []Quality) ([]RtdbError, RtdbError) {
+	for i := 0; i < len(blobs); i++ {
+		if isString[i] {
+			blobs[i] = []byte(StringInDB(string(blobs[i])))
+		}
+	}
+
 	cHandle := C.rtdb_int32(handle)
 	cCount := C.rtdb_int32(len(ids))
 	cIds := (*C.rtdb_int32)(&ids[0])
@@ -9385,7 +9534,7 @@ func RawRtdbsGetDatetimeSnapshots64Warp(handle ConnectHandle, ids []PointID, typ
 	goValues := make([]string, 0)
 	for i, v := range dtValues {
 		vv := C.GoBytes(unsafe.Pointer(v), 128)
-		goValues = append(goValues, string(vv[:dtLens[i]]))
+		goValues = append(goValues, StringOutDB(string(vv[:dtLens[i]])))
 	}
 	return datetimes, subtimes, goValues, qualities, errs, RtdbError(err)
 }
@@ -9413,7 +9562,7 @@ func RawRtdbsPutDatetimeSnapshots64Warp(handle ConnectHandle, ids []PointID, dat
 	cSubtimes := (*C.rtdb_subtime_type)(unsafe.Pointer(&subtimes[0]))
 	values := make([]*C.char, len(dtValues))
 	for i, v := range dtValues {
-		values[i] = C.CString(v)
+		values[i] = C.CString(StringInDB(v))
 	}
 	defer func() {
 		for i := 0; i < len(values); i++ {
@@ -9484,6 +9633,8 @@ func RawRtdbsPutDatetimeSnapshots64Warp(handle ConnectHandle, ids []PointID, dat
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbs_subscribe_snapshots_ex64_warp(rtdb_int32 handle, rtdb_int32* count, const rtdb_int32* ids, rtdb_uint32 options, void* param, rtdbs_snaps_event_ex64 callback, rtdb_error* errors)
 func RawRtdbsSubscribeSnapshotsEx64Warp(handle ConnectHandle, ids []PointID, options RtdbSubscribeOption, name string) (unsafe.Pointer, []RtdbError, RtdbError) {
+	name = StringInDB(name)
+
 	cName := C.CString(name)
 	cHandle := C.rtdb_int32(handle)
 	cCount := C.rtdb_int32(len(ids))
@@ -9546,6 +9697,8 @@ func RawRtdbsSubscribeSnapshotsEx64Warp(handle ConnectHandle, ids []PointID, opt
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbs_subscribe_delta_snapshots64_warp(rtdb_int32 handle, rtdb_int32* count, const rtdb_int32* ids, const rtdb_float64* delta_values, const rtdb_int64* delta_states, rtdb_uint32 options, void* param, rtdbs_snaps_event_ex64 callback, rtdb_error* errors)
 func RawRtdbsSubscribeDeltaSnapshots64Warp(handle ConnectHandle, ids []PointID, deltaValues []float64, deltaStates []int64, options RtdbSubscribeOption, name string) (unsafe.Pointer, []RtdbError, RtdbError) {
+	name = StringInDB(name)
+
 	cName := C.CString(name)
 	cHandle := C.rtdb_int32(handle)
 	cCount := C.rtdb_int32(len(ids))
@@ -9778,6 +9931,9 @@ func RawRtdbaGetArchivesCountWarp(handle ConnectHandle) (int32, RtdbError) {
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdba_create_ranged_archive64_warp(rtdb_int32 handle, const char* path, const char* file, rtdb_timestamp_type begin, rtdb_timestamp_type end, rtdb_int32 mb_size)
 func RawRtdbaCreateRangedArchive64Warp(handle ConnectHandle, path string, file string, begin TimestampType, end TimestampType, mbSize int32) RtdbError {
+	path = StringInDB(path)
+	file = StringInDB(file)
+
 	cHandle := C.rtdb_int32(handle)
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
@@ -9801,6 +9957,9 @@ func RawRtdbaCreateRangedArchive64Warp(handle ConnectHandle, path string, file s
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdba_append_archive_warp(rtdb_int32 handle, const char *path, const char *file, rtdb_int32 state)
 func RawRtdbaAppendArchiveWarp(handle ConnectHandle, path string, file string, state RtdbArchiveState) RtdbError {
+	path = StringInDB(path)
+	file = StringInDB(file)
+
 	cHandle := C.rtdb_int32(handle)
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
@@ -9821,6 +9980,9 @@ func RawRtdbaAppendArchiveWarp(handle ConnectHandle, path string, file string, s
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdba_remove_archive_warp(rtdb_int32 handle, const char *path, const char *file)
 func RawRtdbaRemoveArchiveWarp(handle ConnectHandle, path string, file string) RtdbError {
+	path = StringInDB(path)
+	file = StringInDB(file)
+
 	cHandle := C.rtdb_int32(handle)
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
@@ -9878,12 +10040,12 @@ func RawRtdbaGetArchivesWarp(handle ConnectHandle, maxCount int32) ([]string, []
 	goPaths := make([]string, 0)
 	for i := int32(0); i < int32(cCount); i++ {
 		str := C.GoString((*C.char)(unsafe.Pointer(&paths[i][0])))
-		goPaths = append(goPaths, str)
+		goPaths = append(goPaths, StringOutDB(str))
 	}
 	goFiles := make([]string, 0)
 	for i := int32(0); i < int32(cCount); i++ {
 		str := C.GoString((*C.char)(unsafe.Pointer(&files[i][0])))
-		goFiles = append(goFiles, str)
+		goFiles = append(goFiles, StringOutDB(str))
 	}
 	return goPaths[:cCount], goFiles[:cCount], states[:cCount], RtdbError(e)
 }
@@ -9917,12 +10079,12 @@ func RawRtdbaGetArchivesInfoWarp(handle ConnectHandle, count int32) ([]string, [
 	goPaths := make([]string, 0)
 	for i := int32(0); i < int32(cCount); i++ {
 		str := C.GoString((*C.char)(unsafe.Pointer(&paths[i][0])))
-		goPaths = append(goPaths, str)
+		goPaths = append(goPaths, StringOutDB(str))
 	}
 	goFiles := make([]string, 0)
 	for i := int32(0); i < int32(cCount); i++ {
 		str := C.GoString((*C.char)(unsafe.Pointer(&files[i][0])))
-		goFiles = append(goFiles, str)
+		goFiles = append(goFiles, StringOutDB(str))
 	}
 	goPages := make([]RtdbHeaderPage, 0)
 	for i := int32(0); i < int32(cCount); i++ {
@@ -9963,12 +10125,12 @@ func RawRtdbaGetArchivesPerfDataWarp(handle ConnectHandle, count int32) ([]strin
 	goPaths := make([]string, 0)
 	for i := int32(0); i < int32(cCount); i++ {
 		str := C.GoString((*C.char)(unsafe.Pointer(&paths[i][0])))
-		goPaths = append(goPaths, str)
+		goPaths = append(goPaths, StringOutDB(str))
 	}
 	goFiles := make([]string, 0)
 	for i := int32(0); i < int32(cCount); i++ {
 		str := C.GoString((*C.char)(unsafe.Pointer(&files[i][0])))
-		goFiles = append(goFiles, str)
+		goFiles = append(goFiles, StringOutDB(str))
 	}
 	goReadTimeDatas := make([]RtdbArchivePerfData, 0)
 	for i := int32(0); i < int32(cCount); i++ {
@@ -10012,6 +10174,9 @@ func RawRtdbaGetArchivesStatusWarp(handle ConnectHandle) (RtdbArchiveState, Rtdb
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdba_get_archive_info_warp(rtdb_int32 handle, const char *path, const char *file, rtdb_int32 file_id, RTDB_HEADER_PAGE *info)
 func RawRtdbaGetArchiveInfoWarp(handle ConnectHandle, path string, file string, fileId int32) (*RtdbHeaderPage, RtdbError) {
+	path = StringInDB(path)
+	file = StringInDB(file)
+
 	cHandle := C.rtdb_int32(handle)
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
@@ -10039,6 +10204,9 @@ func RawRtdbaGetArchiveInfoWarp(handle ConnectHandle, path string, file string, 
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdba_update_archive_warp(rtdb_int32 handle, const char *path, const char *file, rtdb_int32 rated_capacity, rtdb_int32 ex_capacity, rtdb_int16 auto_merge, rtdb_int16 auto_arrange)
 func RawRtdbaUpdateArchiveWarp(handle ConnectHandle, path string, file string, ratedCapacity int32, exCapacity int32, autoMerge int16, autoArrange int16) RtdbError {
+	path = StringInDB(path)
+	file = StringInDB(file)
+
 	cHandle := C.rtdb_int32(handle)
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
@@ -10062,6 +10230,9 @@ func RawRtdbaUpdateArchiveWarp(handle ConnectHandle, path string, file string, r
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdba_arrange_archive_warp(rtdb_int32 handle, const char *path, const char *file)
 func RawRtdbaArrangeArchiveWarp(handle ConnectHandle, path string, file string) RtdbError {
+	path = StringInDB(path)
+	file = StringInDB(file)
+
 	cHandle := C.rtdb_int32(handle)
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
@@ -10081,6 +10252,9 @@ func RawRtdbaArrangeArchiveWarp(handle ConnectHandle, path string, file string) 
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdba_reindex_archive_warp(rtdb_int32 handle, const char *path, const char *file)
 func RawRtdbaReindexArchiveWarp(handle ConnectHandle, path string, file string) RtdbError {
+	path = StringInDB(path)
+	file = StringInDB(file)
+
 	cHandle := C.rtdb_int32(handle)
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
@@ -10101,6 +10275,10 @@ func RawRtdbaReindexArchiveWarp(handle ConnectHandle, path string, file string) 
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdba_backup_archive_warp(rtdb_int32 handle, const char *path, const char *file, const char *dest)
 func RawRtdbaBackupArchiveWarp(handle ConnectHandle, path string, file string, dest string) RtdbError {
+	path = StringInDB(path)
+	file = StringInDB(file)
+	dest = StringInDB(dest)
+
 	cHandle := C.rtdb_int32(handle)
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
@@ -10123,6 +10301,10 @@ func RawRtdbaBackupArchiveWarp(handle ConnectHandle, path string, file string, d
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdba_move_archive_warp(rtdb_int32 handle, const char *path, const char *file, const char *dest)
 func RawRtdbaMoveArchiveWarp(handle ConnectHandle, path string, file string, dest string) RtdbError {
+	path = StringInDB(path)
+	file = StringInDB(file)
+	dest = StringInDB(dest)
+
 	cHandle := C.rtdb_int32(handle)
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
@@ -10144,6 +10326,9 @@ func RawRtdbaMoveArchiveWarp(handle ConnectHandle, path string, file string, des
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdba_convert_index_warp(rtdb_int32 handle, const char *path, const char *file)
 func RawRtdbaConvertIndexWarp(handle ConnectHandle, path string, file string) RtdbError {
+	path = StringInDB(path)
+	file = StringInDB(file)
+
 	cHandle := C.rtdb_int32(handle)
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
@@ -10199,8 +10384,8 @@ func RawRtdbaQueryBigJob64Warp(handle ConnectHandle, processName RtdbProcess) (s
 	cEndTime := C.rtdb_timestamp_type(0)
 	cProcess := C.rtdb_float32(0)
 	err := C.rtdba_query_big_job64_warp(cHandle, cProcessName, &cPath[0], &cName[0], &cJobId, &cState, &cEndTime, &cProcess)
-	goPath := C.GoString(&cPath[0])
-	goName := C.GoString(&cName[0])
+	goPath := StringOutDB(C.GoString(&cPath[0]))
+	goName := StringOutDB(C.GoString(&cName[0]))
 	return goPath, goName, BigJobName(cJobId), RtdbError(cState), TimestampType(cEndTime), float32(cProcess), RtdbError(err)
 }
 
@@ -10769,7 +10954,7 @@ func RawRtdbhGetSingleBlobValue64Warp(handle ConnectHandle, id PointID, mode Rtd
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_get_archived_blob_values64_warp(rtdb_int32 handle, rtdb_int32 id, rtdb_int32* count, rtdb_timestamp_type datetime1, rtdb_subtime_type subtime1, rtdb_timestamp_type datetime2, rtdb_subtime_type subtime2, rtdb_timestamp_type* datetimes, rtdb_subtime_type* subtimes, rtdb_length_type* lens, rtdb_byte* const* blobs, rtdb_int16* qualities)
-func RawRtdbhGetArchivedBlobValues64Warp(handle ConnectHandle, id PointID, maxCount int32, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType, maxLen int32) ([]TimestampType, []SubtimeType, [][]byte, []Quality, RtdbError) {
+func RawRtdbhGetArchivedBlobValues64Warp(handle ConnectHandle, id PointID, maxCount int32, isString bool, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType, maxLen int32) ([]TimestampType, []SubtimeType, [][]byte, []Quality, RtdbError) {
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cCount := C.rtdb_int32(maxCount)
@@ -10802,7 +10987,11 @@ func RawRtdbhGetArchivedBlobValues64Warp(handle ConnectHandle, id PointID, maxCo
 	rtnBlobs := make([][]byte, 0)
 	for i := 0; i < int(cCount); i++ {
 		b := C.GoBytes(unsafe.Pointer(blobs[i]), C.int(lens[i]))
-		rtnBlobs = append(rtnBlobs, b)
+		if isString {
+			rtnBlobs = append(rtnBlobs, []byte(StringOutDB(string(b))))
+		} else {
+			rtnBlobs = append(rtnBlobs, b)
+		}
 	}
 	return datetimes[:cCount], subtimes[:cCount], rtnBlobs, qualities[:cCount], RtdbError(err)
 }
@@ -10828,7 +11017,7 @@ func RawRtdbhGetArchivedBlobValues64Warp(handle ConnectHandle, id PointID, maxCo
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_get_archived_blob_values_filt64_warp(rtdb_int32 handle, rtdb_int32 id, rtdb_int32* count, rtdb_timestamp_type datetime1, rtdb_subtime_type subtime1, rtdb_timestamp_type datetime2, rtdb_subtime_type subtime2, const char* filter, rtdb_timestamp_type* datetimes, rtdb_subtime_type* subtimes, rtdb_length_type* lens, rtdb_byte* const* blobs, rtdb_int16* qualities)
-func RawRtdbhGetArchivedBlobValuesFilt64Warp(handle ConnectHandle, id PointID, maxLen int32, maxCount int32, filter string, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]TimestampType, []SubtimeType, [][]byte, []Quality, RtdbError) {
+func RawRtdbhGetArchivedBlobValuesFilt64Warp(handle ConnectHandle, id PointID, maxLen int32, maxCount int32, isString bool, filter string, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]TimestampType, []SubtimeType, [][]byte, []Quality, RtdbError) {
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cCount := C.rtdb_int32(maxCount)
@@ -10863,7 +11052,11 @@ func RawRtdbhGetArchivedBlobValuesFilt64Warp(handle ConnectHandle, id PointID, m
 	rtnBlobs := make([][]byte, 0)
 	for i := 0; i < int(cCount); i++ {
 		b := C.GoBytes(unsafe.Pointer(blobs[i]), C.int(lens[i]))
-		rtnBlobs = append(rtnBlobs, b)
+		if isString {
+			rtnBlobs = append(rtnBlobs, []byte(StringOutDB(string(b))))
+		} else {
+			rtnBlobs = append(rtnBlobs, b)
+		}
 	}
 	return datetimes[:cCount], subtimes[:cCount], rtnBlobs, qualities[:cCount], RtdbError(err)
 }
@@ -10899,7 +11092,7 @@ func RawRtdbhGetSingleDatetimeValue64Warp(handle ConnectHandle, id PointID, mode
 	quality := Quality(0)
 	cQuality := (*C.rtdb_int16)(unsafe.Pointer(&quality))
 	err := C.rtdbh_get_single_datetime_value64_warp(cHandle, cId, cMode, &cDatetime, &cSubtime, cBlob, &cLen, cQuality, cDtType)
-	return TimestampType(cDatetime), SubtimeType(cSubtime), blob[:cLen], quality, RtdbError(err)
+	return TimestampType(cDatetime), SubtimeType(cSubtime), []byte(StringOutDB(string(blob[:cLen]))), quality, RtdbError(err)
 }
 
 // RawRtdbhGetArchivedDatetimeValues64Warp 读取单个标签点一段时间的时间类型历史数据
@@ -10959,7 +11152,7 @@ func RawRtdbhGetArchivedDatetimeValues64Warp(handle ConnectHandle, id PointID, m
 	rtnBlobs := make([][]byte, 0)
 	for i := 0; i < int(cCount); i++ {
 		b := C.GoBytes(unsafe.Pointer(blobs[i]), C.int(lens[i]))
-		rtnBlobs = append(rtnBlobs, b)
+		rtnBlobs = append(rtnBlobs, []byte(StringOutDB(string(b))))
 	}
 	return datetimes[:cCount], subtimes[:cCount], rtnBlobs, qualities[:cCount], RtdbError(err)
 }
@@ -10980,6 +11173,10 @@ func RawRtdbhGetArchivedDatetimeValues64Warp(handle ConnectHandle, id PointID, m
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_put_archived_datetime_values64_warp(rtdb_int32 handle, rtdb_int32* count, const rtdb_int32* ids, const rtdb_timestamp_type* datetimes, const rtdb_subtime_type* subtimes, const rtdb_byte* const* dtvalues, const rtdb_length_type* dtlens, const rtdb_int16* qualities, rtdb_error* errors)
 func RawRtdbhPutArchivedDatetimeValues64Warp(handle ConnectHandle, ids []PointID, datetimes []TimestampType, subtimes []SubtimeType, dtValues []string, qualities []Quality) ([]RtdbError, RtdbError) {
+	for i := 0; i < len(dtValues); i++ {
+		dtValues[i] = StringInDB(dtValues[i])
+	}
+
 	cHandle := C.rtdb_int32(handle)
 	cCount := C.rtdb_int32(len(ids))
 	cIds := (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
@@ -11187,6 +11384,8 @@ func RawRtdbhGetCrossSectionValues64Warp(handle ConnectHandle, ids []PointID, mo
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_get_archived_values_filt64_warp(rtdb_int32 handle, rtdb_int32 id, const char* filter, rtdb_int32* count, rtdb_timestamp_type* datetimes, rtdb_subtime_type* subtimes, rtdb_float64* values, rtdb_int64* states, rtdb_int16* qualities)
 func RawRtdbhGetArchivedValuesFilt64Warp(handle ConnectHandle, id PointID, count int32, filter string, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]TimestampType, []SubtimeType, []float64, []int64, []Quality, RtdbError) {
+	filter = StringInDB(filter)
+
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cFilter := C.CString(filter)
@@ -11231,6 +11430,8 @@ func RawRtdbhGetArchivedValuesFilt64Warp(handle ConnectHandle, id PointID, count
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_get_interval_values_filt64_warp(rtdb_int32 handle, rtdb_int32 id, const char* filter, rtdb_int64 interval, rtdb_int32 count, rtdb_timestamp_type* datetimes, rtdb_subtime_type* subtimes, rtdb_float64* values, rtdb_int64* states, rtdb_int16* qualities)
 func RawRtdbhGetIntervalValuesFilt64Warp(handle ConnectHandle, id PointID, filter string, interval time.Duration, count int32, datetime1 TimestampType, subtime1 SubtimeType) ([]TimestampType, []SubtimeType, []float64, []int64, []Quality, RtdbError) {
+	filter = StringInDB(filter)
+
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cFilter := C.CString(filter)
@@ -11279,6 +11480,8 @@ func RawRtdbhGetIntervalValuesFilt64Warp(handle ConnectHandle, id PointID, filte
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_get_interpo_values_filt64_warp(rtdb_int32 handle, rtdb_int32 id, const char* filter, rtdb_int32* count, rtdb_timestamp_type* datetimes, rtdb_subtime_type* subtimes, rtdb_float64* values, rtdb_int64* states, rtdb_int16* qualities)
 func RawRtdbhGetInterpoValuesFilt64Warp(handle ConnectHandle, id PointID, filter string, count int32, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]TimestampType, []SubtimeType, []float64, []int64, []Quality, RtdbError) {
+	filter = StringInDB(filter)
+
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cCount := C.rtdb_int32(count)
@@ -11319,6 +11522,8 @@ func RawRtdbhGetInterpoValuesFilt64Warp(handle ConnectHandle, id PointID, filter
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_summary_data_filt_warp(rtdb_int32 handle, rtdb_int32 id, const char* filter, rtdb_timestamp_type datetime1, rtdb_subtime_type subtime1, rtdb_timestamp_type datetime2, rtdb_subtime_type subtime2, RTDB_SUMMARY_DATA* summary_data)
 func RawRtdbhSummaryDataFiltWarp(handle ConnectHandle, id PointID, filter string, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) (*RtdbSummaryData, RtdbError) {
+	filter = StringInDB(filter)
+
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cFilter := C.CString(filter)
@@ -11354,6 +11559,8 @@ func RawRtdbhSummaryDataFiltWarp(handle ConnectHandle, id PointID, filter string
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_summary_data_filt_in_batches_warp(rtdb_int32 handle, rtdb_int32 id, const char* filter, rtdb_int32* count, rtdb_int64 interval, rtdb_timestamp_type datetime1, rtdb_subtime_type subtime1, rtdb_timestamp_type datetime2, rtdb_subtime_type subtime2, RTDB_SUMMARY_DATA* summary_datas, rtdb_error* errors)
 func RawRtdbhSummaryDataFiltInBatchesWarp(handle ConnectHandle, id PointID, filter string, maxCount int32, interval time.Duration, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]RtdbSummaryData, []RtdbError, RtdbError) {
+	filter = StringInDB(filter)
+
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cMaxCount := C.rtdb_int32(maxCount)
@@ -11534,7 +11741,11 @@ func RawRtdbhPutSingleCoorValue64Warp(handle ConnectHandle, id PointID, datetime
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_put_single_blob_value64_warp(rtdb_int32 handle, rtdb_int32 id, rtdb_timestamp_type datetime, rtdb_subtime_type subtime, const rtdb_byte* blob, rtdb_length_type len, rtdb_int16 quality)
-func RawRtdbhPutSingleBlobValue64Warp(handle ConnectHandle, id PointID, datetime TimestampType, subtime SubtimeType, blob []byte, quality Quality) RtdbError {
+func RawRtdbhPutSingleBlobValue64Warp(handle ConnectHandle, id PointID, isString bool, datetime TimestampType, subtime SubtimeType, blob []byte, quality Quality) RtdbError {
+	if isString {
+		blob = []byte(StringInDB(string(blob)))
+	}
+
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cDatetime := C.rtdb_timestamp_type(datetime)
@@ -11623,6 +11834,8 @@ func RawRtdbhPutArchivedCoorValues64Warp(handle ConnectHandle, ids []PointID, da
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_put_single_datetime_value64_warp(rtdb_int32 handle, rtdb_int32 id, rtdb_timestamp_type datetime, rtdb_subtime_type subtime, const rtdb_byte* blob, rtdb_length_type len, rtdb_int16 quality)
 func RawRtdbhPutSingleDatetimeValue64Warp(handle ConnectHandle, id PointID, datetime TimestampType, subtime SubtimeType, blob []byte, quality Quality) RtdbError {
+	blob = []byte(StringInDB(string(blob)))
+
 	cHandle := C.rtdb_int32(handle)
 	cId := C.rtdb_int32(id)
 	cDatetime := C.rtdb_timestamp_type(datetime)
@@ -11650,7 +11863,11 @@ func RawRtdbhPutSingleDatetimeValue64Warp(handle ConnectHandle, id PointID, date
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_put_archived_blob_values64_warp(rtdb_int32 handle, rtdb_int32* count, const rtdb_int32* ids, const rtdb_timestamp_type* datetimes, const rtdb_subtime_type* subtimes, const rtdb_byte* const* blobs, const rtdb_length_type* lens, const rtdb_int16* qualities, rtdb_error* errors)
-func RawRtdbhPutArchivedBlobValues64Warp(handle ConnectHandle, ids []PointID, datetimes []TimestampType, subtimes []SubtimeType, blobs [][]byte, qualities []Quality) ([]RtdbError, RtdbError) {
+func RawRtdbhPutArchivedBlobValues64Warp(handle ConnectHandle, ids []PointID, isString []bool, datetimes []TimestampType, subtimes []SubtimeType, blobs [][]byte, qualities []Quality) ([]RtdbError, RtdbError) {
+	for i := 0; i < len(blobs); i++ {
+		blobs[i] = []byte(StringInDB(string(blobs[i])))
+	}
+
 	cHandle := C.rtdb_int32(handle)
 	cCount := C.rtdb_int32(len(ids))
 	cIds := (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
@@ -11897,7 +12114,7 @@ func RawRtdbbGetEquationByFileNameWarp(handle ConnectHandle, name string) ([]byt
 	equation := make([]byte, int(C.RTDB_MAX_EQUATION_SIZE))
 	cEquation := (*C.char)(unsafe.Pointer(&equation[0]))
 	err := C.rtdbb_get_equation_by_file_name_warp(cHandle, cName, cEquation)
-	return equation, RtdbError(err)
+	return []byte(StringOutDB(string(equation))), RtdbError(err)
 }
 
 // RawRtdbbGetEquationByIdWarp 根ID径获取方程式
@@ -11917,7 +12134,7 @@ func RawRtdbbGetEquationByIdWarp(handle ConnectHandle, id PointID) ([]byte, Rtdb
 	equation := make([]byte, int(C.RTDB_MAX_EQUATION_SIZE))
 	cEquation := (*C.char)(unsafe.Pointer(&equation[0]))
 	err := C.rtdbb_get_equation_by_id_warp(cHandle, cId, cEquation)
-	return equation, RtdbError(err)
+	return []byte(StringOutDB(string(equation))), RtdbError(err)
 }
 
 // RawRtdbeGetEquationGraphCountWarp 根据标签点 id 获取相关联方程式键值对数量
