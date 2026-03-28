@@ -9329,6 +9329,8 @@ func RawRtdbsFixCoorSnapshots64Warp(handle ConnectHandle, ids []PointID, datetim
 // input:
 //   - handle 连接句柄
 //   - id 标签点标识
+//   - isString 是否为字符串
+//   - maxLen 最大接收字符串长度
 //
 // output:
 //   - TimestampType 实时数值时间列表,表示距离1970年1月1日08:00:00的秒数
@@ -9359,6 +9361,8 @@ func RawRtdbsGetBlobSnapshot64Warp(handle ConnectHandle, id PointID, isString bo
 // input:
 //   - handle 连接句柄
 //   - ids 标签点标识
+//   - isString 是否为字符串
+//   - maxLen 字符串最大长度
 //
 // output:
 //   - []TimestampType(datetimes) 实时数值时间列表,表示距离1970年1月1日08:00:00的秒数
@@ -9413,6 +9417,7 @@ func RawRtdbsGetBlobSnapshots64Warp(handle ConnectHandle, ids []PointID, isStrin
 // input:
 //   - handle 连接句柄
 //   - id 标签点标识
+//   - isString 是否为字符串
 //   - datetime 实时数值时间列表,表示距离1970年1月1日08:00:00的秒数
 //   - subtime 实时数值时间列表，对于时间精度为纳秒的标签点，存放相应的纳秒值；否则忽略
 //   - blob 实时二进制/字符串数值
@@ -9440,6 +9445,7 @@ func RawRtdbsPutBlobSnapshot64Warp(handle ConnectHandle, id PointID, isString bo
 // input:
 //   - handle 连接句柄
 //   - ids 标签点标识
+//   - isString 是否为字符串
 //   - datetimes 实时数值时间列表,表示距离1970年1月1日08:00:00的秒数
 //   - subtimes 实时数值时间列表，对于时间精度为纳秒的标签点，表示相应的纳秒值；否则忽略
 //   - blobs 实时二进制/字符串数值
@@ -10941,6 +10947,7 @@ func RawRtdbhGetSingleBlobValue64Warp(handle ConnectHandle, id PointID, mode Rtd
 //   - id 标签点标识
 //   - maxCount 最大返回多少条数据
 //   - maxLen 每条Blob/String数据最大多少长度
+//   - isString 是否为字符串
 //   - datetime1 表示开始时间秒数；
 //   - subtime1 指定的标签点时间精度为纳秒，
 //   - datetime2 表示结束时间秒数；
@@ -11003,6 +11010,7 @@ func RawRtdbhGetArchivedBlobValues64Warp(handle ConnectHandle, id PointID, maxCo
 //   - id 标签点标识
 //   - maxCount 最大返回多少条数据
 //   - maxLen 每条Blob/String数据最大多少长度
+//   - isString 是否为字符串
 //   - filter 支持通配符的模糊搜索字符串，多个模糊搜索的条件通过空格分隔，只针对string类型有效
 //   - datetime1 表示开始时间秒数；
 //   - subtime1 指定的标签点时间精度为纳秒，
@@ -11733,6 +11741,7 @@ func RawRtdbhPutSingleCoorValue64Warp(handle ConnectHandle, id PointID, datetime
 // input:
 //   - handle 连接句柄
 //   - id 标签点标识
+//   - isString 是否为字符串
 //   - datetime 数值时间列表, 表示距离1970年1月1日08:00:00的秒数
 //   - subtime 历史数值时间，对于时间精度为纳秒的标签点，存放相应的纳秒值；否则忽略
 //   - blob 历史二进制/字符串数值
@@ -11852,6 +11861,7 @@ func RawRtdbhPutSingleDatetimeValue64Warp(handle ConnectHandle, id PointID, date
 // input:
 //   - handle 连接句柄
 //   - ids 标签点标识
+//   - isString 是否为字符串
 //   - datetimes 表示对应的历史数值时间秒数。
 //   - subtimes 如果 id 指定的标签点时间精度为纳秒，表示对应的历史数值时间纳秒；否则忽略。
 //   - blobs 实时二进制/字符串数值
@@ -11865,7 +11875,9 @@ func RawRtdbhPutSingleDatetimeValue64Warp(handle ConnectHandle, id PointID, date
 //   - rtdb_error RTDBAPI_CALLRULE rtdbh_put_archived_blob_values64_warp(rtdb_int32 handle, rtdb_int32* count, const rtdb_int32* ids, const rtdb_timestamp_type* datetimes, const rtdb_subtime_type* subtimes, const rtdb_byte* const* blobs, const rtdb_length_type* lens, const rtdb_int16* qualities, rtdb_error* errors)
 func RawRtdbhPutArchivedBlobValues64Warp(handle ConnectHandle, ids []PointID, isString []bool, datetimes []TimestampType, subtimes []SubtimeType, blobs [][]byte, qualities []Quality) ([]RtdbError, RtdbError) {
 	for i := 0; i < len(blobs); i++ {
-		blobs[i] = []byte(StringInDB(string(blobs[i])))
+		if isString[i] {
+			blobs[i] = []byte(StringInDB(string(blobs[i])))
+		}
 	}
 
 	cHandle := C.rtdb_int32(handle)
