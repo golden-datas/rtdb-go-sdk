@@ -7931,18 +7931,48 @@ func RawRtdbbRemovePointByNameWarp(handle ConnectHandle, tableDotTag string) Rtd
 }
 
 // RawRtdbbInsertMaxPointsWarp 使用最大长度的完整属性集来批量创建标签点
-// 备注：暂不实现
 //
-// * [handle] 连接句柄
-// * [count] count, 输入，base/scan/calc数组的长度；输出，成功的个数
-// * [bases] RTDB_POINT 数组，输入/输出，
-// * 输入除 id, createdate, creator, changedate, changer 字段外的其它字段，输出 id 字段。
-// * [scans] RTDB_SCAN_POINT 数组，输入，采集标签点扩展属性集。
-// * [calcs] RTDB_MAX_CALC_POINT 数组，输入，计算标签点扩展属性集。
-// * [errors] rtdb_error数组，输出，对应每个标签点的结果
-// * 备注：如果新建的标签点没有对应的扩展属性集，可置为空指针。
-// rtdb_error RTDBAPI_CALLRULE rtdbb_insert_max_points_warp(rtdb_int32 handle, rtdb_int32* count, RTDB_POINT* bases, RTDB_SCAN_POINT* scans, RTDB_MAX_CALC_POINT* calcs, rtdb_error* errors)
-// func RawRtdbbInsertMaxPointsWarp(handle ConnectHandle, points []RtdbPoint, scans []RtdbScan, calcs []RtdbCalc) /*([]RtdbPoint, []RtdbScan, []RtdbCalc, []error, error)*/ {}
+// input:
+//   - handle 连接句柄
+//   - bases RTDB_POINT 数组
+//   - scans RTDB_SCAN_POINT 数组
+//   - calcs RTDB_MAX_CALC_POINT 数组
+//
+// output:
+//   - []RtdbPoint(bases) 基本点数组
+//   - []RtdbScan(scans) 采集点数组
+//   - []RtdbCalc(calcs) 计算点数组
+//   - []RtdbError(errs) 错误列表
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdbb_insert_max_points_warp(rtdb_int32 handle, rtdb_int32* count, RTDB_POINT* bases, RTDB_SCAN_POINT* scans, RTDB_MAX_CALC_POINT* calcs, rtdb_error* errors)
+func RawRtdbbInsertMaxPointsWarp(handle ConnectHandle, bases []RtdbPoint, scans []RtdbScan, calcs []RtdbCalc) ([]RtdbPoint, []RtdbScan, []RtdbCalc, []RtdbError, error) {
+	count := len(bases)
+
+	cHandle := C.rtdb_int32(handle)
+	cCount := (*C.rtdb_int32)(unsafe.Pointer(&count))
+	cBases := make([]C.RTDB_POINT, 0)
+	cScans := make([]C.RTDB_SCAN_POINT, 0)
+	cCalcs := make([]C.RTDB_MAX_CALC_POINT, 0)
+	errs := make([]RtdbError, len(bases))
+	for i := 0; i < len(bases); i++ {
+		cBases = append(cBases, *goToCRtdbPoint(&bases[i]))
+		cScans = append(cScans, *goToCRtdbScan(&scans[i]))
+		cCalcs = append(cCalcs, *goToCRtdbCalc(&calcs[i]))
+	}
+	cErrs := (*C.rtdb_error)(unsafe.Pointer(&errs[0]))
+	rte := C.rtdbb_insert_max_points_warp(cHandle, cCount, (*C.RTDB_POINT)(unsafe.Pointer(&cBases[0])), (*C.RTDB_SCAN_POINT)(unsafe.Pointer(&cScans[0])), (*C.RTDB_MAX_CALC_POINT)(unsafe.Pointer(&cCalcs[0])), cErrs)
+
+	rtnBase := make([]RtdbPoint, 0)
+	rtnScan := make([]RtdbScan, 0)
+	rtnCalc := make([]RtdbCalc, 0)
+	for i := 0; i < len(bases); i++ {
+		rtnBase = append(rtnBase, *cToRtdbPoint(&cBases[i]))
+		rtnScan = append(rtnScan, *cToRtdbScan(&cScans[i]))
+		rtnCalc = append(rtnCalc, *cToRtdbCalc(&cCalcs[i]))
+	}
+	return rtnBase, rtnScan, rtnCalc, errs, RtdbError(rte)
+}
 
 // RawRtdbbInsertBasePointWarp 使用最小的属性集来创建单个标签点
 // 备注：不实现，统一使用最大长度
