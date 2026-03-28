@@ -27,7 +27,7 @@ type ServerOption struct {
 	IntOption    ParamInt
 }
 
-// NewServerOption 新建服务端类型（通过字面值新建服务端配置, 会自动推断配置类型是String或Int）
+// NewServerOption 新建服务端配置（通过字面值新建服务端配置, 会自动推断配置类型是String或Int）
 func NewServerOption(option string) ServerOption {
 	intOption, err := strconv.Atoi(option)
 	if err != nil {
@@ -1109,28 +1109,15 @@ func (v *TVQ) GetRtdbBlob() []byte {
 }
 
 // GetRtdbStringBlob 获取string/blob类型数值
-func (v *TVQ) GetRtdbStringBlob(osType RtdbOsType) ([]byte, error) {
-	var data []byte
+func (v *TVQ) GetRtdbStringBlob() ([]byte, error) {
 	rtdbType, _ := v.Type.ToRawType()
 	if rtdbType == RtdbTypeString {
-		str := v.GetRtdbString()
-		if osType == RtdbOsLinux {
-			data = []byte(str)
-		} else if osType == RtdbOsWindows {
-			buf, err := StringToGBKBytes(str)
-			if err != nil {
-				return nil, err
-			}
-			data = buf
-		} else {
-			panic("分支不可达, 未知的OsType")
-		}
+		return []byte(v.GetRtdbString()), nil
 	} else if rtdbType == RtdbTypeBlob {
-		data = v.GetRtdbBlob()
+		return v.GetRtdbBlob(), nil
 	} else {
 		panic("分支不可达")
 	}
-	return data, nil
 }
 
 // GetRtdbDatetime 获取日期类型数值
@@ -2053,13 +2040,6 @@ func (c *RtdbConnect) UpdateTableDesc(id TableID, desc string) error {
 // output:
 //   - PointInfo(info) 输出点信息
 func (c *RtdbConnect) AddPoint(info *PointInfo) (*PointInfo, error) {
-	// 根据服务端操作系统类型，对Desc进行编码转换
-	if c.ServerOsType == RtdbOsWindows && info.Desc != "" {
-		gbkBytes, err := StringToGBKBytes(info.Desc)
-		if err == nil {
-			info.Desc = string(gbkBytes)
-		}
-	}
 	base, scan, calc, tName := PointInfoToRaw(info)
 	if base.Type == RtdbTypeNamedT {
 		if tName == "" {
@@ -2661,7 +2641,7 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			bDatetimes = append(bDatetimes, datetime)
 			bSubtimes = append(bSubtimes, subtime)
 			bQualities = append(bQualities, ptvq.TVQ.GetRtdbQuality())
-			data, err := ptvq.TVQ.GetRtdbStringBlob(c.ServerOsType)
+			data, err := ptvq.TVQ.GetRtdbStringBlob()
 			if err != nil {
 				return nil, err
 			}
@@ -3025,13 +3005,6 @@ func (c *RtdbConnect) ReadLasts(infos []*PointInfo) ([]PTVQ, []error, error) {
 				rtnPTVQs[idx] = NewPTVQ(infos[idx], tvq)
 			case RtdbTypeString:
 				str := string(blobs[i])
-				if c.ServerOsType == RtdbOsWindows {
-					s, err := GBKBytesToString(blobs[i])
-					if err != nil {
-						return nil, nil, err
-					}
-					str = s
-				}
 				tvq := NewTvqString(ts, str, q)
 				rtnPTVQs[idx] = NewPTVQ(infos[idx], tvq)
 			}
@@ -3162,13 +3135,6 @@ func (c *RtdbConnect) ReadValue(info *PointInfo, mode RtdbHisMode, timestamp tim
 		switch rtdbType {
 		case RtdbTypeString:
 			str := string(blob)
-			if c.ServerOsType == RtdbOsWindows {
-				s, err := GBKBytesToString(blob)
-				if err != nil {
-					return PTVQ{}, err
-				}
-				str = s
-			}
 			return NewPTVQ(info, NewTvqString(ts, str, quality)), nil
 		case RtdbTypeBlob:
 			return NewPTVQ(info, NewTvqBlob(ts, blob, quality)), nil
@@ -3274,13 +3240,6 @@ func (c *RtdbConnect) ReadRange(info *PointInfo, start time.Time, end time.Time)
 				tvqs = append(tvqs, NewTvqBlob(ts, blobs[i], q))
 			case RtdbTypeString:
 				str := string(blobs[i])
-				if c.ServerOsType == RtdbOsWindows {
-					s, err := GBKBytesToString(blobs[i])
-					if err != nil {
-						return PTVQs{}, rte.GoError()
-					}
-					str = s
-				}
 				tvqs = append(tvqs, NewTvqString(ts, str, q))
 			}
 		}
