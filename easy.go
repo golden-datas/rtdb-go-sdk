@@ -1977,7 +1977,7 @@ func (c *RtdbConnect) DeleteTable(id TableID) error {
 	return rte.GoError()
 }
 
-// GetTable
+// GetTable 获取表
 //
 // input:
 //   - id 获取表
