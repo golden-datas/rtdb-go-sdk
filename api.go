@@ -7946,7 +7946,7 @@ func RawRtdbbRemovePointByNameWarp(handle ConnectHandle, tableDotTag string) Rtd
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_insert_max_points_warp(rtdb_int32 handle, rtdb_int32* count, RTDB_POINT* bases, RTDB_SCAN_POINT* scans, RTDB_MAX_CALC_POINT* calcs, rtdb_error* errors)
-func RawRtdbbInsertMaxPointsWarp(handle ConnectHandle, bases []RtdbPoint, scans []RtdbScan, calcs []RtdbCalc) ([]RtdbPoint, []RtdbScan, []RtdbCalc, []RtdbError, error) {
+func RawRtdbbInsertMaxPointsWarp(handle ConnectHandle, bases []RtdbPoint, scans []RtdbScan, calcs []RtdbCalc) ([]RtdbPoint, []RtdbScan, []RtdbCalc, []RtdbError, RtdbError) {
 	count := len(bases)
 
 	cHandle := C.rtdb_int32(handle)

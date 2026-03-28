@@ -2063,6 +2063,69 @@ func (c *RtdbConnect) AddPoint(info *PointInfo) (*PointInfo, error) {
 	}
 }
 
+// AddPoints 批量创建点
+//
+// input:
+//   - infos 输入点信息列表
+//
+// output:
+//   - []*PointInfo(infos) 输出点信息列表
+func (c *RtdbConnect) AddPoints(infos []*PointInfo) ([]*PointInfo, []error, error) {
+	bases := make([]RtdbPoint, 0)
+	scans := make([]RtdbScan, 0)
+	calcs := make([]RtdbCalc, 0)
+	idx := make([]int, 0)
+
+	tBases := make([]RtdbPoint, 0)
+	tScan := make([]RtdbScan, 0)
+	tNames := make([]string, 0)
+	tIdx := make([]int, 0)
+
+	for i, info := range infos {
+		base, scan, calc, tName := PointInfoToRaw(info)
+		if base.Type == RtdbTypeNamedT {
+			tBases = append(tBases, *base)
+			tScan = append(tScan, *scan)
+			tNames = append(tNames, tName)
+			tIdx = append(tIdx, i)
+		} else {
+			bases = append(bases, *base)
+			scans = append(scans, *scan)
+			calcs = append(calcs, *calc)
+			idx = append(idx, i)
+		}
+	}
+
+	rtnPointInfo := make([]*PointInfo, len(infos))
+	rtnError := make([]error, len(infos))
+
+	for i := 0; i < len(tBases); i++ {
+		tBase, tScan, rte := RawRtdbbInsertNamedTypePointWarp(c.ConnectHandle, &tBases[i], &tScan[i], tNames[i])
+		if !RteIsOk(rte) {
+			rtnError[tIdx[i]] = rte.GoError()
+			continue
+		}
+		info, err := PointInfoFromRaw(c.ConnectHandle, tBase, tScan, nil, false)
+		rtnPointInfo[tIdx[i]] = info
+		rtnError[tIdx[i]] = err
+	}
+
+	bBases, bScans, bCalcs, bErrs, rte := RawRtdbbInsertMaxPointsWarp(c.ConnectHandle, bases, scans, calcs)
+	if !RteIsOk(rte) {
+		return nil, nil, rte.GoError()
+	}
+	for i := 0; i < len(bBases); i++ {
+		if !RteIsOk(bErrs[i]) {
+			rtnError[idx[i]] = bErrs[i].GoError()
+			continue
+		}
+		info, err := PointInfoFromRaw(c.ConnectHandle, &bBases[i], &bScans[i], &bCalcs[i], false)
+		rtnPointInfo[idx[i]] = info
+		rtnError[idx[i]] = err
+	}
+	return rtnPointInfo, rtnError, nil
+}
+
 // DeletePoint 删除点
 //
 // input:
