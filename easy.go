@@ -3828,7 +3828,7 @@ func (c *RtdbConnect) RemoveRangeValues(info *PointInfo, start time.Time, end ti
 	return count, nil
 }
 
-// UpdateValue
+// UpdateValue 更新点值
 //
 // input:
 //   - info 标签点信息
