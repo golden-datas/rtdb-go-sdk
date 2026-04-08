@@ -216,7 +216,5 @@ func main() {
 106. (RtdbConnect)SubscribeDeltaSnapshots 订阅Delta快照，快照变化需要超过Delta，才会触发订阅，这样可以节约流量
 107. (RtdbConnect)ChangeSubscribeSnapshots 修改快照订阅设置，新增或删除标签点
 108. (RtdbConnect)CancelSubscribeSnapshots 取消快照订阅
-
-
-2. 分批读取点值, 再说
-3. 订阅的示t status
+109. (RtdbConnect)ReadBatches 开始以分段返回方式读取一段时间内的储存数据
+110. (RtdbConnect)ReadNext 分段读取一段时间内的储存数据
