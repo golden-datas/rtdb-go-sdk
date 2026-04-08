@@ -1182,3 +1182,86 @@ func TestRtdbConnect_UpdateSingleValue(t *testing.T) {
 		}
 	})
 }
+
+func TestRtdbConnect_SubscribeSnapshot(t *testing.T) {
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
+	if err != nil {
+		t.Fatal("登录用户失败", err)
+	}
+	defer func() { _ = conn.Logout() }()
+
+	// 创建表
+	table, err := conn.CreateTable("ttt", "ttt desc")
+	if err != nil {
+		t.Error("创建表失败：", err)
+		return
+	}
+	// 删除表
+	defer func() { _ = conn.DeleteTable(table.ID) }()
+
+	fmt.Println(table.ID)
+
+	// 添加Float64类型的点
+	desc := "温度数据"
+	fmt.Printf("Desc content: %s\n", desc)
+	fmt.Printf("Desc bytes: %v\n", []byte(desc))
+	fmt.Printf("Desc hex: %x\n", []byte(desc))
+	fmt.Printf("Desc length: %d bytes\n", len(desc))
+
+	// UTF-8 "温度数据" 应该是: e6 b8 a9 e5 ba a6 e6 95 b0 e6 8d ae (12字节)
+	// GBK "温度数据" 应该是: ce c2 b6 c8 ca fd be dd (8字节)
+
+	info := NewPointInfo("aaa", table.ID, ValueTypeFloat64, PointBase, RtdbPrecisionNano, "", desc)
+	info.SetLimit(-100, 100, 0)
+	pInfo, err := conn.AddPoint(info)
+	if err != nil {
+		t.Error("添加点失败: ", err)
+		return
+	}
+
+	// 删除点
+	defer func() { _ = conn.DeletePoint(pInfo.ID) }()
+
+	serverTime, err := conn.ServerHostTime()
+	if err != nil {
+		t.Error("获取系统时间失败：", err)
+	}
+	fmt.Println("server time:", serverTime.Format(time.RFC3339))
+	fmt.Println("client time:", time.Now().Format(time.RFC3339))
+
+	snapChan, errs, err := conn.SubscribeSnapshots([]*PointInfo{info})
+	if err != nil || errs[0] != nil {
+		t.Error("订阅快照失败:", err, errs[0])
+	}
+	closeChan := make(chan struct{})
+	defer close(closeChan)
+	defer func() {
+		err := conn.CancelSubscribeSnapshots()
+		t.Error("关闭订阅失败：", err)
+	}()
+	go func() {
+		for {
+			select {
+			case snap := <-snapChan:
+				fmt.Println(snap)
+			case <-closeChan:
+				break
+			}
+		}
+	}()
+
+	// 写入数据
+	n := 10
+	for i := 0; i < n; i++ {
+		// 单条时间序列，写单个TVQ
+		value := 25.0 + float64(i)*0.5
+		err := conn.WriteValue(pInfo, false, pInfo.NewNowTVQ(value, Quality(0)))
+		if err != nil {
+			t.Error("写入数据失败：", err)
+			return
+		}
+		if i != n-1 {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+}
