@@ -3798,6 +3798,89 @@ func (c *RtdbConnect) ReadBatchesSummary(info *PointInfo, filter string, interva
 	return summaryDatas, RtdbErrorListToErrorList(rtes), nil
 }
 
+// ReadBatches 开始以分段返回方式读取一段时间内的储存数据
+//
+// input:
+//   - info 标签点信息
+//   - start 开始时间
+//   - end 结束时间
+//
+// output:
+//   - int32(count) 返回上述时间范围内的存储值数量
+//   - int32(batch_count) 每次分段返回的长度，用于继续调用 ReadNext 接口
+func (c *RtdbConnect) ReadBatches(info *PointInfo, start time.Time, end time.Time) (int32, int32, error) {
+	datetime1, subtime1 := GoTimeToRtdbTimestamp(start)
+	datetime2, subtime2 := GoTimeToRtdbTimestamp(end)
+	count, batchCount, rte := RawRtdbhGetArchivedValuesInBatches64Warp(c.ConnectHandle, info.ID, datetime1, subtime1, datetime2, subtime2)
+	if !RteIsOk(rte) {
+		return 0, 0, rte.GoError()
+	}
+	return count, batchCount, nil
+}
+
+// ReadNext 分段读取一段时间内的储存数据
+//
+// input:
+//   - info 标签点信息
+//   - count 缓存长度
+//
+// output:
+//   - PTVQs(ptvqs) 点值列表
+//   - bool(isEnd) 是否完成
+func (c *RtdbConnect) ReadNext(info *PointInfo, count int32) (PTVQs, bool, error) {
+	datetimes, subtimes, values, states, qualities, rte := RawRtdbhGetNextArchivedValues64Warp(c.ConnectHandle, info.ID, count)
+	if !RteIsOk(rte) && rtn != RteBatchEnd {
+		return PTVQs{}, false, rte.GoError()
+	}
+
+	tvqs := make([]TVQ, 0)
+	rtdbType, _ := info.ValueType.ToRawType()
+	for i := 0; i < len(datetimes); i++ {
+		ts := RtdbTimestampToGoTime(datetimes[i], subtimes[i])
+		quality := qualities[i]
+
+		switch rtdbType {
+		case RtdbTypeBool:
+			tvqs = append(tvqs, NewTvqBool(ts, Int64ToBool(states[i]), quality))
+		case RtdbTypeUint8:
+			tvqs = append(tvqs, NewTvqUint8(ts, uint8(states[i]), quality))
+		case RtdbTypeInt8:
+			tvqs = append(tvqs, NewTvqInt8(ts, int8(states[i]), quality))
+		case RtdbTypeChar:
+			tvqs = append(tvqs, NewTvqChar(ts, byte(states[i]), quality))
+		case RtdbTypeUint16:
+			tvqs = append(tvqs, NewTvqUint16(ts, uint16(states[i]), quality))
+		case RtdbTypeInt16:
+			tvqs = append(tvqs, NewTvqInt16(ts, int16(states[i]), quality))
+		case RtdbTypeUint32:
+			tvqs = append(tvqs, NewTvqUint32(ts, uint32(states[i]), quality))
+		case RtdbTypeInt32:
+			tvqs = append(tvqs, NewTvqInt32(ts, int32(states[i]), quality))
+		case RtdbTypeInt64:
+			tvqs = append(tvqs, NewTvqInt64(ts, states[i], quality))
+		case RtdbTypeReal16:
+			tvqs = append(tvqs, NewTvqFloat16(ts, float32(values[i]), quality))
+		case RtdbTypeReal32:
+			tvqs = append(tvqs, NewTvqFloat32(ts, float32(values[i]), quality))
+		case RtdbTypeReal64:
+			tvqs = append(tvqs, NewTvqFloat64(ts, values[i], quality))
+		case RtdbTypeFp16:
+			tvqs = append(tvqs, NewTvqFp16(ts, float32(values[i]), quality))
+		case RtdbTypeFp32:
+			tvqs = append(tvqs, NewTvqFp32(ts, float32(values[i]), quality))
+		case RtdbTypeFp64:
+			tvqs = append(tvqs, NewTvqFp64(ts, values[i], quality))
+		default:
+			return PTVQs{}, false, errors.New("不支持的类型")
+		}
+	}
+	isEnd := false
+	if errors.Is(rte, RteBatchEnd) {
+		isEnd = true
+	}
+	return NewPTVQs(info, tvqs), isEnd, nil
+}
+
 // RemoveValue 删除点值
 //
 // input:
