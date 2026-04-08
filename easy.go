@@ -3829,7 +3829,7 @@ func (c *RtdbConnect) ReadBatches(info *PointInfo, start time.Time, end time.Tim
 //   - bool(isEnd) 是否完成
 func (c *RtdbConnect) ReadNext(info *PointInfo, count int32) (PTVQs, bool, error) {
 	datetimes, subtimes, values, states, qualities, rte := RawRtdbhGetNextArchivedValues64Warp(c.ConnectHandle, info.ID, count)
-	if !RteIsOk(rte) && rtn != RteBatchEnd {
+	if !RteIsOk(rte) && !errors.Is(rte, RteBatchEnd) {
 		return PTVQs{}, false, rte.GoError()
 	}
 
