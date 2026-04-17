@@ -1265,3 +1265,341 @@ func TestRtdbConnect_SubscribeSnapshot(t *testing.T) {
 		}
 	}
 }
+
+// 测试订阅标签点属性更新
+func TestRtdbConnect_SubscribeTags(t *testing.T) {
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
+	if err != nil {
+		t.Fatal("登录用户失败", err)
+	}
+	defer func() { _ = conn.Logout() }()
+
+	// 订阅标签点属性更新
+	tagsChan, err := conn.SubscribeTags()
+	if err != nil {
+		t.Error("订阅标签点属性失败:", err)
+		return
+	}
+
+	// 确保取消订阅
+	defer func() {
+		err := conn.CancelSubscribeTags()
+		if err != nil {
+			t.Log("取消订阅标签点属性失败:", err)
+		}
+	}()
+
+	// 启动goroutine接收订阅数据
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		for {
+			select {
+			case tagInfo, ok := <-tagsChan:
+				if !ok {
+					fmt.Println("标签点属性订阅channel已关闭")
+					return
+				}
+				fmt.Printf("收到标签点属性更新: Name=%s, EventType=%d, Ids=%v\n", tagInfo.Name, tagInfo.EventType, tagInfo.Ids)
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	// 创建表和点来触发标签点属性变更
+	table, err := conn.CreateTable("sub_tags_test", "订阅标签点属性测试")
+	if err != nil {
+		t.Error("创建表失败：", err)
+		return
+	}
+	defer func() { _ = conn.DeleteTable(table.ID) }()
+
+	// 添加点
+	info := NewPointInfo("test_point", table.ID, ValueTypeFloat64, PointBase, RtdbPrecisionNano, "", "测试点")
+	info.SetLimit(-100, 100, 0)
+	pInfo, err := conn.AddPoint(info)
+	if err != nil {
+		t.Error("添加点失败:", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(pInfo.ID) }()
+
+	// 修改点属性以触发订阅通知
+	time.Sleep(100 * time.Millisecond)
+	err = conn.UpdatePoint(pInfo.ID, map[PointInfoField]any{
+		PointInfoFieldDesc: "修改后的描述",
+	})
+	if err != nil {
+		t.Error("修改点属性失败:", err)
+		return
+	}
+
+	// 等待一段时间接收订阅数据
+	time.Sleep(500 * time.Millisecond)
+	fmt.Println("标签点属性订阅测试完成")
+}
+
+// 测试Delta快照订阅
+func TestRtdbConnect_SubscribeDeltaSnapshots(t *testing.T) {
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
+	if err != nil {
+		t.Fatal("登录用户失败", err)
+	}
+	defer func() { _ = conn.Logout() }()
+
+	// 创建表
+	table, err := conn.CreateTable("delta_snap_test", "Delta快照订阅测试")
+	if err != nil {
+		t.Error("创建表失败：", err)
+		return
+	}
+	defer func() { _ = conn.DeleteTable(table.ID) }()
+
+	// 添加Float64类型的点
+	info := NewPointInfo("delta_point", table.ID, ValueTypeFloat64, PointBase, RtdbPrecisionNano, "", "Delta测试点")
+	info.SetLimit(-100, 100, 0)
+	pInfo, err := conn.AddPoint(info)
+	if err != nil {
+		t.Error("添加点失败:", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(pInfo.ID) }()
+
+	// 订阅Delta快照，设置deltaValue为5.0，deltaState为0
+	deltaValues := []float64{5.0}
+	deltaStates := []int64{0}
+	snapChan, errs, err := conn.SubscribeDeltaSnapshots([]*PointInfo{pInfo}, deltaValues, deltaStates)
+	if err != nil {
+		t.Error("订阅Delta快照失败:", err)
+		return
+	}
+	if len(errs) > 0 && errs[0] != nil {
+		t.Error("订阅Delta快照返回错误:", errs[0])
+		return
+	}
+
+	// 确保取消订阅
+	defer func() {
+		err := conn.CancelSubscribeSnapshots()
+		if err != nil {
+			t.Log("取消订阅快照失败:", err)
+		}
+	}()
+
+	// 启动goroutine接收订阅数据
+	done := make(chan struct{})
+	defer close(done)
+	receivedCount := 0
+	go func() {
+		for {
+			select {
+			case snap, ok := <-snapChan:
+				if !ok {
+					fmt.Println("Delta快照订阅channel已关闭")
+					return
+				}
+				receivedCount++
+				fmt.Printf("收到Delta快照更新 [%d]: Name=%s, PTVQs数量=%d\n",
+					receivedCount, snap.Name, len(snap.PTVQs))
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	// 写入数据，变化小于5.0，应该不会触发订阅
+	fmt.Println("写入变化小于5.0的数据，应该不会触发订阅...")
+	for i := 0; i < 3; i++ {
+		value := 25.0 + float64(i)*1.0 // 每次变化1.0，小于5.0
+		err := conn.WriteValue(pInfo, false, pInfo.NewNowTVQ(value, Quality(0)))
+		if err != nil {
+			t.Error("写入数据失败：", err)
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// 写入数据，变化大于5.0，应该触发订阅
+	fmt.Println("写入变化大于5.0的数据，应该触发订阅...")
+	for i := 0; i < 3; i++ {
+		value := 30.0 + float64(i)*6.0 // 每次变化6.0，大于5.0
+		err := conn.WriteValue(pInfo, false, pInfo.NewNowTVQ(value, Quality(0)))
+		if err != nil {
+			t.Error("写入数据失败：", err)
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// 等待一段时间接收订阅数据
+	time.Sleep(500 * time.Millisecond)
+	fmt.Printf("Delta快照订阅测试完成，共收到%d条订阅通知\n", receivedCount)
+}
+
+// 测试修改快照订阅
+func TestRtdbConnect_ChangeSubscribeSnapshots(t *testing.T) {
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
+	if err != nil {
+		t.Fatal("登录用户失败", err)
+	}
+	defer func() { _ = conn.Logout() }()
+
+	// 创建表
+	table, err := conn.CreateTable("change_snap_test", "修改快照订阅测试")
+	if err != nil {
+		t.Error("创建表失败：", err)
+		return
+	}
+	defer func() { _ = conn.DeleteTable(table.ID) }()
+
+	// 添加两个点
+	info1 := NewPointInfo("point1", table.ID, ValueTypeFloat64, PointBase, RtdbPrecisionNano, "", "测试点1")
+	info1.SetLimit(-100, 100, 0)
+	pInfo1, err := conn.AddPoint(info1)
+	if err != nil {
+		t.Error("添加点1失败:", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(pInfo1.ID) }()
+
+	info2 := NewPointInfo("point2", table.ID, ValueTypeFloat64, PointBase, RtdbPrecisionNano, "", "测试点2")
+	info2.SetLimit(-100, 100, 0)
+	pInfo2, err := conn.AddPoint(info2)
+	if err != nil {
+		t.Error("添加点2失败:", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(pInfo2.ID) }()
+
+	// 先订阅第一个点
+	snapChan, errs, err := conn.SubscribeSnapshots([]*PointInfo{pInfo1})
+	if err != nil {
+		t.Error("订阅快照失败:", err)
+		return
+	}
+	if len(errs) > 0 && errs[0] != nil {
+		t.Error("订阅快照返回错误:", errs[0])
+		return
+	}
+
+	// 确保取消订阅
+	defer func() {
+		err := conn.CancelSubscribeSnapshots()
+		if err != nil {
+			t.Log("取消订阅快照失败:", err)
+		}
+	}()
+
+	// 启动goroutine接收订阅数据
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		for {
+			select {
+			case snap, ok := <-snapChan:
+				if !ok {
+					fmt.Println("快照订阅channel已关闭")
+					return
+				}
+				fmt.Printf("收到快照更新: Name=%s, PTVQs数量=%d\n", snap.Name, len(snap.PTVQs))
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	// 写入第一个点的数据
+	fmt.Println("写入point1的数据...")
+	err = conn.WriteValue(pInfo1, false, pInfo1.NewNowTVQ(10.0, Quality(0)))
+	if err != nil {
+		t.Error("写入数据失败：", err)
+		return
+	}
+	time.Sleep(100 * time.Millisecond)
+
+	// 修改订阅，添加第二个点
+	fmt.Println("修改订阅，添加point2...")
+	errs, err = conn.ChangeSubscribeSnapshots(
+		[]*PointInfo{pInfo2},
+		nil,
+		nil,
+		[]RtdbSubscribeChangeType{RtdbSubscribeChangeTypeAdd},
+	)
+	if err != nil {
+		t.Error("修改订阅失败:", err)
+		return
+	}
+	for i, e := range errs {
+		if e != nil {
+			t.Errorf("修改订阅第%d个点失败: %v", i, e)
+		}
+	}
+
+	// 写入第二个点的数据
+	fmt.Println("写入point2的数据...")
+	err = conn.WriteValue(pInfo2, false, pInfo2.NewNowTVQ(20.0, Quality(0)))
+	if err != nil {
+		t.Error("写入数据失败：", err)
+		return
+	}
+	time.Sleep(100 * time.Millisecond)
+
+	// 修改订阅，移除第一个点
+	fmt.Println("修改订阅，移除point1...")
+	errs, err = conn.ChangeSubscribeSnapshots(
+		[]*PointInfo{pInfo1},
+		nil,
+		nil,
+		[]RtdbSubscribeChangeType{RtdbSubscribeChangeTypeRemove},
+	)
+	if err != nil {
+		t.Error("修改订阅失败:", err)
+		return
+	}
+
+	// 等待一段时间
+	time.Sleep(300 * time.Millisecond)
+	fmt.Println("修改快照订阅测试完成")
+}
+
+// 测试数据流订阅（Datagram）
+func TestRtdbConnect_Datagram(t *testing.T) {
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
+	if err != nil {
+		t.Fatal("登录用户失败", err)
+	}
+	defer func() { _ = conn.Logout() }()
+
+	// 创建数据流订阅
+	// 注意：这里使用本地地址作为示例，实际使用时需要根据RTDB服务器的配置调整
+	remoteHost := "127.0.0.1"
+	datagramHandle, err := conn.CreateDatagram(8000, remoteHost)
+	if err != nil {
+		t.Error("创建数据流订阅失败:", err)
+		return
+	}
+
+	// 确保移除数据流订阅
+	defer func() {
+		err := conn.RemoveDatagram(datagramHandle)
+		if err != nil {
+			t.Log("移除数据流订阅失败:", err)
+		}
+	}()
+
+	fmt.Printf("数据流订阅创建成功: Handle=%v\n", datagramHandle)
+
+	// 尝试接收数据（设置较短的超时时间，因为可能没有数据）
+	// 注意：这个测试主要是验证接口调用，实际数据接收需要服务器配合
+	fmt.Println("尝试接收数据流（设置1秒超时）...")
+	data, err := conn.RecvDatagram(datagramHandle, 1024, remoteHost, 1)
+	if err != nil {
+		// 超时或没有数据是预期的行为
+		fmt.Printf("接收数据流结果: %v\n", err)
+	} else {
+		fmt.Printf("接收到数据流: %v\n", data)
+	}
+
+	fmt.Println("数据流订阅测试完成")
+}
