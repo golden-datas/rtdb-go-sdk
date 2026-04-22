@@ -1,13 +1,21 @@
 # rtdb_api
 
-## 备注
+## 注意
+
 由于本库使用了CGO技术，需要编译一定量的C代码，因此编译时间较长，尤其是在Windows环境下，请耐心等待
 
+## 编译环境
+
+* 在Linux平台中，需安装Golang编译器、GCC工具链
+* 在Windows平台中，需安装Golang编译器、MicrosoftVisualC++BuildTools工具链(可通过VisualStudio2022安装)
+
 ## 一些基本概念
+
 * API库：这里特指连接数据库的so库，这个so库是用C写的，是负责和数据库进行通信的客户端，本包封装了这个so库的接口，使用FFI+Warp技术进行的。
 * CGO: 由于本库使用了部分C语言，因此编译的时候需要开启CGO，否则会导致无法编译，开启CGO命令:```go env -w CGO_ENABLED=1```
 
 ## 分层
+
 ```text
 +---------------------+
 |       C Header      | // 原版的C库函数
@@ -21,6 +29,7 @@
 ```
 
 ## 代码结构
+
 * cinclude: C代码的.h部分，里面包含了一些必要的C头文件
 * clibrary: C代码的(.so/.dll)部分，里面包含了跨平台的动态库(linux_amd64、linux_arm64、windows_amd64)
 * api.go: 基于C代码封装的原始API，函数名均以Raw开头，由于是基于C原始代码1比1封装，因此缺乏对象化，相对难用但功能全性能高
@@ -29,9 +38,11 @@
 * easy_test.go: easy.go中封装函数的代码示例
 
 ## 注意
+
 尽量避免使用Raw开头的函数，此为原始C函数的Go封装，属于中间层代码，但是由于他的全面性和标准性，这里还是进行了保留并且对外提供调用方式，有极致性能需求的情况下可酌情调用。
 
 ## 最简调用示例
+
 ```go
 package main
 
@@ -108,6 +119,7 @@ func main() {
 ```
 
 ## 可用函数列表
+
 1. Login 登录数据库
 2. (RtdbConnect)Logout 登出数据库
 3. (RtdbConnect)SetLocation 设置客户端时区，不设置默认为亚洲东八
@@ -193,11 +205,13 @@ func main() {
 83. (RtdbConnect)JobMessage 获取任务描述
 84. (RtdbConnect)ComputeHistory 重算｜补算 补历史值或者修改历史值之后，对应的计算点可以按需进行重算|补算，保证计算点的数值正确
 85. (RtdbConnect)GetPointEquation 获取标签点方程式
-86. (RtdbConnect)GetEquationGraph 获取标签点对应的方程式关联关系图(方程式本身是一个有向无环图，数据在这个图内的公式之间流转)
+86. (RtdbConnect)GetEquationGraph 获取标签点对应的方程式关联关系图(
+    方程式本身是一个有向无环图，数据在这个图内的公式之间流转)
 87. (RtdbConnect)GetPerfPointInfo 获取性能监控点的说明信息
 88. (RtdbConnect)GetPerfPointValue 获取性能监控点的实时值
 89. (RtdbConnect)CreateRangedArchive 创建存档文件(按照时间范围创建)
-90. (RtdbConnect)AppendArchive 存档文件入列(将存档文件插入到存档队列中, 队列中的存档文件按照start、end依次排列，注意时间段不能有交叠的部分)
+90. (RtdbConnect)AppendArchive 存档文件入列(将存档文件插入到存档队列中,
+    队列中的存档文件按照start、end依次排列，注意时间段不能有交叠的部分)
 91. (RtdbConnect)RemoveArchive 存档文件解列
 92. (RtdbConnect)ShiftActived 切换活动文件
 93. (RtdbConnect)GetArchives 获取存档文件的基本信息(返回全部存档文件的基本信息)

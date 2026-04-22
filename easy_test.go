@@ -1183,6 +1183,7 @@ func TestRtdbConnect_UpdateSingleValue(t *testing.T) {
 	})
 }
 
+// 快照订阅测试
 func TestRtdbConnect_SubscribeSnapshot(t *testing.T) {
 	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
 	if err != nil {
@@ -1229,9 +1230,14 @@ func TestRtdbConnect_SubscribeSnapshot(t *testing.T) {
 	fmt.Println("server time:", serverTime.Format(time.RFC3339))
 	fmt.Println("client time:", time.Now().Format(time.RFC3339))
 
-	snapChan, errs, err := conn.SubscribeSnapshots([]*PointInfo{info})
-	if err != nil || errs[0] != nil {
-		t.Error("订阅快照失败:", err, errs[0])
+	snapChan, errs, err := conn.SubscribeSnapshots([]*PointInfo{pInfo})
+	if err != nil {
+		t.Error("订阅快照失败:", err)
+		return
+	}
+	if len(errs) > 0 && errs[0] != nil {
+		t.Error("订阅快照返回错误:", errs[0])
+		return
 	}
 	closeChan := make(chan struct{})
 	defer close(closeChan)
