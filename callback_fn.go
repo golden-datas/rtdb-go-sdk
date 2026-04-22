@@ -59,7 +59,7 @@ func goSubscribeTagsEx(
 	return C.rtdb_error(0)
 }
 
-var SubscribeSnapshotsMap map[string]*SubscribeSnapshotsPointsAndChannel
+var SubscribeSnapshotsMap = make(map[string]*SubscribeSnapshotsPointsAndChannel)
 var SubscribeSnapshotsLock sync.Mutex
 
 type SubscribeSnapshotsPointsAndChannel struct {

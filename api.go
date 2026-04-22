@@ -9739,8 +9739,14 @@ func RawRtdbsSubscribeDeltaSnapshots64Warp(handle ConnectHandle, ids []PointID, 
 	cHandle := C.rtdb_int32(handle)
 	cCount := C.rtdb_int32(len(ids))
 	cIds := (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
-	cDeltaValues := (*C.rtdb_float64)(unsafe.Pointer(&deltaValues[0]))
-	cDeltaStates := (*C.rtdb_int64)(unsafe.Pointer(&deltaStates[0]))
+	var cDeltaValues *C.rtdb_float64
+	if len(deltaValues) > 0 {
+		cDeltaValues = (*C.rtdb_float64)(unsafe.Pointer(&deltaValues[0]))
+	}
+	var cDeltaStates *C.rtdb_int64
+	if len(deltaStates) > 0 {
+		cDeltaStates = (*C.rtdb_int64)(unsafe.Pointer(&deltaStates[0]))
+	}
 	cOptions := C.rtdb_uint32(options)
 	errs := make([]RtdbError, len(ids))
 	cErrs := (*C.rtdb_error)(unsafe.Pointer(&errs[0]))
@@ -9767,8 +9773,14 @@ func RawRtdbsChangeSubscribeSnapshotsWarp(handle ConnectHandle, ids []PointID, d
 	cHandle := C.rtdb_int32(handle)
 	cCount := C.rtdb_int32(len(ids))
 	cIds := (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
-	cDeltaValues := (*C.rtdb_float64)(unsafe.Pointer(&deltaValues[0]))
-	cDeltaStates := (*C.rtdb_int64)(unsafe.Pointer(&deltaStates[0]))
+	var cDeltaValues *C.rtdb_float64
+	if len(deltaValues) > 0 {
+		cDeltaValues = (*C.rtdb_float64)(unsafe.Pointer(&deltaValues[0]))
+	}
+	var cDeltaStates *C.rtdb_int64
+	if len(deltaStates) > 0 {
+		cDeltaStates = (*C.rtdb_int64)(unsafe.Pointer(&deltaStates[0]))
+	}
 	cChangedTypes := (*C.rtdb_int32)(unsafe.Pointer(&changedTypes[0]))
 	errs := make([]RtdbError, len(ids))
 	cErrs := (*C.rtdb_error)(unsafe.Pointer(&errs[0]))
