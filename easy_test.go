@@ -1243,15 +1243,21 @@ func TestRtdbConnect_SubscribeSnapshot(t *testing.T) {
 	defer close(closeChan)
 	defer func() {
 		err := conn.CancelSubscribeSnapshots()
-		t.Error("关闭订阅失败：", err)
+		if err != nil {
+			t.Error("关闭订阅失败：", err)
+		}
 	}()
 	go func() {
 		for {
 			select {
-			case snap := <-snapChan:
+			case snap, ok := <-snapChan:
+				if !ok {
+					fmt.Println("快照订阅channel已关闭")
+					return
+				}
 				fmt.Println(snap)
 			case <-closeChan:
-				break
+				return
 			}
 		}
 	}()
