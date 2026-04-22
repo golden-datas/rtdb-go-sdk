@@ -11,7 +11,7 @@ import (
 )
 
 var SubscribeTagsChannelLock sync.Mutex
-var SubscribeTagsChannelMap map[string]chan SubscribeTagsInfo
+var SubscribeTagsChannelMap = make(map[string]chan SubscribeTagsInfo)
 
 type SubscribeTagsInfo struct {
 	Name      string    // 订阅名称（一个随机字符串，内部使用）

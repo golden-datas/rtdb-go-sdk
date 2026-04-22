@@ -1191,7 +1191,7 @@ func TestRtdbConnect_SubscribeSnapshot(t *testing.T) {
 	defer func() { _ = conn.Logout() }()
 
 	// 创建表
-	table, err := conn.CreateTable("ttt", "ttt desc")
+	table, err := conn.CreateTable("ttt3", "ttt desc")
 	if err != nil {
 		t.Error("创建表失败：", err)
 		return
