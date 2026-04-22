@@ -31,3 +31,5 @@ go.work.sum
 **/perf.exe
 **/test.csv
 **/test_points.csv
+
+.idea/
