@@ -2772,9 +2772,9 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			for i, e := range aRtes {
 				rtes[aIndex[i]] = e
 			}
-			for i, e := range rtes {
-				rtnRtes[numberIdx[i]] = e
-			}
+		}
+		for i, e := range rtes {
+			rtnRtes[numberIdx[i]] = e
 		}
 	}
 
@@ -2815,9 +2815,9 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			for i, e := range aRtes {
 				rtes[aIndex[i]] = e
 			}
-			for i, e := range rtes {
-				rtnRtes[coorIdx[i]] = e
-			}
+		}
+		for i, e := range rtes {
+			rtnRtes[coorIdx[i]] = e
 		}
 	}
 
@@ -2852,9 +2852,9 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			for i, e := range aRtes {
 				rtes[aIndex[i]] = e
 			}
-			for i, e := range rtes {
-				rtnRtes[bIdx[i]] = e
-			}
+		}
+		for i, e := range rtes {
+			rtnRtes[bIdx[i]] = e
 		}
 	}
 
@@ -2887,9 +2887,9 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			for i, e := range aRtes {
 				rtes[aIndex[i]] = e
 			}
-			for i, e := range rtes {
-				rtnRtes[namedIdx[i]] = e
-			}
+		}
+		for i, e := range rtes {
+			rtnRtes[namedIdx[i]] = e
 		}
 	}
 
@@ -2922,9 +2922,9 @@ func (c *RtdbConnect) WriteSection(fix bool, ptvqs []PTVQ) ([]error, error) {
 			for i, e := range aRtes {
 				rtes[aIndex[i]] = e
 			}
-			for i, e := range rtes {
-				rtnRtes[dtIdx[i]] = e
-			}
+		}
+		for i, e := range rtes {
+			rtnRtes[dtIdx[i]] = e
 		}
 	}
 	return RtdbErrorListToErrorList(rtnRtes), nil
@@ -3250,6 +3250,9 @@ func (c *RtdbConnect) ReadRange(info *PointInfo, start time.Time, end time.Time)
 	maxCount, rte := RawRtdbhArchivedValuesCount64Warp(c.ConnectHandle, info.ID, datetime1, subtime1, datetime2, subtime2)
 	if !RteIsOk(rte) {
 		return PTVQs{}, rte.GoError()
+	}
+	if maxCount == 0 {
+		return NewPTVQs(info, []TVQ{}), nil
 	}
 	tvqs := make([]TVQ, 0)
 	switch rtdbType {
