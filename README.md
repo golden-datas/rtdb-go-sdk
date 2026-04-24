@@ -9,6 +9,10 @@
 * 在Linux平台中，需安装Golang编译器、GCC工具链
 * 在Windows平台中，需安装Golang编译器、MicrosoftVisualC++BuildTools工具链(可通过VisualStudio2022安装)
 
+## 版本
+
+* v0.1.0: 第一个试用版本, 后续的bug修复会基于这个版本， 版号为v0.1.x
+
 ## 一些基本概念
 
 * API库：这里特指连接数据库的so库，这个so库是用C写的，是负责和数据库进行通信的客户端，本包封装了这个so库的接口，使用FFI+Warp技术进行的。
