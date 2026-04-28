@@ -6710,6 +6710,24 @@ func RawRtdbOsType(handle ConnectHandle) (RtdbOsType, RtdbError) {
 	return RtdbOsType(osType), RtdbError(err)
 }
 
+// RawRtdbGetHandleInfoWarp 获取连接句柄所连接的服务器相关信息
+//
+// input:
+//   - handle 连接句柄
+//
+// output:
+//   - RtdbHandleInfo(info) 服务器相关信息
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdb_get_handle_info_warp(rtdb_int32 handle, RTDB_HANDLE_INFO* info)
+func RawRtdbGetHandleInfoWarp(handle ConnectHandle) (RtdbHandleInfo, RtdbError) {
+	cHandle := C.rtdb_int32(handle)
+	cInfo := C.RTDB_HANDLE_INFO{}
+	err := C.rtdb_get_handle_info_warp(cHandle, &cInfo)
+	goInfo := cToRtdbHandleInfo(&cInfo)
+	return goInfo, RtdbError(err)
+}
+
 // RawRtdbChangePasswordWarp 修改用户帐户口令
 //
 // input:

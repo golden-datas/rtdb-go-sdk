@@ -1326,6 +1326,18 @@ func (c *RtdbConnect) GetClientVersion() (*ApiVersion, error) {
 	return &version, rte.GoError()
 }
 
+// GetHandleInfo 获取连接句柄所连接的服务器相关信息
+//
+// output:
+//   - RtdbHandleInfo(info) 服务器相关信息
+func (c *RtdbConnect) GetHandleInfo() (*RtdbHandleInfo, error) {
+	info, rte := RawRtdbGetHandleInfoWarp(c.ConnectHandle)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+	return &info, nil
+}
+
 // SetClientOption 设置客户端参数
 //
 // input:
