@@ -5,12 +5,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"golang.org/x/text/encoding/simplifiedchinese"
-	"golang.org/x/text/transform"
 	"io"
 	"math/rand"
 	"runtime"
 	"unsafe"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 )
 
 func CCharArrayToString(p *C.char, n int) string {
@@ -182,4 +183,12 @@ func SafeCopyToSlice[T any](ptr unsafe.Pointer, count int) []T {
 	copy(dst, src)
 
 	return result
+}
+
+func BoolToSwitch(b bool) Switch {
+	if b {
+		return ON
+	}
+
+	return OFF
 }
