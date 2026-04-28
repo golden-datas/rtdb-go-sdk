@@ -8505,44 +8505,48 @@ func RawRtdbbUpdateMaxPointPropertyWarp(handle ConnectHandle, base *RtdbPoint, s
 }
 
 // RawRtdbbFindPointsWarp 根据 "表名.标签点名" 格式批量获取标签点标识
-// 备注：废弃，此函数已有扩展版，因此不实现， 参见RawRtdbbFindPointsExWarp
 //
 // input:
 //   - handle 连接句柄
-//   - count 输入时表示标签点个数 (即table_dot_tags、ids、types、classof、use_ms 的长度)，输出时表示找到的标签点个数
-//   - table_dot_tags 输入，"表名.标签点名" 列表
+//   - tableDotTags 输入，"表名.标签点名" 列表
 //
 // output:
-//   - []PointID 标签点ID列表
-//   - []RtdbType 标签点数值类型列表
-//   - []RtdbClass 标签点种类列表
+//   - []PointID(ids) 标签点标识列表, 返回 0 表示未找到
+//   - []RtdbType(types) 标签点数据类型
+//   - []RtdbClass(classes) 标签点类别
+//   - []int16(useMs) 时间戳精度
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_find_points_warp(rtdb_int32 handle, rtdb_int32 *count, const char* const* table_dot_tags, rtdb_int32 *ids, rtdb_int32 *types, rtdb_int32 *classof, rtdb_int16 *use_ms)
-// func RawRtdbbFindPointsWarp(handle ConnectHandle, count int32, tableDotTags []string) ([]PointID, []RtdbType, []RtdbClass, error) {
-// 	cCount := C.rtdb_int32(count)
-// 	cTags := make([]*C.char, 0)
-// 	for _, tag := range tableDotTags {
-// 		cT := C.CString(tag)
-// 		cTags = append(cTags, cT)
-// 	}
-// 	defer func() {
-// 		for _, cT := range cTags {
-// 			C.free(unsafe.Pointer(cT))
-// 		}
-// 	}()
-// 	ccTags := &cTags[0]
-// 	ids := make([]PointID, cCount)
-// 	cIds := (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
-// 	types := make([]RtdbType, cCount)
-// 	cTypes := (*C.rtdb_int32)(unsafe.Pointer(&types[0]))
-// 	classOfs := make([]RtdbClass, cCount)
-// 	cClassOf := (*C.rtdb_int32)(unsafe.Pointer(&classofs[0]))
-// 	useMs := make([]C.rtdb_int16, cCount)
-// 	cUseMs := &useMs[0]
-// 	err := C.rtdbb_find_points_warp(C.rtdb_int32(handle), &cCount, ccTags, cIds, cTypes, cClassOf, cUseMs)
-// 	return ids[:cCount], types[:cCount], classOfs[:cCount], RtdbError(err).GoError()
-// }
+func RawRtdbbFindPointsWarp(handle ConnectHandle, tableDotTags []string) ([]PointID, []RtdbType, []RtdbClass, []int16, RtdbError) {
+	if len(tableDotTags) == 0 {
+		return nil, nil, nil, nil, RteOk
+	}
+	count := len(tableDotTags)
+	cCount := C.rtdb_int32(count)
+	cHandle := C.rtdb_int32(handle)
+	tableDotTagsList := make([]*C.char, count)
+	for i := 0; i < count; i++ {
+		tableDotTagsList[i] = C.CString(StringInDB(tableDotTags[i]))
+	}
+	defer func() {
+		for i := 0; i < count; i++ {
+			C.free(unsafe.Pointer(tableDotTagsList[i]))
+		}
+	}()
+	cTableDotTags := &tableDotTagsList[0]
+	ids := make([]PointID, count)
+	cIds := (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
+	types := make([]RtdbType, count)
+	cTypes := (*C.rtdb_int32)(unsafe.Pointer(&types[0]))
+	classOf := make([]RtdbClass, count)
+	cClassOf := (*C.rtdb_int32)(unsafe.Pointer(&classOf[0]))
+	useMs := make([]int16, count)
+	cUseMs := (*C.rtdb_int16)(unsafe.Pointer(&useMs[0]))
+
+	err := C.rtdbb_find_points_warp(cHandle, &cCount, cTableDotTags, cIds, cTypes, cClassOf, cUseMs)
+	return ids[:cCount], types[:cCount], classOf[:cCount], useMs[:cCount], RtdbError(err)
+}
 
 // RawRtdbbFindPointsExWarp 根据 "表名.标签点名" 格式批量获取标签点标识
 //
@@ -8776,6 +8780,18 @@ func RawRtdbbGetRecycledPointsWarp(handle ConnectHandle, count int32) ([]PointID
 // rtdb_error RTDBAPI_CALLRULE rtdbb_search_recycled_points_warp(rtdb_int32 handle, const char *tagmask, const char *fullmask, const char *source, const char *unit, const char *desc, const char *instrument, rtdb_int32 mode, rtdb_int32 *ids, rtdb_int32 *count)
 // func RawRtdbbSearchRecycledPointsWarp() {}
 
+// RawRtdbbGetRecycledPointPropertyWarp 获取可回收标签点的属性
+// 备注： 不实现， 统一使用最大长度， RawRtdbbGetRecycledMaxPointPropertyWarp
+//
+// * \param handle   连接句柄
+// * \param base     RTDB_POINT 结构，输入/输出，标签点基本属性。
+// 输入时，由 id 字段指定要取得的可回收标签点。
+// * \param scan     RTDB_SCAN_POINT 结构，输出，标签点采集扩展属性
+// * \param calc     RTDB_CALC_POINT 结构，输出，标签点计算扩展属性
+// * \remark scan、calc 可为空指针，对应的扩展信息将不返回。
+// rtdb_error RTDBAPI_CALLRULE rtdbb_get_recycled_point_property_warp(rtdb_int32 handle, RTDB_POINT *base, RTDB_SCAN_POINT *scan, RTDB_CALC_POINT *calc)
+// func RawRtdbbGetRecycledPointPropertyWarp() {}
+
 // RawRtdbbSearchRecycledPointsInBatchesWarp 分批搜索符合条件的可回收标签点，使用标签点名时支持通配符
 //
 // input:
@@ -8826,18 +8842,6 @@ func RawRtdbbSearchRecycledPointsInBatchesWarp(handle ConnectHandle, start int32
 	err := C.rtdbb_search_recycled_points_in_batches_warp(cHandle, cStart, cTagMask, cFullMask, cSource, cUnit, cDesc, cInstrument, cMode, cIds, &cCount)
 	return ids[:cCount], RtdbError(err)
 }
-
-// RawRtdbbGetRecycledPointPropertyWarp 获取可回收标签点的属性
-// 备注： 不实现， 统一使用最大长度， RawRtdbbGetRecycledMaxPointPropertyWarp
-//
-// * \param handle   连接句柄
-// * \param base     RTDB_POINT 结构，输入/输出，标签点基本属性。
-// 输入时，由 id 字段指定要取得的可回收标签点。
-// * \param scan     RTDB_SCAN_POINT 结构，输出，标签点采集扩展属性
-// * \param calc     RTDB_CALC_POINT 结构，输出，标签点计算扩展属性
-// * \remark scan、calc 可为空指针，对应的扩展信息将不返回。
-// rtdb_error RTDBAPI_CALLRULE rtdbb_get_recycled_point_property_warp(rtdb_int32 handle, RTDB_POINT *base, RTDB_SCAN_POINT *scan, RTDB_CALC_POINT *calc)
-// func RawRtdbbGetRecycledPointPropertyWarp() {}
 
 // RawRtdbbGetRecycledMaxPointPropertyWarp 按最大长度获取可回收标签点的属性
 //
