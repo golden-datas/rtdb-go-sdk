@@ -6478,6 +6478,39 @@ func RawRtdbDisconnectWarp(handle ConnectHandle) RtdbError {
 	return RtdbError(err)
 }
 
+// RawRtdbSubscribeConnectExWarp 创建API调用订阅连接
+//
+// input:
+//   - handle 连接句柄
+//   - options 订阅选项，参见枚举RTDB_OPTION
+//   - name 用户自定义参数（内部作为channel map的key）
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdb_subscribe_connect_ex_warp(rtdb_int32 handle, rtdb_uint32 options, void* param, rtdb_connect_event_ex callback)
+func RawRtdbSubscribeConnectExWarp(handle ConnectHandle, options RtdbSubscribeOption, name string) (unsafe.Pointer, RtdbError) {
+	name = StringInDB(name)
+
+	cName := C.CString(name)
+	cHandle := C.rtdb_int32(handle)
+	cOptions := C.rtdb_uint32(options)
+	err := C.rtdb_subscribe_connect_ex_warp(cHandle, cOptions, unsafe.Pointer(cName), (C.rtdb_connect_event_ex)(unsafe.Pointer(C.goConnectEventEx)))
+	return unsafe.Pointer(cName), RtdbError(err)
+}
+
+// RawRtdbCancelSubscribeConnectWarp 关闭API调用订阅链接
+//
+// input:
+//   - handle 连接句柄
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdb_cancel_subscribe_connect_warp(rtdb_int32 handle)
+func RawRtdbCancelSubscribeConnectWarp(handle ConnectHandle, param unsafe.Pointer) RtdbError {
+	cHandle := C.rtdb_int32(handle)
+	err := C.rtdb_cancel_subscribe_connect_warp(cHandle)
+	C.free(param)
+	return RtdbError(err)
+}
+
 // RawRtdbGetDbInfo1Warp 获得字符串型数据库系统参数
 //
 // input:

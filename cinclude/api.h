@@ -134,7 +134,7 @@ rtdb_error RTDBAPI_CALLRULE rtdb_recv_datagram_warp(char* message, rtdb_int32* m
 
 
 /**
-* \brief 创建订阅连接
+* \brief 创建API调用订阅连接
 * \param [in] handle 连接句柄
 * \param [in] options 选项
 * \param [in] param 参数
@@ -150,7 +150,7 @@ rtdb_error RTDBAPI_CALLRULE rtdb_subscribe_connect_ex_warp(rtdb_int32 handle, rt
 }
 
 /**
-* \brief 关闭订阅链接
+* \brief 关闭API调用订阅链接
 * \param [in] handle 连接句柄
 * \return rtdb_error
 * \remark 关闭订阅链接

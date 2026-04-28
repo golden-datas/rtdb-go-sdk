@@ -1661,3 +1661,94 @@ func TestRtdbConnect_Datagram(t *testing.T) {
 
 	fmt.Println("数据流订阅测试完成")
 }
+
+// 测试API调用连接事件订阅
+func TestRtdbConnect_SubscribeConnectEvents(t *testing.T) {
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
+	if err != nil {
+		t.Fatal("登录用户失败", err)
+	}
+	defer func() { _ = conn.Logout() }()
+
+	// 创建表
+	table, err := conn.CreateTable("connect_event_test", "API调用事件订阅测试")
+	if err != nil {
+		t.Error("创建表失败：", err)
+		return
+	}
+	defer func() { _ = conn.DeleteTable(table.ID) }()
+
+	// 添加点
+	info := NewPointInfo("event_point", table.ID, ValueTypeFloat64, PointBase, RtdbPrecisionNano, "", "事件测试点")
+	info.SetLimit(-100, 100, 0)
+	pInfo, err := conn.AddPoint(info)
+	if err != nil {
+		t.Error("添加点失败:", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(pInfo.ID) }()
+
+	// 订阅API调用连接事件
+	eventChan, err := conn.SubscribeConnectEvents()
+	if err != nil {
+		t.Error("订阅API调用事件失败:", err)
+		return
+	}
+
+	// 确保取消订阅
+	defer func() {
+		err := conn.CancelSubscribeConnectEvents()
+		if err != nil {
+			t.Log("取消订阅API调用事件失败:", err)
+		}
+	}()
+
+	// 启动goroutine接收订阅数据
+	done := make(chan struct{})
+	defer close(done)
+	receivedCount := 0
+	go func() {
+		for {
+			select {
+			case eventInfo, ok := <-eventChan:
+				if !ok {
+					fmt.Println("API调用事件订阅channel已关闭")
+					return
+				}
+				receivedCount++
+				fmt.Printf("收到API调用事件 [%d]: EventType=%d, Handle=%d, Events数量=%d, PreCalls数量=%d, PostCalls数量=%d\n",
+					receivedCount, eventInfo.EventType, eventInfo.Handle, len(eventInfo.Events),
+					len(eventInfo.PreCalls), len(eventInfo.PostCalls))
+				for _, ev := range eventInfo.Events {
+					fmt.Printf("  API调用详情: msg_id=%d, elapsed=%.2fms, ret_val=%d, client_process=%d, client_thread=%d\n",
+						ev.MsgID, ev.Elapsed, ev.RetVal, ev.ClientProcessID, ev.ClientThreadID)
+				}
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	// 在主连接上执行API调用，触发订阅事件
+	fmt.Println("执行API调用以触发事件...")
+	for i := 0; i < 5; i++ {
+		value := 20.0 + float64(i)*2.0
+		err := conn.WriteValue(pInfo, false, pInfo.NewNowTVQ(value, Quality(0)))
+		if err != nil {
+			t.Error("写入数据失败：", err)
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	// 再执行一个读取操作
+	_, err = conn.ReadLast(pInfo)
+	if err != nil {
+		t.Error("读取实时值失败：", err)
+		return
+	}
+
+	// 等待一段时间接收订阅数据
+	time.Sleep(500 * time.Millisecond)
+	fmt.Printf("API调用事件订阅测试完成，共收到%d条订阅通知\n", receivedCount)
+}

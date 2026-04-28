@@ -1204,6 +1204,9 @@ type RtdbConnect struct {
 	SubscribeSnapshotsConn  *RtdbConnect   // 订阅快照专用连接
 	SubscribeSnapshotsName  string         // 订阅快照channel名称
 	SubscribeSnapshotsParam unsafe.Pointer // 订阅快照channel(c指针)
+	SubscribeConnectEventConn  *RtdbConnect   // 订阅API调用事件专用连接
+	SubscribeConnectEventName  string         // 订阅API调用事件channel名称
+	SubscribeConnectEventParam unsafe.Pointer // 订阅API调用事件channel(c指针)
 	Location                *time.Location // 时区
 }
 
@@ -4528,6 +4531,62 @@ func (c *RtdbConnect) CancelSubscribeSnapshots() error {
 	c.SubscribeSnapshotsConn = nil
 	c.SubscribeSnapshotsParam = nil
 	c.SubscribeSnapshotsName = ""
+
+	return nil
+}
+
+// SubscribeConnectEvents 订阅API调用连接事件
+//
+// output:
+//   - chan SubscribeConnectEventInfo(chan) 连接事件订阅channel
+func (c *RtdbConnect) SubscribeConnectEvents() (chan SubscribeConnectEventInfo, error) {
+	if c.SubscribeConnectEventConn == nil {
+		name := RandString(10)
+		c.SubscribeConnectEventName = name
+		con, err := Login(c.HostIp, c.Port, c.UserName, c.Password, RtdbPrecisionNano)
+		if err != nil {
+			return nil, err
+		}
+		c.SubscribeConnectEventConn = con
+
+		ch := make(chan SubscribeConnectEventInfo, 1024)
+		SubscribeConnectEventLock.Lock()
+		defer SubscribeConnectEventLock.Unlock()
+		SubscribeConnectEventMap[name] = ch
+
+		cName, rte := RawRtdbSubscribeConnectExWarp(c.SubscribeConnectEventConn.ConnectHandle, RtdbSubscribeOptionAutoConn, name)
+		if !RteIsOk(rte) {
+			return nil, rte.GoError()
+		}
+		c.SubscribeConnectEventParam = cName
+		return ch, nil
+	} else {
+		return nil, errors.New("已有API调用事件订阅，请不要重复订阅")
+	}
+}
+
+// CancelSubscribeConnectEvents 取消订阅API调用连接事件
+func (c *RtdbConnect) CancelSubscribeConnectEvents() error {
+	if c.SubscribeConnectEventConn == nil && c.SubscribeConnectEventName == "" {
+		return errors.New("无订阅")
+	}
+	rte := RawRtdbCancelSubscribeConnectWarp(c.SubscribeConnectEventConn.ConnectHandle, c.SubscribeConnectEventParam)
+	if !RteIsOk(rte) {
+		return rte.GoError()
+	}
+
+	SubscribeConnectEventLock.Lock()
+	defer SubscribeConnectEventLock.Unlock()
+	ch, ok := SubscribeConnectEventMap[c.SubscribeConnectEventName]
+	if !ok {
+		return errors.New("找不到订阅")
+	}
+	close(ch)
+	delete(SubscribeConnectEventMap, c.SubscribeConnectEventName)
+
+	c.SubscribeConnectEventConn = nil
+	c.SubscribeConnectEventParam = nil
+	c.SubscribeConnectEventName = ""
 
 	return nil
 }

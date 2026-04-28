@@ -36,6 +36,16 @@ extern rtdb_error goSnapsEventEx(
     rtdb_int16* qualities,
     rtdb_error* errors);
 
+// rtdb_subscribe_connect_ex_warp 中的回调函数，用于订阅 API调用连接事件
+extern rtdb_error goConnectEventEx(
+    rtdb_uint32 event_type,
+    rtdb_int32 handle,
+    void* param,
+    rtdb_int32 count,
+    RTDB_CONNECT_EVENT** events,
+    char** pre_calls,
+    char** post_calls);
+
 #ifdef __cplusplus
 }
 #endif

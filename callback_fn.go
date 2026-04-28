@@ -173,3 +173,150 @@ func goSnapsEventEx(
 
 	return C.rtdb_error(0)
 }
+
+var SubscribeConnectEventLock sync.Mutex
+var SubscribeConnectEventMap = make(map[string]chan SubscribeConnectEventInfo)
+
+// RtdbConnectEvent 映射 C 结构 RTDB_CONNECT_EVENT
+type RtdbConnectEvent struct {
+	MsgID           int32
+	BeginS          uint32
+	BeginMs         int16
+	ApiCategory     int16
+	ClientAddr      uint32
+	ClientProcessID int32
+	ClientThreadID  int32
+	ServerThreadID  int32
+	RetVal          RtdbError
+	Elapsed         float32
+	PreCount        int32
+	PostCount       int32
+	WriteCount      uint32
+	ReadCount       uint32
+	WriteTime       float32
+	ReadTime        float32
+	IndexWriteCount uint32
+	IndexReadCount  uint32
+	IndexWriteTime  float32
+	IndexReadTime   float32
+	ArcListLockTime float32
+	ArcLockTime     float32
+	IndexLockTime   float32
+	TotalLockTime   float32
+	WriteSize       float32
+	ReadSize        float32
+	WriteRealSize   float32
+	ReadRealSize    float32
+	ClientAddr6     []byte
+}
+
+// SubscribeConnectEventInfo 回调事件信息
+type SubscribeConnectEventInfo struct {
+	Name      string
+	EventType uint32
+	Handle    int32
+	Events    []RtdbConnectEvent
+	PreCalls  []string
+	PostCalls []string
+}
+
+//export goConnectEventEx
+func goConnectEventEx(
+	eventType C.rtdb_uint32,
+	handle C.rtdb_int32,
+	param unsafe.Pointer,
+	count C.rtdb_int32,
+	events **C.RTDB_CONNECT_EVENT,
+	preCalls **C.char,
+	postCalls **C.char,
+) C.rtdb_error {
+	name := C.GoString((*C.char)(param))
+
+	goEvents := make([]RtdbConnectEvent, 0)
+	if events != nil && count > 0 {
+		eventPtrs := (*[1 << 30]*C.RTDB_CONNECT_EVENT)(unsafe.Pointer(events))[:count:count]
+		for _, cEvent := range eventPtrs {
+			if cEvent == nil {
+				continue
+			}
+			event := RtdbConnectEvent{
+				MsgID:           int32(cEvent.msg_id),
+				BeginS:          uint32(cEvent.begin_s),
+				BeginMs:         int16(cEvent.begin_ms),
+				ApiCategory:     int16(cEvent.api_category),
+				ClientAddr:      uint32(cEvent.client_addr),
+				ClientProcessID: int32(cEvent.client_process_id),
+				ClientThreadID:  int32(cEvent.client_thread_id),
+				ServerThreadID:  int32(cEvent.server_thread_id),
+				RetVal:          RtdbError(cEvent.ret_val),
+				Elapsed:         float32(cEvent.elapsed),
+				PreCount:        int32(cEvent.pre_count),
+				PostCount:       int32(cEvent.post_count),
+				WriteCount:      uint32(cEvent.write_count),
+				ReadCount:       uint32(cEvent.read_count),
+				WriteTime:       float32(cEvent.write_time),
+				ReadTime:        float32(cEvent.read_time),
+				IndexWriteCount: uint32(cEvent.index_write_count),
+				IndexReadCount:  uint32(cEvent.index_read_count),
+				IndexWriteTime:  float32(cEvent.index_write_time),
+				IndexReadTime:   float32(cEvent.index_read_time),
+				ArcListLockTime: float32(cEvent.arc_list_lock_time),
+				ArcLockTime:     float32(cEvent.arc_lock_time),
+				IndexLockTime:   float32(cEvent.index_lock_time),
+				TotalLockTime:   float32(cEvent.total_lock_time),
+				WriteSize:       float32(cEvent.write_size),
+				ReadSize:        float32(cEvent.read_size),
+				WriteRealSize:   float32(cEvent.write_real_size),
+				ReadRealSize:    float32(cEvent.read_real_size),
+			}
+			addr6 := make([]byte, C.RTDB_IPV6_ADDR_SIZE)
+			src := unsafe.Slice((*byte)(unsafe.Pointer(&cEvent.client_addr6[0])), C.RTDB_IPV6_ADDR_SIZE)
+			copy(addr6, src)
+			event.ClientAddr6 = addr6
+			goEvents = append(goEvents, event)
+		}
+	}
+
+	goPreCalls := make([]string, 0)
+	if preCalls != nil && count > 0 {
+		preCallPtrs := (*[1 << 30]*C.char)(unsafe.Pointer(preCalls))[:count:count]
+		for _, cStr := range preCallPtrs {
+			if cStr != nil {
+				goPreCalls = append(goPreCalls, C.GoString(cStr))
+			}
+		}
+	}
+
+	goPostCalls := make([]string, 0)
+	if postCalls != nil && count > 0 {
+		postCallPtrs := (*[1 << 30]*C.char)(unsafe.Pointer(postCalls))[:count:count]
+		for _, cStr := range postCallPtrs {
+			if cStr != nil {
+				goPostCalls = append(goPostCalls, C.GoString(cStr))
+			}
+		}
+	}
+
+	info := SubscribeConnectEventInfo{
+		Name:      name,
+		EventType: uint32(eventType),
+		Handle:    int32(handle),
+		Events:    goEvents,
+		PreCalls:  goPreCalls,
+		PostCalls: goPostCalls,
+	}
+
+	SubscribeConnectEventLock.Lock()
+	defer SubscribeConnectEventLock.Unlock()
+	ch, ok := SubscribeConnectEventMap[name]
+	if !ok {
+		return C.rtdb_error(0)
+	}
+
+	select {
+	case ch <- info:
+	default:
+	}
+
+	return C.rtdb_error(0)
+}
