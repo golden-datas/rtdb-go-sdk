@@ -5011,6 +5011,37 @@ func goToCRtdbCalc(p *RtdbCalc) *C.RTDB_MAX_CALC_POINT {
 	return &rtn
 }
 
+func cToRtdbCalcPoint(p *C.RTDB_CALC_POINT) *RtdbCalc {
+	if p == nil {
+		return nil
+	}
+
+	rtn := RtdbCalc{
+		ID:       PointID(p.id),
+		Equation: StringOutDB(CCharArrayToString(&p.equation[0], int(C.RTDB_EQUATION_SIZE))),
+		Trigger:  RtdbTrigger(p.trigger),
+		TimeCopy: RtdbTimeCopy(p.timecopy),
+		Period:   int32(p.period),
+	}
+
+	return &rtn
+}
+
+func goToCRtdbCalcPoint(p *RtdbCalc) *C.RTDB_CALC_POINT {
+	if p == nil {
+		return nil
+	}
+
+	rtn := C.RTDB_CALC_POINT{}
+	rtn.id = C.int(p.ID)
+	GoStringToCCharArray(StringInDB(p.Equation), &rtn.equation[0], int(C.RTDB_EQUATION_SIZE))
+	rtn.trigger = C.rtdb_byte(p.Trigger)
+	rtn.timecopy = C.rtdb_byte(p.TimeCopy)
+	rtn.period = C.int(p.Period)
+
+	return &rtn
+}
+
 type RtdbSortFlag uint32
 
 const (
@@ -7909,16 +7940,30 @@ func RawRtdbbGetTablePropertyByNameWarp(handle ConnectHandle, tableName string) 
 }
 
 // RawRtdbbInsertPointWarp 使用完整的属性集来创建单个标签点
-// 备注：不实现，统一使用最大长度Calc
 //
-// *  \param handle 连接句柄
-// *  \param base RTDB_POINT 结构，输入/输出，
-// *       输入除 id, createdate, creator, changedate, changer 字段外的其它字段，输出 id 字段。
-// *  \param scan RTDB_SCAN_POINT 结构，输入，采集标签点扩展属性集。
-// *  \param calc RTDB_CALC_POINT 结构，输入，计算标签点扩展属性集。
-// *  \remark 如果新建的标签点没有对应的扩展属性集，可置为空指针。
-// rtdb_error RTDBAPI_CALLRULE rtdbb_insert_point_warp(rtdb_int32 handle, RTDB_POINT *base, RTDB_SCAN_POINT *scan, RTDB_CALC_POINT *calc)
-// func RawRtdbbInsertPointWarp() {}
+// input:
+//   - handle 连接句柄
+//   - base 基本点信息
+//     输入除 id, createdate, creator, changedate, changer 字段外的其它字段，输出 id 字段。
+//   - scan 采集点信息，RtdbClass 非采集点的时候，可填nil
+//   - calc 计算点信息, RtdbClass 非计算点的时候，可填nil
+//   - 备注：如果新建的标签点没有对应的扩展属性集，可置为空指针。
+//
+// output:
+//   - RtdbPoint(base) 基本点信息
+//   - RtdbScan(scan) 采集点信息
+//   - RtdbCalc(calc) 计算点信息
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdbb_insert_point_warp(rtdb_int32 handle, RTDB_POINT *base, RTDB_SCAN_POINT *scan, RTDB_CALC_POINT *calc)
+func RawRtdbbInsertPointWarp(handle ConnectHandle, base *RtdbPoint, scan *RtdbScan, calc *RtdbCalc) (*RtdbPoint, *RtdbScan, *RtdbCalc, RtdbError) {
+	cHandle := C.rtdb_int32(handle)
+	cBase := goToCRtdbPoint(base)
+	cScan := goToCRtdbScan(scan)
+	cCalc := goToCRtdbCalcPoint(calc)
+	err := C.rtdbb_insert_point_warp(cHandle, cBase, cScan, cCalc)
+	return cToRtdbPoint(cBase), cToRtdbScan(cScan), cToRtdbCalcPoint(cCalc), RtdbError(err)
+}
 
 // RawRtdbbInsertMaxPointWarp 使用最大长度的完整属性集来创建单个标签点
 //
@@ -8024,19 +8069,32 @@ func RawRtdbbInsertMaxPointsWarp(handle ConnectHandle, bases []RtdbPoint, scans 
 }
 
 // RawRtdbbInsertBasePointWarp 使用最小的属性集来创建单个标签点
-// 备注：不实现，统一使用最大长度
 //
-// * \param handle     连接句柄
-// * \param tag        字符串，输入，标签点名称
-// * \param type       整型，输入，标签点数据类型，取值 RTDB_BOOL、RTDB_UINT8、RTDB_INT8、
-// *                   RTDB_CHAR、RTDB_UINT16、RTDB_UINT32、RTDB_INT32、RTDB_INT64、
-// *                   RTDB_REAL16、RTDB_REAL32、RTDB_REAL64、RTDB_COOR、RTDB_STRING、RTDB_BLOB 之一。
-// * \param table_id   整型，输入，标签点所属表 id
-// * \param use_ms     短整型，输入，标签点时间戳精度，0 为秒；1 为纳秒。
-// * \param point_id   整型，输出，标签点 id
-// * \remark 标签点的其余属性将取默认值。
-// rtdb_error RTDBAPI_CALLRULE rtdbb_insert_base_point_warp(rtdb_int32 handle, const char *tag, rtdb_int32 type, rtdb_int32 table_id, rtdb_int16 use_ms, rtdb_int32 *point_id)
-// func RawRtdbbInsertBasePointWarp() {}
+// input:
+//   - handle 连接句柄
+//   - tag 标签点名称
+//   - typ 标签点数据类型
+//   - tableID 标签点所属表 id
+//   - useMs 标签点时间戳精度，0 为秒；1 为纳秒。
+//
+// output:
+//   - PointID 标签点 id
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdbb_insert_base_point_warp(rtdb_int32 handle, const char *tag, rtdb_int32 type, rtdb_int32 table_id, rtdb_int16 use_ms, rtdb_int32 *point_id)
+func RawRtdbbInsertBasePointWarp(handle ConnectHandle, tag string, typ RtdbType, tableID TableID, useMs int16) (PointID, RtdbError) {
+	tag = StringInDB(tag)
+
+	cHandle := C.rtdb_int32(handle)
+	cTag := C.CString(tag)
+	defer C.free(unsafe.Pointer(cTag))
+	cType := C.rtdb_int32(typ)
+	cTableID := C.rtdb_int32(tableID)
+	cUseMs := C.rtdb_int16(useMs)
+	var pointID C.rtdb_int32
+	err := C.rtdbb_insert_base_point_warp(cHandle, cTag, cType, cTableID, cUseMs, &pointID)
+	return PointID(pointID), RtdbError(err)
+}
 
 // RawRtdbbInsertNamedTypePointWarp 使用完整的属性集来创建单个自定义数据类型标签点
 //
