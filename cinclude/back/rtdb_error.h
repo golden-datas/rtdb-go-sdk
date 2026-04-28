@@ -6,16 +6,14 @@
 * @{
 */
 
-/// \cond HIDDEN
 #define RTDB_SOCKET_ADAPTER_FALSE(RTDB_ERROR) (RTDB_ERROR > 0xFFF02710 && RTDB_ERROR <= 0xFFF02AFC)
 #define RTDB_WINDOWS_ERROR_TO_RTDB(WINDOWS_ERROR) (RtE_WINDOWS_ERROR + WINDOWS_ERROR)
-/// \endcond
 
 /**
 * \enum  RTDB_ERROR_CODE
-* \brief 数据库中可能产生的错误信息
+* \brief 数据库中可能错误的错误信息
 */
-enum RTDB_ERROR_CODE
+typedef enum _RTDB_ERROR_CODE
 {
   RtE_UNKNOWN_ERROR                                                         = 0xFFFFFFFF,  //!< 未知错误
   RtE_OK                                                                    = 0x00000000,  //!< 操作成功完成
@@ -221,17 +219,17 @@ enum RTDB_ERROR_CODE
   RtE_INVALID_CAPACITY                                                      = 0xFFFF104E,  //!< 无效的capacity
   RtE_INVALID_PATH                                                          = 0xFFFF104F,  //!< 无效的路径
   RtE_INVALID_POSITION                                                      = 0xFFFF1050,  //!< 无效的position
-  RtE_INVALID_ARV_PAGE                                                      = 0xFFFF1051,  //!< 无效的数据页,未加载，或者size小于等于0
-  RtE_INVALID_HISINFO_ITEM_STATE                                            = 0xFFFF1052,  //!< 无效的hisinfo的state
-  RtE_INVALID_INTERVAL                                                      = 0xFFFF1053,  //!< 无效的interval
+  RtE_INVALID_ARV_PAGE                                                      = 0xFFFF1051,  //!< 无效的rtdb_arv_page<RTDB_T>,未加载，或者size小于等于0
+  RtE_INVALID_HISINFO_ITEM_STATE                                            = 0xFFFF1052,
+  RtE_INVALID_INTERVAL                                                      = 0xFFFF1053,
   RtE_INVALID_LENGTH                                                        = 0xFFFF1054,  //!< 无效的字符串长度
   RtE_INVALID_SERACH_MODE                                                   = 0xFFFF1055,  //!< 无效的search mode
   RtE_INVALID_FILE_ID                                                       = 0xFFFF1056,  //!< 无效的存档文件ID
   RtE_INVALID_MILLISECOND                                                   = 0xFFFF1057,  //!< 无效的毫秒值/纳秒值
   RtE_INVALID_DEADLINE                                                      = 0xFFFF1058,  //!< 无效的截止时间
-  RtE_INVALID_JOBNAME                                                       = 0xFFFF1059,  //!< 无效的任务名
-  RtE_INVALID_JOBSTATE                                                      = 0xFFFF105A,  //!< 无效的任务状态
-  RtE_INVALID_PROCESS_RATE                                                  = 0xFFFF105B,  //!< 无效的进度百分比
+  RtE_INVALID_JOBNAME                                                       = 0xFFFF1059,  //
+  RtE_INVALID_JOBSTATE                                                      = 0xFFFF105A,  //
+  RtE_INVALID_PROCESS_RATE                                                  = 0xFFFF105B,  //
   RtE_INVALID_TABLE_ID                                                      = 0xFFFF105C,  //!< 无效的表ID
   RtE_INVALID_DATA_SOURCE                                                   = 0xFFFF105D,  //!< 无效的数据源格式
   RtE_INVALID_TRIGGER_METHOD                                                = 0xFFFF105E,  //!< 无效的触发方式
@@ -427,7 +425,6 @@ enum RTDB_ERROR_CODE
   RtE_FEATURE_DEPRECATED                                                    = 0xFFFF203E,  //!< 不再支持此功能
   RtE_INVALID_VALUE                                                         = 0xFFFF203F,  //!< 无效的数据
   RtE_VERIFY_VERCODE_FAILED                                                 = 0xFFFF2040,  //!< 验证授权码失败
-  RtE_ASYNC_RECOVERY                                                        = 0xFFFF2041,  //!< 异步恢复数据中，请稍后重试
 
   RtE_INVALID_PAGE_SIZE                                                     = 0xFFFF3001,  //!< 无效的数据页的大小
   RtE_INVALID_PRECISION                                                     = 0xFFFF3002,  //!< 无效的时间戳精度
@@ -629,7 +626,7 @@ enum RTDB_ERROR_CODE
   RtE_IPC_ERROR                                                             = 0xFFFFC000,  //!< ipc error begin
   RtE_IPC_ERROR_END                                                         = 0xFFFFC09F,  //!< ipc error end
 
-};
+} RTDB_ERROR_CODE;
 /**@}*/
 
 #endif /* __RTDB_ERROR_H__ */

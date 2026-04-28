@@ -4264,7 +4264,7 @@ func cToRtdbUserInfo(cInfo *C.RTDB_USER_INFO) RtdbUserInfo {
 	goInfo := RtdbUserInfo{
 		User:      StringOutDB(CCharArrayToString(&cInfo.user[0], len(cInfo.user))),
 		Privilege: PrivGroup(cInfo.privilege),
-		IsLocked:  Switch(cInfo.islocked),
+		IsLocked:  Switch(bool(cInfo.islocked)),
 	}
 	return goInfo
 }
