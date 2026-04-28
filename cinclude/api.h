@@ -2128,6 +2128,90 @@ rtdb_error RTDBAPI_CALLRULE rtdbb_modify_named_type_warp(rtdb_int32 handle, cons
 }
 
 /**
+* \brief 按名称填充自定义类型数值中字段的内容
+* \param        handle       连接句柄
+* \param[in]    type_name    自定义类型的名称
+* \param[in]    field_name   自定义类型中需要填充的字段的名称
+* \param        field_type   field_name字段的类型
+* \param[in,out] object       自定义类型数值的缓冲区
+* \param        object_len   object缓冲区的长度
+* \param[in]    field        需要填充的字段数值的缓冲区
+* \param        field_len    自定义类型中字段数值的缓冲区中数据的长度
+*/
+rtdb_error RTDBAPI_CALLRULE rtdb_write_named_type_field_by_name32_warp(rtdb_int32 handle, const char* type_name, const char* field_name, rtdb_int32 field_type, void* object, rtdb_length_type object_len, const void* field, rtdb_length_type field_len)
+{
+    typedef rtdb_error (RTDBAPI_CALLRULE *rtdb_write_named_type_field_by_name32_fn)(rtdb_int32 handle, const char* type_name, const char* field_name, rtdb_int32 field_type, void* object, rtdb_length_type object_len, const void* field, rtdb_length_type field_len);
+    rtdb_write_named_type_field_by_name32_fn fn = (rtdb_write_named_type_field_by_name32_fn)get_function("rtdb_write_named_type_field_by_name32");
+    return fn(handle, type_name, field_name, field_type, object, object_len, field, field_len);
+}
+
+/**
+* \brief 按位置填充自定义类型数值中字段的内容
+* \param        handle       连接句柄
+* \param[in]    type_name    自定义类型的名称
+* \param        field_pos    自定义类型中需要填充的字段的位置
+* \param        field_type   field_name字段的类型
+* \param[in,out] object       自定义类型数值的缓冲区
+* \param        object_len   object缓冲区的长度
+* \param[in]    field        需要填充的字段数值的缓冲区
+* \param        field_len    自定义类型中字段数值的缓冲区中数据的长度
+*/
+rtdb_error RTDBAPI_CALLRULE rtdb_write_named_type_field_by_pos32_warp(rtdb_int32 handle, const char* type_name, rtdb_int32 field_pos, rtdb_int32 field_type, void* object, rtdb_length_type object_len, const void* field, rtdb_length_type field_len)
+{
+    typedef rtdb_error (RTDBAPI_CALLRULE *rtdb_write_named_type_field_by_pos32_fn)(rtdb_int32 handle, const char* type_name, rtdb_int32 field_pos, rtdb_int32 field_type, void* object, rtdb_length_type object_len, const void* field, rtdb_length_type field_len);
+    rtdb_write_named_type_field_by_pos32_fn fn = (rtdb_write_named_type_field_by_pos32_fn)get_function("rtdb_write_named_type_field_by_pos32");
+    return fn(handle, type_name, field_pos, field_type, object, object_len, field, field_len);
+}
+
+/**
+* \brief 按名称提取自定义类型数值中字段的内容
+* \param        handle       连接句柄
+* \param[in]    type_name    自定义类型的名称
+* \param[in]    field_name   自定义类型中需要填充的字段的名称
+* \param        field_type   field_name字段的类型
+* \param[in]    object       自定义类型数值的缓冲区
+* \param        object_len   object缓冲区的长度
+* \param[in,out] field        需要填充的字段数值的缓冲区
+* \param        field_len    自定义类型中字段数值的缓冲区中数据的长度
+*/
+rtdb_error RTDBAPI_CALLRULE rtdb_read_named_type_field_by_name32_warp(rtdb_int32 handle, const char* type_name, const char* field_name, rtdb_int32 field_type, const void* object, rtdb_length_type object_len, void* field, rtdb_length_type field_len)
+{
+    typedef rtdb_error (RTDBAPI_CALLRULE *rtdb_read_named_type_field_by_name32_fn)(rtdb_int32 handle, const char* type_name, const char* field_name, rtdb_int32 field_type, const void* object, rtdb_length_type object_len, void* field, rtdb_length_type field_len);
+    rtdb_read_named_type_field_by_name32_fn fn = (rtdb_read_named_type_field_by_name32_fn)get_function("rtdb_read_named_type_field_by_name32");
+    return fn(handle, type_name, field_name, field_type, object, object_len, field, field_len);
+}
+
+/**
+* \brief 按位置提取自定义类型数值中字段的内容
+* \param        handle       连接句柄
+* \param[in]    type_name    自定义类型的名称
+* \param        field_pos    自定义类型中需要填充的字段的位置
+* \param        field_type   field_name字段的类型
+* \param[in]    object       自定义类型数值的缓冲区
+* \param        object_len   object缓冲区的长度
+* \param[in,out] field        需要填充的字段数值的缓冲区
+* \param        field_len    自定义类型中字段数值的缓冲区中数据的长度
+*/
+rtdb_error RTDBAPI_CALLRULE rtdb_read_named_type_field_by_pos32_warp(rtdb_int32 handle, const char* type_name, rtdb_int32 field_pos, rtdb_int32 field_type, const void* object, rtdb_length_type object_len, void* field, rtdb_length_type field_len)
+{
+    typedef rtdb_error (RTDBAPI_CALLRULE *rtdb_read_named_type_field_by_pos32_fn)(rtdb_int32 handle, const char* type_name, rtdb_int32 field_pos, rtdb_int32 field_type, const void* object, rtdb_length_type object_len, void* field, rtdb_length_type field_len);
+    rtdb_read_named_type_field_by_pos32_fn fn = (rtdb_read_named_type_field_by_pos32_fn)get_function("rtdb_read_named_type_field_by_pos32");
+    return fn(handle, type_name, field_pos, field_type, object, object_len, field, field_len);
+}
+
+/**
+* \brief 检查自定义类型名称及字段命名是否符合规则
+* \param[in]    check_name   需要检查的名称
+* \param        flag         标志0--类型名称，其他 -- 字段名称，暂不启用
+*/
+rtdb_error RTDBAPI_CALLRULE rtdb_named_type_name_field_check_warp(const char* check_name, rtdb_byte flag)
+{
+    typedef rtdb_error (RTDBAPI_CALLRULE *rtdb_named_type_name_field_check_fn)(const char* check_name, rtdb_byte flag);
+    rtdb_named_type_name_field_check_fn fn = (rtdb_named_type_name_field_check_fn)get_function("rtdb_named_type_name_field_check");
+    return fn(check_name, flag);
+}
+
+/**
 *
 * \brief 获取元数据同步信息
 *

@@ -1188,26 +1188,26 @@ type ArchivedBaseInfo struct {
 ////////////////////////////////////////////////
 
 type RtdbConnect struct {
-	HostIp                  string         // 服务端名称
-	Port                    int32          // 服务端端口
-	UserName                string         // 用户名
-	Password                string         // 密码
-	ConnectHandle           ConnectHandle  // 连接句柄
-	Priv                    PrivGroup      // 用户权限
-	SyncInfos               []RtdbSyncInfo // 元数据信息
-	SocketHandles           []SocketHandle // 套接字句柄
-	ServerOsType            RtdbOsType     // 服务端操作系统类型
-	StringBlobMaxLen        int32          // 最大支持String/Blob长度
-	SubscribeTagsConn       *RtdbConnect   // 订阅标签点属性更新专用连接
-	SubscribeTagsName       string         // 订阅标签点属性channel名称
-	SubscribeTagsParam      unsafe.Pointer // 订阅标签点属性channel(c指针)
-	SubscribeSnapshotsConn  *RtdbConnect   // 订阅快照专用连接
-	SubscribeSnapshotsName  string         // 订阅快照channel名称
-	SubscribeSnapshotsParam unsafe.Pointer // 订阅快照channel(c指针)
+	HostIp                     string         // 服务端名称
+	Port                       int32          // 服务端端口
+	UserName                   string         // 用户名
+	Password                   string         // 密码
+	ConnectHandle              ConnectHandle  // 连接句柄
+	Priv                       PrivGroup      // 用户权限
+	SyncInfos                  []RtdbSyncInfo // 元数据信息
+	SocketHandles              []SocketHandle // 套接字句柄
+	ServerOsType               RtdbOsType     // 服务端操作系统类型
+	StringBlobMaxLen           int32          // 最大支持String/Blob长度
+	SubscribeTagsConn          *RtdbConnect   // 订阅标签点属性更新专用连接
+	SubscribeTagsName          string         // 订阅标签点属性channel名称
+	SubscribeTagsParam         unsafe.Pointer // 订阅标签点属性channel(c指针)
+	SubscribeSnapshotsConn     *RtdbConnect   // 订阅快照专用连接
+	SubscribeSnapshotsName     string         // 订阅快照channel名称
+	SubscribeSnapshotsParam    unsafe.Pointer // 订阅快照channel(c指针)
 	SubscribeConnectEventConn  *RtdbConnect   // 订阅API调用事件专用连接
 	SubscribeConnectEventName  string         // 订阅API调用事件channel名称
 	SubscribeConnectEventParam unsafe.Pointer // 订阅API调用事件channel(c指针)
-	Location                *time.Location // 时区
+	Location                   *time.Location // 时区
 }
 
 // Login 登录数据库
@@ -1779,6 +1779,96 @@ func (c *RtdbConnect) UpdateNamedType(name string, modifyName *string, modifyDes
 	rte := RawRtdbbModifyNamedTypeWarp(c.ConnectHandle, name, modifyName, modifyDesc, fieldNames, fieldDescs)
 	return rte.GoError()
 }
+
+/*
+// 备注！：这五个函数相对复杂，用处不大，在Easy端保留，暂不对外开放
+
+// WriteNamedTypeFieldByName 按名称填充自定义类型数值中字段的内容
+//
+// input:
+//   - typeName 自定义类型的名称
+//   - fieldName 自定义类型中需要填充的字段的名称
+//   - fieldType 字段的类型
+//   - object 自定义类型数值的缓冲区
+//   - field 需要填充的字段数值的缓冲区
+//
+// output:
+//   - []byte(object) 填充后的自定义类型数值
+func (c *RtdbConnect) WriteNamedTypeFieldByName(typeName string, fieldName string, fieldType RtdbType, object []byte, field []byte) ([]byte, error) {
+	obj, rte := RawRtdbWriteNamedTypeFieldByName32Warp(c.ConnectHandle, typeName, fieldName, fieldType, object, field)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+	return obj, nil
+}
+
+// WriteNamedTypeFieldByPos 按位置填充自定义类型数值中字段的内容
+//
+// input:
+//   - typeName 自定义类型的名称
+//   - fieldPos 自定义类型中需要填充的字段的位置，从0开始
+//   - fieldType 字段的类型
+//   - object 自定义类型数值的缓冲区
+//   - field 需要填充的字段数值的缓冲区
+//
+// output:
+//   - []byte(object) 填充后的自定义类型数值
+func (c *RtdbConnect) WriteNamedTypeFieldByPos(typeName string, fieldPos int32, fieldType RtdbType, object []byte, field []byte) ([]byte, error) {
+	obj, rte := RawRtdbWriteNamedTypeFieldByPos32Warp(c.ConnectHandle, typeName, fieldPos, fieldType, object, field)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+	return obj, nil
+}
+
+// ReadNamedTypeFieldByName 按名称提取自定义类型数值中字段的内容
+//
+// input:
+//   - typeName 自定义类型的名称
+//   - fieldName 自定义类型中需要提取的字段的名称
+//   - fieldType 字段的类型
+//   - object 自定义类型数值的缓冲区
+//   - fieldLen 字段数值缓冲区长度
+//
+// output:
+//   - []byte(field) 提取的字段数值
+func (c *RtdbConnect) ReadNamedTypeFieldByName(typeName string, fieldName string, fieldType RtdbType, object []byte, fieldLen int32) ([]byte, error) {
+	field, rte := RawRtdbReadNamedTypeFieldByName32Warp(c.ConnectHandle, typeName, fieldName, fieldType, object, fieldLen)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+	return field, nil
+}
+
+// ReadNamedTypeFieldByPos 按位置提取自定义类型数值中字段的内容
+//
+// input:
+//   - typeName 自定义类型的名称
+//   - fieldPos 自定义类型中需要提取的字段的位置，从0开始
+//   - fieldType 字段的类型
+//   - object 自定义类型数值的缓冲区
+//   - fieldLen 字段数值缓冲区长度
+//
+// output:
+//   - []byte(field) 提取的字段数值
+func (c *RtdbConnect) ReadNamedTypeFieldByPos(typeName string, fieldPos int32, fieldType RtdbType, object []byte, fieldLen int32) ([]byte, error) {
+	field, rte := RawRtdbReadNamedTypeFieldByPos32Warp(c.ConnectHandle, typeName, fieldPos, fieldType, object, fieldLen)
+	if !RteIsOk(rte) {
+		return nil, rte.GoError()
+	}
+	return field, nil
+}
+
+// NamedTypeNameFieldCheck 检查自定义类型名称及字段命名是否符合规则
+//
+// input:
+//   - checkName 需要检查的名称
+//   - flag 标志0--类型名称，其他 -- 字段名称
+func (c *RtdbConnect) NamedTypeNameFieldCheck(checkName string, flag byte) error {
+	rte := RawRtdbNamedTypeNameFieldCheckWarp(checkName, flag)
+	return rte.GoError()
+}
+*/
 
 // ServerHostTime 服务端主机时间
 func (c *RtdbConnect) ServerHostTime() (*time.Time, error) {

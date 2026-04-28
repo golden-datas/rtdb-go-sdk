@@ -9150,6 +9150,142 @@ func RawRtdbbModifyNamedTypeWarp(handle ConnectHandle, name string, modifyName *
 	}
 }
 
+// RawRtdbWriteNamedTypeFieldByName32Warp 按名称填充自定义类型数值中字段的内容
+//
+// input:
+//   - handle 连接句柄
+//   - typeName 自定义类型的名称
+//   - fieldName 自定义类型中需要填充的字段的名称
+//   - fieldType 字段的类型
+//   - object 自定义类型数值的缓冲区
+//   - field 需要填充的字段数值的缓冲区
+//
+// output:
+//   - []byte(object) 填充后的自定义类型数值
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdb_write_named_type_field_by_name32_warp(rtdb_int32 handle, const char* type_name, const char* field_name, rtdb_int32 field_type, void* object, rtdb_length_type object_len, const void* field, rtdb_length_type field_len)
+func RawRtdbWriteNamedTypeFieldByName32Warp(handle ConnectHandle, typeName string, fieldName string, fieldType RtdbType, object []byte, field []byte) ([]byte, RtdbError) {
+	cHandle := C.rtdb_int32(handle)
+	cTypeName := C.CString(typeName)
+	defer C.free(unsafe.Pointer(cTypeName))
+	cFieldName := C.CString(fieldName)
+	defer C.free(unsafe.Pointer(cFieldName))
+	cFieldType := C.rtdb_int32(fieldType)
+	cObject := unsafe.Pointer(&object[0])
+	cObjectLen := C.rtdb_length_type(len(object))
+	cField := unsafe.Pointer(&field[0])
+	cFieldLen := C.rtdb_length_type(len(field))
+	err := C.rtdb_write_named_type_field_by_name32_warp(cHandle, cTypeName, cFieldName, cFieldType, cObject, cObjectLen, cField, cFieldLen)
+	return object, RtdbError(err)
+}
+
+// RawRtdbWriteNamedTypeFieldByPos32Warp 按位置填充自定义类型数值中字段的内容
+//
+// input:
+//   - handle 连接句柄
+//   - typeName 自定义类型的名称
+//   - fieldPos 自定义类型中需要填充的字段的位置，从0开始
+//   - fieldType 字段的类型
+//   - object 自定义类型数值的缓冲区
+//   - field 需要填充的字段数值的缓冲区
+//
+// output:
+//   - []byte(object) 填充后的自定义类型数值
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdb_write_named_type_field_by_pos32_warp(rtdb_int32 handle, const char* type_name, rtdb_int32 field_pos, rtdb_int32 field_type, void* object, rtdb_length_type object_len, const void* field, rtdb_length_type field_len)
+func RawRtdbWriteNamedTypeFieldByPos32Warp(handle ConnectHandle, typeName string, fieldPos int32, fieldType RtdbType, object []byte, field []byte) ([]byte, RtdbError) {
+	cHandle := C.rtdb_int32(handle)
+	cTypeName := C.CString(typeName)
+	defer C.free(unsafe.Pointer(cTypeName))
+	cFieldPos := C.rtdb_int32(fieldPos)
+	cFieldType := C.rtdb_int32(fieldType)
+	cObject := unsafe.Pointer(&object[0])
+	cObjectLen := C.rtdb_length_type(len(object))
+	cField := unsafe.Pointer(&field[0])
+	cFieldLen := C.rtdb_length_type(len(field))
+	err := C.rtdb_write_named_type_field_by_pos32_warp(cHandle, cTypeName, cFieldPos, cFieldType, cObject, cObjectLen, cField, cFieldLen)
+	return object, RtdbError(err)
+}
+
+// RawRtdbReadNamedTypeFieldByName32Warp 按名称提取自定义类型数值中字段的内容
+//
+// input:
+//   - handle 连接句柄
+//   - typeName 自定义类型的名称
+//   - fieldName 自定义类型中需要提取的字段的名称
+//   - fieldType 字段的类型
+//   - object 自定义类型数值的缓冲区
+//   - fieldLen 字段数值缓冲区长度
+//
+// output:
+//   - []byte(field) 提取的字段数值
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdb_read_named_type_field_by_name32_warp(rtdb_int32 handle, const char* type_name, const char* field_name, rtdb_int32 field_type, const void* object, rtdb_length_type object_len, void* field, rtdb_length_type field_len)
+func RawRtdbReadNamedTypeFieldByName32Warp(handle ConnectHandle, typeName string, fieldName string, fieldType RtdbType, object []byte, fieldLen int32) ([]byte, RtdbError) {
+	cHandle := C.rtdb_int32(handle)
+	cTypeName := C.CString(typeName)
+	defer C.free(unsafe.Pointer(cTypeName))
+	cFieldName := C.CString(fieldName)
+	defer C.free(unsafe.Pointer(cFieldName))
+	cFieldType := C.rtdb_int32(fieldType)
+	cObject := unsafe.Pointer(&object[0])
+	cObjectLen := C.rtdb_length_type(len(object))
+	field := make([]byte, fieldLen)
+	cField := unsafe.Pointer(&field[0])
+	cFieldLen := C.rtdb_length_type(fieldLen)
+	err := C.rtdb_read_named_type_field_by_name32_warp(cHandle, cTypeName, cFieldName, cFieldType, cObject, cObjectLen, cField, cFieldLen)
+	return field, RtdbError(err)
+}
+
+// RawRtdbReadNamedTypeFieldByPos32Warp 按位置提取自定义类型数值中字段的内容
+//
+// input:
+//   - handle 连接句柄
+//   - typeName 自定义类型的名称
+//   - fieldPos 自定义类型中需要提取的字段的位置，从0开始
+//   - fieldType 字段的类型
+//   - object 自定义类型数值的缓冲区
+//   - fieldLen 字段数值缓冲区长度
+//
+// output:
+//   - []byte(field) 提取的字段数值
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdb_read_named_type_field_by_pos32_warp(rtdb_int32 handle, const char* type_name, rtdb_int32 field_pos, rtdb_int32 field_type, const void* object, rtdb_length_type object_len, void* field, rtdb_length_type field_len)
+func RawRtdbReadNamedTypeFieldByPos32Warp(handle ConnectHandle, typeName string, fieldPos int32, fieldType RtdbType, object []byte, fieldLen int32) ([]byte, RtdbError) {
+	cHandle := C.rtdb_int32(handle)
+	cTypeName := C.CString(typeName)
+	defer C.free(unsafe.Pointer(cTypeName))
+	cFieldPos := C.rtdb_int32(fieldPos)
+	cFieldType := C.rtdb_int32(fieldType)
+	cObject := unsafe.Pointer(&object[0])
+	cObjectLen := C.rtdb_length_type(len(object))
+	field := make([]byte, fieldLen)
+	cField := unsafe.Pointer(&field[0])
+	cFieldLen := C.rtdb_length_type(fieldLen)
+	err := C.rtdb_read_named_type_field_by_pos32_warp(cHandle, cTypeName, cFieldPos, cFieldType, cObject, cObjectLen, cField, cFieldLen)
+	return field, RtdbError(err)
+}
+
+// RawRtdbNamedTypeNameFieldCheckWarp 检查自定义类型名称及字段命名是否符合规则
+//
+// input:
+//   - checkName 需要检查的名称
+//   - flag 标志0--类型名称，其他 -- 字段名称
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdb_named_type_name_field_check_warp(const char* check_name, rtdb_byte flag)
+func RawRtdbNamedTypeNameFieldCheckWarp(checkName string, flag byte) RtdbError {
+	cCheckName := C.CString(checkName)
+	defer C.free(unsafe.Pointer(cCheckName))
+	cFlag := C.rtdb_byte(flag)
+	err := C.rtdb_named_type_name_field_check_warp(cCheckName, cFlag)
+	return RtdbError(err)
+}
+
 // RawRtdbbGetMetaSyncInfoWarp 获取元数据同步信息
 //
 // input:
