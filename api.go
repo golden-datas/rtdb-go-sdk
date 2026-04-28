@@ -8463,7 +8463,6 @@ func RawRtdbbSearchPointsCountWarp(handle ConnectHandle, tagMask, tableMask, sou
 }
 
 // RawRtdbbUpdatePointPropertyWarp 更新单个标签点属性
-// 备注： 废弃， 统一使用最大长度Calc
 //
 // input:
 //   - handle 连接句柄
@@ -8475,13 +8474,14 @@ func RawRtdbbSearchPointsCountWarp(handle ConnectHandle, tagMask, tableMask, sou
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_update_point_property_warp(rtdb_int32 handle, const RTDB_POINT *base, const RTDB_SCAN_POINT *scan, const RTDB_CALC_POINT *calc)
-// func RawRtdbbUpdatePointPropertyWarp(handle ConnectHandle, base *RtdbPoint, scan *RtdbScan, calc *RtdbCalc) error {
-// 	cBase := goToCRtdbPoint(base)
-// 	cScan := goToCRtdbScan(scan)
-// 	cCalc := goToCRtdbCalc(calc)
-// 	err := C.rtdbb_update_point_property_warp(C.rtdb_int32(handle), cBase, cScan, cCalc)
-// 	return RtdbError(err).GoError()
-// }
+func RawRtdbbUpdatePointPropertyWarp(handle ConnectHandle, base *RtdbPoint, scan *RtdbScan, calc *RtdbCalc) RtdbError {
+	cHandle := C.rtdb_int32(handle)
+	cBase := goToCRtdbPoint(base)
+	cScan := goToCRtdbScan(scan)
+	cCalc := goToCRtdbCalcPoint(calc)
+	err := C.rtdbb_update_point_property_warp(cHandle, cBase, cScan, cCalc)
+	return RtdbError(err)
+}
 
 // RawRtdbbUpdateMaxPointPropertyWarp 按最大长度更新单个标签点属性
 //
