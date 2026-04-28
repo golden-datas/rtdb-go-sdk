@@ -4161,32 +4161,32 @@ type TimestampType C.rtdb_timestamp_type
 type SubtimeType C.rtdb_subtime_type
 
 // RtdbHostConnectInfo 连接到RTDB数据库服务器的连接信息
-// 备注， IPv6版本兼容此 RtdbHostConnectInfo ， 因此暂时注释掉
-// type RtdbHostConnectInfo struct {
-// 	IpAddr      int32        // 连接的客户端IP地址
-// 	Port        uint16       // 连接端口
-// 	Job         int32        // 连接最近处理的任务
-// 	JobTime     DateTimeType // 最近处理任务的时间
-// 	ConnectTime DateTimeType // 客户端连接时间
-// 	Client      string       // 连接的客户端主机名称
-// 	Process     string       // 连接的客户端程序名
-// 	User        string       // 登录的用户
-// 	Length      int32        // 记录用户名长度，用于加密传输
-// }
-// func cToRtdbHostConnectInfo(cInfo *C.RTDB_HOST_CONNECT_INFO) RtdbHostConnectInfo {
-// 	goInfo := RtdbHostConnectInfo{
-// 		IpAddr:      int32(cInfo.ipaddr),
-// 		Port:        uint16(cInfo.port),
-// 		Job:         int32(cInfo.job),
-// 		JobTime:     DateTimeType(cInfo.job_time),
-// 		ConnectTime: DateTimeType(cInfo.connect_time),
-// 		Client:      CCharArrayToString(&cInfo.client[0], len(cInfo.client)),
-// 		Process:     CCharArrayToString(&cInfo.process[0], len(cInfo.process)),
-// 		User:        CCharArrayToString(&cInfo.user[0], len(cInfo.user)),
-// 		Length:      int32(cInfo.length),
-// 	}
-// 	return goInfo
-// }
+type RtdbHostConnectInfo struct {
+	IpAddr      int32        // 连接的客户端IP地址
+	Port        uint16       // 连接端口
+	Job         int32        // 连接最近处理的任务
+	JobTime     DateTimeType // 最近处理任务的时间
+	ConnectTime DateTimeType // 客户端连接时间
+	Client      string       // 连接的客户端主机名称
+	Process     string       // 连接的客户端程序名
+	User        string       // 登录的用户
+	Length      int32        // 记录用户名长度，用于加密传输
+}
+
+func cToRtdbHostConnectInfo(cInfo *C.RTDB_HOST_CONNECT_INFO) RtdbHostConnectInfo {
+	goInfo := RtdbHostConnectInfo{
+		IpAddr:      int32(cInfo.ipaddr),
+		Port:        uint16(cInfo.port),
+		Job:         int32(cInfo.job),
+		JobTime:     DateTimeType(cInfo.job_time),
+		ConnectTime: DateTimeType(cInfo.connect_time),
+		Client:      CCharArrayToString(&cInfo.client[0], len(cInfo.client)),
+		Process:     CCharArrayToString(&cInfo.process[0], len(cInfo.process)),
+		User:        CCharArrayToString(&cInfo.user[0], len(cInfo.user)),
+		Length:      int32(cInfo.length),
+	}
+	return goInfo
+}
 
 type RtdbHostConnectInfoIpv6 struct {
 	IpAddr      int32        // 连接的客户端IP地址
@@ -6653,7 +6653,6 @@ func RawRtdbGetOwnConnectionWarp(handle ConnectHandle, nodeNumber int32) (Socket
 }
 
 // RawRtdbGetConnectionInfoWarp 获取 RTDB 服务器指定连接的信息
-// 备注： ipv6版本兼容此API，因此暂时注释掉此API
 //
 // input:
 //   - handle 连接句柄
@@ -6665,12 +6664,12 @@ func RawRtdbGetOwnConnectionWarp(handle ConnectHandle, nodeNumber int32) (Socket
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdb_get_connection_info_warp(rtdb_int32 handle, rtdb_int32 node_number, rtdb_int32 socket, RTDB_HOST_CONNECT_INFO *info)
-// func RawRtdbGetConnectionInfoWarp(handle ConnectHandle, nodeNumber int32, socket SocketHandle) (RtdbHostConnectInfo, error) {
-// 	cInfo := C.RTDB_HOST_CONNECT_INFO{}
-// 	err := C.rtdb_get_connection_info_warp(C.rtdb_int32(handle), C.rtdb_int32(nodeNumber), C.rtdb_int32(socket), &cInfo)
-// 	goInfo := cToRtdbHostConnectInfo(&cInfo)
-// 	return goInfo, RtdbError(err).GoError()
-// }
+func RawRtdbGetConnectionInfoWarp(handle ConnectHandle, nodeNumber int32, socket SocketHandle) (RtdbHostConnectInfo, error) {
+	cInfo := C.RTDB_HOST_CONNECT_INFO{}
+	err := C.rtdb_get_connection_info_warp(C.rtdb_int32(handle), C.rtdb_int32(nodeNumber), C.rtdb_int32(socket), &cInfo)
+	goInfo := cToRtdbHostConnectInfo(&cInfo)
+	return goInfo, RtdbError(err).GoError()
+}
 
 // RawRtdbGetConnectionInfoIpv6Warp 获取 RTDB 服务器指定连接的ipv6版本
 //
