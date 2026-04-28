@@ -7696,7 +7696,6 @@ func RawRtdbJudgeConnectStatusWarp(handle ConnectHandle) RtdbError {
 }
 
 // RawRtdbFormatIpaddrWarp 将整形IP转换为字符串形式的IP
-// 备注：废弃，感觉没啥用
 //
 // input:
 //   - ip 整数类型IP(IPv4)
@@ -7706,12 +7705,12 @@ func RawRtdbJudgeConnectStatusWarp(handle ConnectHandle) RtdbError {
 //
 // raw_fn:
 //   - void RTDBAPI_CALLRULE rtdb_format_ipaddr_warp(rtdb_uint32 ip, char* ip_addr, rtdb_int32 size)
-// func RawRtdbFormatIpaddrWarp(ip uint32) string {
-// 	addr := make([]byte, 128)
-// 	cAddr := (*C.char)(unsafe.Pointer(&addr[0]))
-// 	C.rtdb_format_ipaddr_warp(C.rtdb_uint32(ip), cAddr, 128)
-// 	return C.GoString(cAddr)
-// }
+func RawRtdbFormatIpaddrWarp(ip uint32) string {
+	addr := make([]byte, 128)
+	cAddr := (*C.char)(unsafe.Pointer(&addr[0]))
+	C.rtdb_format_ipaddr_warp(C.rtdb_uint32(ip), cAddr, 128)
+	return C.GoString(cAddr)
+}
 
 // RawRtdbbAppendTableWarp 添加新表
 //
