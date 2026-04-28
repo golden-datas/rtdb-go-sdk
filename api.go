@@ -8758,39 +8758,74 @@ func RawRtdbbGetRecycledPointsWarp(handle ConnectHandle, count int32) ([]PointID
 }
 
 // RawRtdbbSearchRecycledPointsWarp 搜索符合条件的可回收标签点，使用标签点名时支持通配符
-// 备注：不实现，统一使用分批搜索
 //
-// *        [handle]        连接句柄
-// *        [tagmask]       字符串，输入，标签点名称掩码，支持"*"和"?"通配符，缺省设置为"*"，长度不得超过 RTDB_TAG_SIZE。
-// *        [tablemask]     字符串，输入，标签点表名称掩码，支持"*"和"?"通配符，缺省设置为"*"，长度不得超过 RTDB_TAG_SIZE。
-// *        [source]        字符串，输入，数据源集合，字符串中的每个字符均表示一个数据源，
-// *                        空字符串表示不用数据源作搜索条件，缺省设置为空，长度不得超过 RTDB_DESC_SIZE。
-// *        [unit]          字符串，输入，标签点工程单位的子集，工程单位中包含该参数的标签点均满足条件，
-// *                        空字符串表示不用工程单位作搜索条件，缺省设置为空，长度不得超过 RTDB_UNIT_SIZE。
-// *        [desc]          字符串，输入，标签点描述的子集，描述中包含该参数的标签点均满足条件，
-// *                        空字符串表示不用描述作搜索条件，缺省设置为空，长度不得超过 RTDB_SOURCE_SIZE。
-// *        [instrument]    字符串，输入参数，标签点设备名称。缺省设置为空，长度不得超过 RTDB_INSTRUMENT_SIZE。
-// *        [mode]          整型，RTDB_SORT_BY_TABLE、RTDB_SORT_BY_TAG、RTDB_SORT_BY_ID 之一，
-// *                        搜索结果的排序模式，输入，缺省值为RTDB_SORT_BY_TABLE
-// *        [ids]           整型数组，输出，返回搜索到的标签点标识列表
-// *        [count]         整型，输入/输出，输入时表示 ids 的长度，输出时表示搜索到的标签点个数
-// * 备注：用户须保证分配给 ids 的空间与 count 相符，各参数中包含的搜索条件之间的关系为"与"的关系，
-// *        用包含通配符的标签点名称作搜索条件时，如果第一个字符不是通配符(如"ai67*")，会得到最快的搜索速度。
-// *        如果 tagmask、fullmask 为空指针，则表示使用缺省设置"*"
-// rtdb_error RTDBAPI_CALLRULE rtdbb_search_recycled_points_warp(rtdb_int32 handle, const char *tagmask, const char *fullmask, const char *source, const char *unit, const char *desc, const char *instrument, rtdb_int32 mode, rtdb_int32 *ids, rtdb_int32 *count)
-// func RawRtdbbSearchRecycledPointsWarp() {}
+// input:
+//   - handle 连接句柄
+//   - tagMask 标签点名称掩码，支持"*"和"?"通配符，缺省设置为"*"，长度不得超过 RTDB_TAG_SIZE。
+//   - fullMask 标签点表名称掩码，支持"*"和"?"通配符，缺省设置为"*"，长度不得超过 RTDB_TAG_SIZE。
+//   - source 数据源集合，字符串中的每个字符均表示一个数据源，空字符串表示不用数据源作搜索条件，缺省设置为空，长度不得超过 RTDB_DESC_SIZE。
+//   - unit 标签点工程单位的子集，工程单位中包含该参数的标签点均满足条件，空字符串表示不用工程单位作搜索条件，缺省设置为空，长度不得超过 RTDB_UNIT_SIZE。
+//   - desc 标签点描述的子集，描述中包含该参数的标签点均满足条件，空字符串表示不用描述作搜索条件，缺省设置为空，长度不得超过 RTDB_SOURCE_SIZE。
+//   - instrument 标签点设备名称。缺省设置为空，长度不得超过 RTDB_INSTRUMENT_SIZE。
+//   - mode 搜索结果排序模式
+//
+// output:
+//   - []PointID(ids) 标签点ID列表
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdbb_search_recycled_points_warp(rtdb_int32 handle, const char *tagmask, const char *fullmask, const char *source, const char *unit, const char *desc, const char *instrument, rtdb_int32 mode, rtdb_int32 *ids, rtdb_int32 *count)
+func RawRtdbbSearchRecycledPointsWarp(handle ConnectHandle, tagMask, fullMask, source, unit, desc, instrument string, mode RtdbSortFlag) ([]PointID, RtdbError) {
+	tagMask = StringInDB(tagMask)
+	fullMask = StringInDB(fullMask)
+	source = StringInDB(source)
+	unit = StringInDB(unit)
+	desc = StringInDB(desc)
+	instrument = StringInDB(instrument)
+
+	cHandle := C.rtdb_int32(handle)
+	cTagMask := C.CString(tagMask)
+	defer C.free(unsafe.Pointer(cTagMask))
+	cFullMask := C.CString(fullMask)
+	defer C.free(unsafe.Pointer(cFullMask))
+	cSource := C.CString(source)
+	defer C.free(unsafe.Pointer(cSource))
+	cUnit := C.CString(unit)
+	defer C.free(unsafe.Pointer(cUnit))
+	cDesc := C.CString(desc)
+	defer C.free(unsafe.Pointer(cDesc))
+	cInstrument := C.CString(instrument)
+	defer C.free(unsafe.Pointer(cInstrument))
+	cMode := C.rtdb_int32(mode)
+	count := C.rtdb_int32(1024)
+	ids := make([]PointID, count)
+	cIds := (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
+
+	err := C.rtdbb_search_recycled_points_warp(cHandle, cTagMask, cFullMask, cSource, cUnit, cDesc, cInstrument, cMode, cIds, &count)
+	return ids[:count], RtdbError(err)
+}
 
 // RawRtdbbGetRecycledPointPropertyWarp 获取可回收标签点的属性
-// 备注： 不实现， 统一使用最大长度， RawRtdbbGetRecycledMaxPointPropertyWarp
 //
-// * \param handle   连接句柄
-// * \param base     RTDB_POINT 结构，输入/输出，标签点基本属性。
-// 输入时，由 id 字段指定要取得的可回收标签点。
-// * \param scan     RTDB_SCAN_POINT 结构，输出，标签点采集扩展属性
-// * \param calc     RTDB_CALC_POINT 结构，输出，标签点计算扩展属性
-// * \remark scan、calc 可为空指针，对应的扩展信息将不返回。
-// rtdb_error RTDBAPI_CALLRULE rtdbb_get_recycled_point_property_warp(rtdb_int32 handle, RTDB_POINT *base, RTDB_SCAN_POINT *scan, RTDB_CALC_POINT *calc)
-// func RawRtdbbGetRecycledPointPropertyWarp() {}
+// input:
+//   - handle 连接句柄
+//   - id 标签点ID
+//
+// output:
+//   - RtdbPoint(base) 标签点基本属性
+//   - RtdbScan(scan) 标签点采集属性
+//   - RtdbCalc(calc) 标签点计算属性
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdbb_get_recycled_point_property_warp(rtdb_int32 handle, RTDB_POINT *base, RTDB_SCAN_POINT *scan, RTDB_CALC_POINT *calc)
+func RawRtdbbGetRecycledPointPropertyWarp(handle ConnectHandle, id PointID) (*RtdbPoint, *RtdbScan, *RtdbCalc, RtdbError) {
+	cHandle := C.rtdb_int32(handle)
+	base := C.RTDB_POINT{}
+	base.id = C.rtdb_int32(id)
+	scan := C.RTDB_SCAN_POINT{}
+	calc := C.RTDB_CALC_POINT{}
+	err := C.rtdbb_get_recycled_point_property_warp(cHandle, &base, &scan, &calc)
+	return cToRtdbPoint(&base), cToRtdbScan(&scan), cToRtdbCalcPoint(&calc), RtdbError(err)
+}
 
 // RawRtdbbSearchRecycledPointsInBatchesWarp 分批搜索符合条件的可回收标签点，使用标签点名时支持通配符
 //
