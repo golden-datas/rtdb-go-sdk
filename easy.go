@@ -2497,6 +2497,23 @@ func (c *RtdbConnect) GetPoint(id PointID) (*PointInfo, error) {
 	return PointInfoFromRaw(c.ConnectHandle, &bases[0], &scans[0], &calcs[0], false)
 }
 
+// GetTypesProperty 批量获取标签点的数据类型
+//
+// input:
+//   - ids 标签点ID列表
+//
+// output:
+//   - []RtdbType(types) 标签点数据类型列表
+//   - []error(errs) 错误列表
+func (c *RtdbConnect) GetTypesProperty(ids []PointID) ([]RtdbType, []error, error) {
+	types, rtes, rte := RawRtdbbGetTypesPropertyWarp(c.ConnectHandle, ids)
+	if !RteIsOk(rte) {
+		return nil, nil, rte.GoError()
+	}
+	errs := RtdbErrorListToErrorList(rtes)
+	return types, errs, nil
+}
+
 // FindPoints 根据 表名.点名 搜索标签点
 //
 // input:

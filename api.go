@@ -8216,6 +8216,30 @@ func RawRtdbbGetMaxPointsPropertyWarp(handle ConnectHandle, ids []PointID) ([]Rt
 	return rtnBases, rtnScans, rtnCalcs, errs, RtdbError(err)
 }
 
+// RawRtdbbGetTypesPropertyWarp 批量获取标签点的数据类型
+//
+// input:
+//   - handle 连接句柄
+//   - ids 标签点ID列表
+//
+// output:
+//   - []RtdbType(types) 标签点数据类型列表
+//   - []RtdbError(errs) 错误列表
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdbb_get_types_property_warp(rtdb_int32 handle, rtdb_int32* count, rtdb_int32* ids, rtdb_int32* types, rtdb_error* errors)
+func RawRtdbbGetTypesPropertyWarp(handle ConnectHandle, ids []PointID) ([]RtdbType, []RtdbError, RtdbError) {
+	cHandle := C.rtdb_int32(handle)
+	cCount := C.rtdb_int32(len(ids))
+	cIds := (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
+	types := make([]RtdbType, len(ids))
+	cTypes := (*C.rtdb_int32)(unsafe.Pointer(&types[0]))
+	errs := make([]RtdbError, len(ids))
+	cErrs := (*C.rtdb_error)(unsafe.Pointer(&errs[0]))
+	err := C.rtdbb_get_types_property_warp(cHandle, &cCount, cIds, cTypes, cErrs)
+	return types, errs, RtdbError(err)
+}
+
 // RawRtdbbSearchWarp 搜索符合条件的标签点，使用标签点名时支持通配符
 //
 // input:

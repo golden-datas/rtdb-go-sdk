@@ -1389,6 +1389,23 @@ rtdb_error RTDBAPI_CALLRULE rtdbb_get_max_points_property_warp(rtdb_int32 handle
 
 /**
 *
+* \brief 批量获取标签点的数据类型
+*
+* \param handle   连接句柄
+* \param count    输入/输出，输入时表示 ids、types、errors 的数组长度，输出时表示成功获取到的数量
+* \param ids      数组，标签点ID列表
+* \param types    数组，标签点数据类型列表
+* \param errors   数组，对应标签点的错误信息
+*/
+rtdb_error RTDBAPI_CALLRULE rtdbb_get_types_property_warp(rtdb_int32 handle, rtdb_int32* count, rtdb_int32* ids, rtdb_int32* types, rtdb_error* errors)
+{
+    typedef rtdb_error (RTDBAPI_CALLRULE *rtdbb_get_types_property_fn)(rtdb_int32 handle, rtdb_int32* count, rtdb_int32* ids, rtdb_int32* types, rtdb_error* errors);
+    rtdbb_get_types_property_fn fn = (rtdbb_get_types_property_fn)get_function("rtdbb_get_types_property");
+    return fn(handle, count, ids, types, errors);
+}
+
+/**
+*
 * \brief 搜索符合条件的标签点，使用标签点名时支持通配符
 *
 * \param handle        连接句柄
