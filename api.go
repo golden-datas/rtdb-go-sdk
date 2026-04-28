@@ -8195,7 +8195,6 @@ func RawRtdbbGetMaxPointsPropertyWarp(handle ConnectHandle, ids []PointID) ([]Rt
 }
 
 // RawRtdbbSearchWarp 搜索符合条件的标签点，使用标签点名时支持通配符
-// 备注： 废弃，由于有数量限制，采用下面的分段搜索 (RawRtdbbSearchInBatchesWarp)
 //
 // input:
 //   - handle 连接句柄
@@ -8213,33 +8212,40 @@ func RawRtdbbGetMaxPointsPropertyWarp(handle ConnectHandle, ids []PointID) ([]Rt
 //
 // raw_fn:
 //   - rtdb_error RTDBAPI_CALLRULE rtdbb_search_warp(rtdb_int32 handle, const char *tagmask, const char *tablemask, const char *source, const char *unit, const char *desc, const char *instrument, rtdb_int32 mode, rtdb_int32 *ids, rtdb_int32 *count)
-// func RawRtdbbSearchWarp(handle ConnectHandle, tagMask, tableMask, source, unit, desc, instrument string, model RtdbSortFlag) ([]PointID, error) {
-// 	if strings.TrimSpace(tagMask) == "" {
-// 		tagMask = "*"
-// 	}
-// 	if strings.TrimSpace(tableMask) == "" {
-// 		tableMask = "*"
-// 	}
-// 	cTagMask := C.CString(tagMask)
-// 	defer C.free(unsafe.Pointer(cTagMask))
-// 	cTableMask := C.CString(tableMask)
-// 	defer C.free(unsafe.Pointer(cTableMask))
-// 	cSource := C.CString(source)
-// 	defer C.free(unsafe.Pointer(cSource))
-// 	cUnit := C.CString(unit)
-// 	defer C.free(unsafe.Pointer(cUnit))
-// 	cDesc := C.CString(desc)
-// 	defer C.free(unsafe.Pointer(cDesc))
-// 	cInstrument := C.CString(instrument)
-// 	defer C.free(unsafe.Pointer(cInstrument))
-// 	cModel := C.rtdb_int32(model)
-// 	count := C.rtdb_int32(1024)
-// 	ids := make([]PointID, count)
-// 	cIds := (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
-//
-// 	err := C.rtdbb_search_warp(C.rtdb_int32(handle), cTagMask, cTableMask, cSource, cUnit, cDesc, cInstrument, cModel, cIds, &count)
-// 	return ids[:count], RtdbError(err).GoError()
-// }
+func RawRtdbbSearchWarp(handle ConnectHandle, tagMask, tableMask, source, unit, desc, instrument string, model RtdbSortFlag) ([]PointID, RtdbError) {
+	tagMask = StringInDB(tagMask)
+	tableMask = StringInDB(tableMask)
+	source = StringInDB(source)
+	unit = StringInDB(unit)
+	desc = StringInDB(desc)
+	instrument = StringInDB(instrument)
+
+	if strings.TrimSpace(tagMask) == "" {
+		tagMask = "*"
+	}
+	if strings.TrimSpace(tableMask) == "" {
+		tableMask = "*"
+	}
+	cTagMask := C.CString(tagMask)
+	defer C.free(unsafe.Pointer(cTagMask))
+	cTableMask := C.CString(tableMask)
+	defer C.free(unsafe.Pointer(cTableMask))
+	cSource := C.CString(source)
+	defer C.free(unsafe.Pointer(cSource))
+	cUnit := C.CString(unit)
+	defer C.free(unsafe.Pointer(cUnit))
+	cDesc := C.CString(desc)
+	defer C.free(unsafe.Pointer(cDesc))
+	cInstrument := C.CString(instrument)
+	defer C.free(unsafe.Pointer(cInstrument))
+	cModel := C.rtdb_int32(model)
+	count := C.rtdb_int32(1024)
+	ids := make([]PointID, count)
+	cIds := (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
+
+	err := C.rtdbb_search_warp(C.rtdb_int32(handle), cTagMask, cTableMask, cSource, cUnit, cDesc, cInstrument, cModel, cIds, &count)
+	return ids[:count], RtdbError(err)
+}
 
 // RawRtdbbSearchInBatchesWarp 分批继续搜索符合条件的标签点，使用标签点名时支持通配符
 //
