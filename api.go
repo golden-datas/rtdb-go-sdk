@@ -8143,19 +8143,41 @@ func RawRtdbbMovePointByIdWarp(handle ConnectHandle, id PointID, tableName strin
 }
 
 // RawRtdbbGetPointsPropertyWarp 批量获取标签点属性
-// 备注：不实现, 统一使用最大长度
 //
-// * \param handle 连接句柄
-// * \param count  整数，输入，表示标签点个数。
-// * \param base   RTDB_POINT 结构数组，输入/输出，标签点基本属性列表，
-// *                 输入时，id 字段指定需要得到属性的标签点，输出时，其它字段返回标签点属性值。
-// * \param scan   RTDB_SCAN_POINT 结构数组，输出，采集标签点扩展属性列表
-// * \param calc   RTDB_CALC_POINT 结构数组，输出，计算标签点扩展属性列表
-// * \param errors 无符号整型数组，输出，获取标签属性的返回值列表，参考rtdb_error.h
-// * \remark 用户须保证分配给 base、scan、calc、errors 的空间与 count 相符，
-// *        扩展属性集 scan、calc 可为空指针，此时将不返回对应的扩展属性集。
-// rtdb_error RTDBAPI_CALLRULE rtdbb_get_points_property_warp(rtdb_int32 handle, rtdb_int32 count, RTDB_POINT *base, RTDB_SCAN_POINT *scan, RTDB_CALC_POINT *calc, rtdb_error *errors)
-// func RawRtdbbGetPointsPropertyWarp() {}
+// input:
+//   - handle 连接句柄
+//   - ids 标签点ID列表
+//
+// output:
+//   - []RtdbPoint(bases) 基本属性列表
+//   - []RtdbScan(scans) 采集属性列表
+//   - []RtdbCalc(calcs) 计算属性列表
+//   - []RtdbError(errs) 错误列表
+//
+// raw_fn:
+//   - rtdb_error RTDBAPI_CALLRULE rtdbb_get_points_property_warp(rtdb_int32 handle, rtdb_int32 count, RTDB_POINT *base, RTDB_SCAN_POINT *scan, RTDB_CALC_POINT *calc, rtdb_error *errors)
+func RawRtdbbGetPointsPropertyWarp(handle ConnectHandle, ids []PointID) ([]RtdbPoint, []RtdbScan, []RtdbCalc, []RtdbError, RtdbError) {
+	cHandle := C.rtdb_int32(handle)
+	cCount := C.rtdb_int32(len(ids))
+	bases := make([]C.RTDB_POINT, len(ids))
+	for i, id := range ids {
+		bases[i].id = C.int(id)
+	}
+	scans := make([]C.RTDB_SCAN_POINT, len(ids))
+	calcs := make([]C.RTDB_CALC_POINT, len(ids))
+	errs := make([]RtdbError, len(ids))
+	cErrs := (*C.rtdb_error)(unsafe.Pointer(&errs[0]))
+	err := C.rtdbb_get_points_property_warp(cHandle, cCount, &bases[0], &scans[0], &calcs[0], cErrs)
+	rtnBases := make([]RtdbPoint, 0)
+	rtnScans := make([]RtdbScan, 0)
+	rtnCalcs := make([]RtdbCalc, 0)
+	for i := 0; i < len(ids); i++ {
+		rtnBases = append(rtnBases, *cToRtdbPoint(&bases[i]))
+		rtnScans = append(rtnScans, *cToRtdbScan(&scans[i]))
+		rtnCalcs = append(rtnCalcs, *cToRtdbCalcPoint(&calcs[i]))
+	}
+	return rtnBases, rtnScans, rtnCalcs, errs, RtdbError(err)
+}
 
 // RawRtdbbGetMaxPointsPropertyWarp 按最大长度批量获取标签点属性
 //
