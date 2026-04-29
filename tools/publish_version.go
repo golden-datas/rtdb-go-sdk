@@ -75,8 +75,16 @@ func publishVersion(rootDir, version string) {
 	}
 	fmt.Printf("本地 tag %s 创建成功\n", version)
 
-	// 步骤4：推送 tag 到远程
-	fmt.Println("[4/4] 推送 tag 到远程 ...")
+	// 步骤4：推送当前分支到远程
+	fmt.Println("[4/5] 推送当前分支到远程 ...")
+	if err := gitPushCurrentBranch(rootDir); err != nil {
+		fmt.Println("推送分支到远程失败:", err)
+		os.Exit(1)
+	}
+	fmt.Println("分支推送成功")
+
+	// 步骤5：推送 tag 到远程
+	fmt.Println("[5/5] 推送 tag 到远程 ...")
 	if err := gitPushTag(rootDir, version); err != nil {
 		fmt.Println("推送 tag 到远程失败:", err)
 		os.Exit(1)
@@ -170,6 +178,15 @@ func gitCommit(rootDir, message string) error {
 // gitTag 本地创建 tag
 func gitTag(rootDir, version string) error {
 	cmd := exec.Command("git", "tag", version)
+	cmd.Dir = rootDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// gitPushCurrentBranch 推送当前分支到远程
+func gitPushCurrentBranch(rootDir string) error {
+	cmd := exec.Command("git", "push", "origin", "HEAD")
 	cmd.Dir = rootDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
