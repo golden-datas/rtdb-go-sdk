@@ -4749,11 +4749,19 @@ func TestRawRtdbpGetPerfValues64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】获取性能值（预期：成功）")
-	_, _, _, _, _, _, err := RawRtdbpGetPerfValues64Warp(handle, []RtdbPerfTagID{PftCpuUsageOfLogger, PftMemBytesOfLogger})
+	dts, sts, vals, states, quals, errs, err := RawRtdbpGetPerfValues64Warp(handle, []RtdbPerfTagID{PftCpuUsageOfLogger, PftMemBytesOfLogger})
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("获取性能值失败:", err)
 		return
+	}
+	for i := range dts {
+		if !RteIsOk(errs[i]) {
+			fmt.Printf("  性能点[%d] 出错: %s\n", i, errs[i])
+			continue
+		}
+		fmt.Printf("  性能点[%d] 时间=%d 子时间=%d 值=%f 状态=%d 质量=%d\n",
+			i, dts[i], sts[i], vals[i], states[i], quals[i])
 	}
 	fmt.Println("  结果：通过 —— 获取性能值成功")
 }
