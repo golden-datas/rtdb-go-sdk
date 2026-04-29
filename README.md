@@ -10,10 +10,11 @@
 * 在Windows平台中，需安装Golang编译器、MicrosoftVisualC++BuildTools工具链(可通过VisualStudio2022安装)
 
 ## 版本
+
 格式：SO库版本号_Go库版本号
 
 * v4.0.11_0.1.0: 第一个试用版本
-* v4.0.15_0.2.0: 新增了
+* v4.0.15_0.2.0: 新增了一些Raw函数
 
 ## 一些基本概念
 
