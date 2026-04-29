@@ -139,6 +139,28 @@ require github.com/kkbase/rtdb_api v0.1.0
 
 ## 版本发布工具
 
+项目根目录下提供了跨平台发版脚本，发布前会自动更新 API 文档并推送。
+
+### Linux / macOS / Git Bash
+
+```bash
+# 发布版本
+./publish.sh v4.0.15_0.2.0
+
+# 删除版本
+./publish.sh -d v4.0.15_0.2.0
+```
+
+### Windows PowerShell
+
+```powershell
+# 发布版本
+.\publish.ps1 v4.0.15_0.2.0
+
+# 删除版本
+.\publish.ps1 -d v4.0.15_0.2.0
+```
+
 ## 可用函数列表
 
 详见 [可用API列表.md](可用API列表.md)
