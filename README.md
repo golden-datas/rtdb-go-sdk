@@ -10,8 +10,10 @@
 * 在Windows平台中，需安装Golang编译器、MicrosoftVisualC++BuildTools工具链(可通过VisualStudio2022安装)
 
 ## 版本
+格式：SO库版本号_Go库版本号
 
-* v0.1.0: 第一个试用版本, 后续的bug修复会基于这个版本， 版号为v0.1.x
+* v4.0.11_0.1.0: 第一个试用版本
+* v4.0.15_0.2.0: 新增了
 
 ## 一些基本概念
 
@@ -124,7 +126,8 @@ func main() {
 
 # go.mod引用版本说明
 
-引用本库的时候需注意版本号，请使用最新版本, 可执行 ```git ls-remote --tags git@github.com:kkbase/rtdb_api.git``` 命令行查看最新版本号
+引用本库的时候需注意版本号，请使用最新版本, 可执行 ```git ls-remote --tags git@github.com:kkbase/rtdb_api.git```
+命令行查看最新版本号
 
 ```text
 require github.com/kkbase/rtdb_api v0.1.0
