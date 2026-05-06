@@ -1142,136 +1142,305 @@ func TestRawRtdbbGetTablesWarp(t *testing.T) {
 	fmt.Printf("  结果：通过 —— 表数量=%d\n", len(ids))
 }
 
-// TC-TBLSIZEID-01 获取有点的表大小
+// TC-TBLSIZEID-01 完整流程：创建表→创建点→测表大小→清理点→清理表
 func TestRawRtdbbGetTableSizeByIdWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取表列表（预期：成功）")
-	ids, _ := RawRtdbbGetTablesWarp(handle, 100)
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无表可测")
-		t.Skip("无表可测")
+	fmt.Println("【步骤2】创建临时表 TestTblSize（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblSize", "测试表大小")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 获取到 %d 个表\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】按ID获取第一个表大小（预期：成功）")
-	size, err := RawRtdbbGetTableSizeByIdWarp(handle, ids[0])
+	fmt.Println("【步骤3】创建标签点 TestPtSize（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtSize", RtdbTypeReal64, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【步骤5】清理标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】按ID获取表大小（预期：成功且>=1）")
+	size, err := RawRtdbbGetTableSizeByIdWarp(handle, tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("获取表大小失败:", err)
 		return
 	}
+	if size < 1 {
+		fmt.Printf("  结果：失败 —— 表大小=%d，预期至少为1\n", size)
+		t.Errorf("表大小预期>=1，实际=%d", size)
+		return
+	}
 	fmt.Printf("  结果：通过 —— 表大小=%d\n", size)
 }
 
-// TC-TBLSIZENAME-01 获取有点的表大小
+// TC-TBLSIZENAME-01 完整流程：创建表→创建点→按名称测表大小→清理点→清理表
 func TestRawRtdbbGetTableSizeByNameWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取表列表（预期：成功）")
-	ids, _ := RawRtdbbGetTablesWarp(handle, 100)
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无表可测")
-		t.Skip("无表可测")
+	fmt.Println("【步骤2】创建临时表 TestTblSizeName（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblSizeName", "测试按名称获取表大小")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 获取到 %d 个表\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】按名称获取表大小（预期：成功）")
-	prop, _ := RawRtdbbGetTablePropertyByIdWarp(handle, ids[0])
-	size, err := RawRtdbbGetTableSizeByNameWarp(handle, prop.Name)
+	fmt.Println("【步骤3】创建标签点 TestPtSizeName（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtSizeName", RtdbTypeReal64, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【步骤5】清理标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】按名称获取表大小（预期：成功且>=1）")
+	size, err := RawRtdbbGetTableSizeByNameWarp(handle, tbl.Name)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("按名称获取表大小失败:", err)
 		return
 	}
+	if size < 1 {
+		fmt.Printf("  结果：失败 —— 表大小=%d，预期至少为1\n", size)
+		t.Errorf("表大小预期>=1，实际=%d", size)
+		return
+	}
 	fmt.Printf("  结果：通过 —— 表大小(ByName)=%d\n", size)
 }
 
-// TC-TBLREALSIZE-01 无删除点的表
+// TC-TBLREALSIZE-01 完整流程：创建表→创建点→按ID测表实际大小→清理点→清理表
 func TestRawRtdbbGetTableRealSizeByIdWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取表列表（预期：成功）")
-	ids, _ := RawRtdbbGetTablesWarp(handle, 100)
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无表可测")
-		t.Skip("无表可测")
+	fmt.Println("【步骤2】创建临时表 TestTblRealSize（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblRealSize", "测试按ID获取表实际大小")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 获取到 %d 个表\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】按ID获取表实际大小（预期：成功）")
-	size, err := RawRtdbbGetTableRealSizeByIdWarp(handle, ids[0])
+	fmt.Println("【步骤3】创建标签点 TestPtRealSize（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtRealSize", RtdbTypeReal64, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【步骤5】清理标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】按ID获取表实际大小（预期：成功且>=1）")
+	size, err := RawRtdbbGetTableRealSizeByIdWarp(handle, tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("获取表实际大小失败:", err)
 		return
 	}
+	if size < 1 {
+		fmt.Printf("  结果：失败 —— 表实际大小=%d，预期至少为1\n", size)
+		t.Errorf("表实际大小预期>=1，实际=%d", size)
+		return
+	}
 	fmt.Printf("  结果：通过 —— 表实际大小=%d\n", size)
 }
 
-// TC-TBLPROPBYID-01 获取存在的表属性
+// TC-TBLPROPBYID-01 完整流程：创建表→创建点→按ID获取表属性→清理点→清理表
 func TestRawRtdbbGetTablePropertyByIdWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取表列表（预期：成功）")
-	ids, _ := RawRtdbbGetTablesWarp(handle, 100)
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无表可测")
-		t.Skip("无表可测")
+	fmt.Println("【步骤2】创建临时表 TestTblPropById（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblPropById", "测试按ID获取表属性")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 获取到 %d 个表\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】按ID获取表属性（预期：成功）")
-	prop, err := RawRtdbbGetTablePropertyByIdWarp(handle, ids[0])
+	fmt.Println("【步骤3】创建标签点 TestPtPropById（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtPropById", RtdbTypeReal64, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【步骤5】清理标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】按ID获取表属性（预期：成功且Name匹配）")
+	prop, err := RawRtdbbGetTablePropertyByIdWarp(handle, tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("获取表属性失败:", err)
 		return
 	}
+	if prop.Name != tbl.Name {
+		fmt.Printf("  结果：失败 —— 表名不一致: 预期=%s, 实际=%s\n", tbl.Name, prop.Name)
+		t.Errorf("表名不一致: 预期=%s, 实际=%s", tbl.Name, prop.Name)
+		return
+	}
 	fmt.Printf("  结果：通过 —— 表属性: ID=%d, Name=%s\n", prop.ID, prop.Name)
 }
 
-// TC-TBLPROPBYNAM-01 获取存在的表属性
+// TC-TBLPROPBYNAM-01 完整流程：创建表→创建点→按名称获取表属性→清理点→清理表
 func TestRawRtdbbGetTablePropertyByNameWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取表列表（预期：成功）")
-	ids, _ := RawRtdbbGetTablesWarp(handle, 100)
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无表可测")
-		t.Skip("无表可测")
+	fmt.Println("【步骤2】创建临时表 TestTblPropByName（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblPropByName", "测试按名称获取表属性")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 获取到 %d 个表\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】按名称获取表属性（预期：成功且与按ID一致）")
-	prop, _ := RawRtdbbGetTablePropertyByIdWarp(handle, ids[0])
-	prop2, err := RawRtdbbGetTablePropertyByNameWarp(handle, prop.Name)
+	fmt.Println("【步骤3】创建标签点 TestPtPropByName（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtPropByName", RtdbTypeReal64, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【步骤5】清理标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】按名称获取表属性（预期：成功且与按ID一致）")
+	propByID, _ := RawRtdbbGetTablePropertyByIdWarp(handle, tbl.ID)
+	propByName, err := RawRtdbbGetTablePropertyByNameWarp(handle, tbl.Name)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("按名称获取表属性失败:", err)
 		return
 	}
-	if prop2.ID != prop.ID {
-		fmt.Printf("  结果：失败 —— 按名称和按ID获取的表属性不一致: ID=%d vs %d\n", prop2.ID, prop.ID)
+	if propByName.ID != propByID.ID {
+		fmt.Printf("  结果：失败 —— 按名称和按ID获取的表属性不一致: ID=%d vs %d\n", propByName.ID, propByID.ID)
 		t.Error("按名称和按ID获取的表属性不一致")
 		return
 	}
-	fmt.Printf("  结果：通过 —— 表属性一致: ID=%d, Name=%s\n", prop2.ID, prop2.Name)
+	fmt.Printf("  结果：通过 —— 表属性一致: ID=%d, Name=%s\n", propByName.ID, propByName.Name)
 }
 
 // TC-TBLUPDNAME-01 正常更新表名
