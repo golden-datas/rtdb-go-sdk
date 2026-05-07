@@ -2595,7 +2595,7 @@ func TestRawRtdbbRecoverPointWarp(t *testing.T) {
 	}
 	fmt.Println("  结果：通过 —— 临时点已删除（进入回收站）")
 
-	fmt.Println("【步骤4】获取回收站点列表（预期：非空）")
+	fmt.Println("【步骤4】获取回收站点列表并定位目标点（预期：非空）")
 	recycled, err := RawRtdbbGetRecycledPointsWarp(handle, 100)
 	if !RteIsOk(err) || len(recycled) == 0 {
 		fmt.Println("  结果：跳过 —— 回收站为空")
@@ -2603,8 +2603,20 @@ func TestRawRtdbbRecoverPointWarp(t *testing.T) {
 	}
 	fmt.Printf("  结果：通过 —— 回收站有 %d 个点\n", len(recycled))
 
+	found := false
+	for _, id := range recycled {
+		if id == pid {
+			found = true
+			break
+		}
+	}
+	if !found {
+		fmt.Println("  结果：跳过 —— 未在回收站中找到目标点")
+		t.Skip("未在回收站中找到目标点")
+	}
+
 	fmt.Println("【步骤5】恢复回收站点到原表（预期：成功或策略差异）")
-	err = RawRtdbbRecoverPointWarp(handle, tbl.ID, recycled[0])
+	err = RawRtdbbRecoverPointWarp(handle, tbl.ID, pid)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：跳过 —— 恢复点失败（可能回收站策略差异）: %v\n", err)
 		t.Logf("恢复点(可能回收站策略差异): %v", err)
@@ -2613,6 +2625,11 @@ func TestRawRtdbbRecoverPointWarp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 点已恢复")
 
 	fmt.Println("【步骤6】清理恢复后的点（预期：成功）")
+	// 恢复后点的ID可能变化，先搜索确认当前实际ID
+	restoredIds, _ := RawRtdbbSearchWarp(handle, "TestRecyPt", tbl.Name, "", "", "", "", RtdbSortFlag(0))
+	if len(restoredIds) > 0 {
+		pid = restoredIds[0]
+	}
 	rte = RawRtdbbRemovePointByIdWarp(handle, pid)
 	if !RteIsOk(rte) {
 		fmt.Printf("  结果：失败 —— %s\n", rte)
@@ -2664,7 +2681,7 @@ func TestRawRtdbbPurgePointWarp(t *testing.T) {
 	}
 	fmt.Println("  结果：通过 —— 临时点已删除（进入回收站）")
 
-	fmt.Println("【步骤4】获取回收站点列表（预期：非空）")
+	fmt.Println("【步骤4】获取回收站点列表并定位目标点（预期：非空）")
 	recycled, err := RawRtdbbGetRecycledPointsWarp(handle, 100)
 	if !RteIsOk(err) || len(recycled) == 0 {
 		fmt.Println("  结果：跳过 —— 回收站为空")
@@ -2672,8 +2689,20 @@ func TestRawRtdbbPurgePointWarp(t *testing.T) {
 	}
 	fmt.Printf("  结果：通过 —— 回收站有 %d 个点\n", len(recycled))
 
+	found := false
+	for _, id := range recycled {
+		if id == pid {
+			found = true
+			break
+		}
+	}
+	if !found {
+		fmt.Println("  结果：跳过 —— 未在回收站中找到目标点")
+		t.Skip("未在回收站中找到目标点")
+	}
+
 	fmt.Println("【步骤5】清除回收站点（预期：成功或策略差异）")
-	err = RawRtdbbPurgePointWarp(handle, recycled[0])
+	err = RawRtdbbPurgePointWarp(handle, pid)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：跳过 —— 清除点失败（可能回收站策略差异）: %v\n", err)
 		t.Logf("清除点(可能回收站策略差异): %v", err)
@@ -2689,11 +2718,56 @@ func TestRawRtdbbGetRecycledPointsCountWarp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】查询回收站数量（预期：成功）")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblCnt", "测试回收站数量")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤7】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤3】创建临时点并删除（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestCntPt", RtdbTypeBool, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时点ID=%d\n", pid)
+	rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：失败 —— 删除点失败: %s\n", rte)
+		t.Error("删除点失败:", rte)
+		return
+	}
+	fmt.Println("  结果：通过 —— 临时点已删除（进入回收站）")
+	defer func() {
+		fmt.Println("【步骤6】清理回收站点（预期：成功或已清除）")
+		_ = RawRtdbbPurgePointWarp(handle, pid)
+		fmt.Println("  结果：通过 —— 回收站点已清理")
+	}()
+
+	fmt.Println("【步骤4】查询回收站数量（预期：>=1）")
 	count, err := RawRtdbbGetRecycledPointsCountWarp(handle)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("获取回收站数量失败:", err)
+		return
+	}
+	if count < 1 {
+		fmt.Printf("  结果：失败 —— 回收站数量=%d，预期>=1\n", count)
+		t.Error("回收站数量应>=1")
 		return
 	}
 	fmt.Printf("  结果：通过 —— 回收站数量=%d\n", count)
@@ -2706,11 +2780,56 @@ func TestRawRtdbbGetRecycledPointsWarp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取回收站点列表（预期：成功）")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblGet", "测试获取回收站点")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤7】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤3】创建临时点并删除（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestGetPt", RtdbTypeBool, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时点ID=%d\n", pid)
+	rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：失败 —— 删除点失败: %s\n", rte)
+		t.Error("删除点失败:", rte)
+		return
+	}
+	fmt.Println("  结果：通过 —— 临时点已删除（进入回收站）")
+	defer func() {
+		fmt.Println("【步骤6】清理回收站点（预期：成功或已清除）")
+		_ = RawRtdbbPurgePointWarp(handle, pid)
+		fmt.Println("  结果：通过 —— 回收站点已清理")
+	}()
+
+	fmt.Println("【步骤4】获取回收站点列表（预期：非空）")
 	points, err := RawRtdbbGetRecycledPointsWarp(handle, 100)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("获取回收站点失败:", err)
+		return
+	}
+	if len(points) == 0 {
+		fmt.Println("  结果：失败 —— 回收站为空")
+		t.Error("回收站应为非空")
 		return
 	}
 	fmt.Printf("  结果：通过 —— 回收站点数=%d\n", len(points))
@@ -2723,11 +2842,56 @@ func TestRawRtdbbSearchRecycledPointsWarp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】通配符搜索回收站点（预期：成功）")
-	ids, err := RawRtdbbSearchRecycledPointsWarp(handle, "*", "", "", "", "", "", RtdbSortFlag(0))
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblSearch", "测试搜索回收站点")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤7】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤3】创建临时点并删除（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestSearchPt", RtdbTypeBool, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时点ID=%d\n", pid)
+	rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：失败 —— 删除点失败: %s\n", rte)
+		t.Error("删除点失败:", rte)
+		return
+	}
+	fmt.Println("  结果：通过 —— 临时点已删除（进入回收站）")
+	defer func() {
+		fmt.Println("【步骤6】清理回收站点（预期：成功或已清除）")
+		_ = RawRtdbbPurgePointWarp(handle, pid)
+		fmt.Println("  结果：通过 —— 回收站点已清理")
+	}()
+
+	fmt.Println("【步骤4】通配符搜索回收站点（预期：非空）")
+	ids, err := RawRtdbbSearchRecycledPointsWarp(handle, "TestSearchPt", "", "", "", "", "", RtdbSortFlag(0))
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("搜索回收站点失败:", err)
+		return
+	}
+	if len(ids) == 0 {
+		fmt.Println("  结果：失败 —— 未搜索到回收站点")
+		t.Error("应搜索到至少1个回收站点")
 		return
 	}
 	fmt.Printf("  结果：通过 —— 搜索回收站点数=%d\n", len(ids))
@@ -2740,19 +2904,51 @@ func TestRawRtdbbGetRecycledPointPropertyWarp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取回收站点列表（预期：非空）")
-	recycled, _ := RawRtdbbGetRecycledPointsWarp(handle, 100)
-	if len(recycled) == 0 {
-		fmt.Println("  结果：跳过 —— 回收站为空")
-		t.Skip("回收站为空")
-	}
-	fmt.Printf("  结果：通过 —— 回收站有 %d 个点\n", len(recycled))
-
-	fmt.Println("【步骤3】获取第一个回收站点属性（预期：成功）")
-	base, scan, calc, err := RawRtdbbGetRecycledPointPropertyWarp(handle, recycled[0])
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblProp", "测试回收站属性")
 	if !RteIsOk(err) {
-		fmt.Printf("  结果：跳过 —— 获取回收站点属性失败: %v\n", err)
-		t.Logf("获取回收站点属性: %v", err)
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤3】创建临时点并删除（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPropPt", RtdbTypeBool, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时点ID=%d\n", pid)
+	rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：失败 —— 删除点失败: %s\n", rte)
+		t.Error("删除点失败:", rte)
+		return
+	}
+	fmt.Println("  结果：通过 —— 临时点已删除（进入回收站）")
+	defer func() {
+		fmt.Println("【步骤5】清理回收站点（预期：成功或已清除）")
+		_ = RawRtdbbPurgePointWarp(handle, pid)
+		fmt.Println("  结果：通过 —— 回收站点已清理")
+	}()
+
+	fmt.Println("【步骤4】获取回收站点属性（预期：成功）")
+	base, scan, calc, err := RawRtdbbGetRecycledPointPropertyWarp(handle, pid)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— 获取回收站点属性失败: %v\n", err)
+		t.Error("获取回收站点属性失败:", err)
 		return
 	}
 	fmt.Printf("  结果：通过 —— 回收站点属性获取成功: base=%v, scan=%v, calc=%v\n", base, scan, calc)
@@ -2765,11 +2961,56 @@ func TestRawRtdbbSearchRecycledPointsInBatchesWarp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】分批搜索回收站点（预期：成功）")
-	batch, err := RawRtdbbSearchRecycledPointsInBatchesWarp(handle, 0, 5, "*", "", "", "", "", "", RtdbSortFlag(0))
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblBatch", "测试分批回收站点")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤3】创建临时点并删除（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestBatchPt", RtdbTypeBool, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时点ID=%d\n", pid)
+	rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：失败 —— 删除点失败: %s\n", rte)
+		t.Error("删除点失败:", rte)
+		return
+	}
+	fmt.Println("  结果：通过 —— 临时点已删除（进入回收站）")
+	defer func() {
+		fmt.Println("【步骤5】清理回收站点（预期：成功或已清除）")
+		_ = RawRtdbbPurgePointWarp(handle, pid)
+		fmt.Println("  结果：通过 —— 回收站点已清理")
+	}()
+
+	fmt.Println("【步骤4】分批搜索回收站点（预期：非空）")
+	batch, err := RawRtdbbSearchRecycledPointsInBatchesWarp(handle, 0, 5, "TestBatchPt", "", "", "", "", "", RtdbSortFlag(0))
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("分批搜索回收站失败:", err)
+		return
+	}
+	if len(batch) == 0 {
+		fmt.Println("  结果：失败 —— 未分批搜索到回收站点")
+		t.Error("应分批搜索到至少1个回收站点")
 		return
 	}
 	fmt.Printf("  结果：通过 —— 第一批回收站点数=%d\n", len(batch))
@@ -2782,19 +3023,51 @@ func TestRawRtdbbGetRecycledMaxPointPropertyWarp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取回收站点列表（预期：非空）")
-	recycled, _ := RawRtdbbGetRecycledPointsWarp(handle, 100)
-	if len(recycled) == 0 {
-		fmt.Println("  结果：跳过 —— 回收站为空")
-		t.Skip("回收站为空")
-	}
-	fmt.Printf("  结果：通过 —— 回收站有 %d 个点\n", len(recycled))
-
-	fmt.Println("【步骤3】获取Max回收站点属性（预期：成功）")
-	base, scan, calc, err := RawRtdbbGetRecycledMaxPointPropertyWarp(handle, recycled[0])
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblMax", "测试回收站Max属性")
 	if !RteIsOk(err) {
-		fmt.Printf("  结果：跳过 —— 获取Max回收站点属性失败: %v\n", err)
-		t.Logf("获取Max回收站点属性: %v", err)
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤3】创建临时点并删除（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestMaxPt", RtdbTypeBool, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时点ID=%d\n", pid)
+	rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：失败 —— 删除点失败: %s\n", rte)
+		t.Error("删除点失败:", rte)
+		return
+	}
+	fmt.Println("  结果：通过 —— 临时点已删除（进入回收站）")
+	defer func() {
+		fmt.Println("【步骤5】清理回收站点（预期：成功或已清除）")
+		_ = RawRtdbbPurgePointWarp(handle, pid)
+		fmt.Println("  结果：通过 —— 回收站点已清理")
+	}()
+
+	fmt.Println("【步骤4】获取Max回收站点属性（预期：成功）")
+	base, scan, calc, err := RawRtdbbGetRecycledMaxPointPropertyWarp(handle, pid)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— 获取Max回收站点属性失败: %v\n", err)
+		t.Error("获取Max回收站点属性失败:", err)
 		return
 	}
 	fmt.Printf("  结果：通过 —— Max回收站点属性获取成功: base=%v, scan=%v, calc=%v\n", base, scan, calc)
@@ -2807,14 +3080,63 @@ func TestRawRtdbbClearRecyclerWarp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】清空回收站（预期：成功或策略差异）")
-	err := RawRtdbbClearRecyclerWarp(handle)
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblClr", "测试清空回收站")
 	if !RteIsOk(err) {
-		fmt.Printf("  结果：跳过 —— 清空回收站失败: %v\n", err)
-		t.Logf("清空回收站: %v", err)
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤3】创建临时点并删除（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestClrPt", RtdbTypeBool, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时点ID=%d\n", pid)
+	rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：失败 —— 删除点失败: %s\n", rte)
+		t.Error("删除点失败:", rte)
+		return
+	}
+	fmt.Println("  结果：通过 —— 临时点已删除（进入回收站）")
+
+	fmt.Println("【步骤4】清空回收站（预期：成功）")
+	err = RawRtdbbClearRecyclerWarp(handle)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— 清空回收站失败: %v\n", err)
+		t.Error("清空回收站失败:", err)
 		return
 	}
 	fmt.Println("  结果：通过 —— 回收站已清空")
+
+	fmt.Println("【步骤5】验证回收站为空（预期：数量为0）")
+	count, rte := RawRtdbbGetRecycledPointsCountWarp(handle)
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：跳过 —— 验证回收站数量失败: %v\n", rte)
+		t.Logf("验证回收站数量: %v", rte)
+		return
+	}
+	if count != 0 {
+		fmt.Printf("  结果：失败 —— 回收站数量=%d，预期0\n", count)
+		t.Errorf("回收站应已清空，但数量为%d", count)
+		return
+	}
+	fmt.Println("  结果：通过 —— 回收站验证为空")
 }
 
 // TC-RCYNAMED-01 获取回收站自定义类型点信息
@@ -2824,19 +3146,72 @@ func TestRawRtdbbGetRecycledNamedTypeNamesPropertyWarp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取回收站点列表（预期：非空）")
-	recycled, _ := RawRtdbbGetRecycledPointsWarp(handle, 100)
-	if len(recycled) == 0 {
-		fmt.Println("  结果：跳过 —— 回收站为空")
-		t.Skip("回收站为空")
+	fmt.Println("【步骤2】创建自定义类型（预期：成功）")
+	_ = RawRtdbbRemoveNamedTypeWarp(handle, "TestRecyNamedType")
+	fields := []RtdbDataTypeField{
+		{Name: "f1", Type: RtdbTypeReal64, Length: 8, Desc: "f1"},
 	}
-	fmt.Printf("  结果：通过 —— 回收站有 %d 个点\n", len(recycled))
-
-	fmt.Println("【步骤3】获取回收站自定义类型信息（预期：成功）")
-	names, counts, errs, err := RawRtdbbGetRecycledNamedTypeNamesPropertyWarp(handle, recycled[:1])
+	err := RawRtdbbCreateNamedTypeWarp(handle, "TestRecyNamedType", "回收站自定义类型测试", fields...)
 	if !RteIsOk(err) {
-		fmt.Printf("  结果：跳过 —— 获取回收站自定义类型信息失败: %v\n", err)
-		t.Logf("获取回收站自定义类型信息: %v", err)
+		fmt.Printf("  结果：失败 —— 创建自定义类型失败: %s\n", err)
+		t.Error("创建自定义类型失败:", err)
+		return
+	}
+	fmt.Println("  结果：通过 —— 自定义类型创建成功")
+	defer func() {
+		fmt.Println("【步骤8】清理自定义类型（预期：成功或已清除）")
+		_ = RawRtdbbRemoveNamedTypeWarp(handle, "TestRecyNamedType")
+		fmt.Println("  结果：通过 —— 自定义类型已清理")
+	}()
+
+	fmt.Println("【步骤3】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblNamed", "测试回收站自定义类型")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤7】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】创建自定义类型点并删除（预期：成功）")
+	base := &RtdbPoint{Tag: "TestRecyNamedPt", Type: RtdbTypeNamedT, Class: RtdbClassBase, Table: tbl.ID, Desc: "测试点"}
+	scan := &RtdbScan{}
+	base, scan, rte := RawRtdbbInsertNamedTypePointWarp(handle, base, scan, "TestRecyNamedType")
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：失败 —— 创建自定义类型点失败: %s\n", rte)
+		t.Error("创建自定义类型点失败:", rte)
+		return
+	}
+	pid := base.ID
+	fmt.Printf("  结果：通过 —— 自定义类型点ID=%d\n", pid)
+	rte = RawRtdbbRemovePointByIdWarp(handle, pid)
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：失败 —— 删除点失败: %s\n", rte)
+		t.Error("删除点失败:", rte)
+		return
+	}
+	fmt.Println("  结果：通过 —— 自定义类型点已删除（进入回收站）")
+	defer func() {
+		fmt.Println("【步骤6】清理回收站点（预期：成功或已清除）")
+		_ = RawRtdbbPurgePointWarp(handle, pid)
+		fmt.Println("  结果：通过 —— 回收站点已清理")
+	}()
+
+	fmt.Println("【步骤5】获取回收站自定义类型信息（预期：成功）")
+	names, counts, errs, err := RawRtdbbGetRecycledNamedTypeNamesPropertyWarp(handle, []PointID{pid})
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— 获取回收站自定义类型信息失败: %v\n", err)
+		t.Error("获取回收站自定义类型信息失败:", err)
 		return
 	}
 	fmt.Printf("  结果：通过 —— 回收站自定义类型: names=%v, counts=%v, errs=%v\n", names, counts, errs)
@@ -2875,7 +3250,25 @@ func TestRawRtdbbGetNamedTypesCountWarp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】查询自定义类型总数（预期：成功）")
+	fmt.Println("【步骤2】创建自定义类型（预期：成功）")
+	_ = RawRtdbbRemoveNamedTypeWarp(handle, "TestCntNamedType")
+	fields := []RtdbDataTypeField{
+		{Name: "f1", Type: RtdbTypeReal64, Length: 8, Desc: "f1"},
+	}
+	err := RawRtdbbCreateNamedTypeWarp(handle, "TestCntNamedType", "计数测试", fields...)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— 创建自定义类型失败: %s\n", err)
+		t.Error("创建自定义类型失败:", err)
+		return
+	}
+	fmt.Println("  结果：通过 —— 自定义类型创建成功")
+	defer func() {
+		fmt.Println("【步骤5】清理自定义类型（预期：成功或已清除）")
+		_ = RawRtdbbRemoveNamedTypeWarp(handle, "TestCntNamedType")
+		fmt.Println("  结果：通过 —— 自定义类型已清理")
+	}()
+
+	fmt.Println("【步骤3】查询自定义类型总数（预期：成功）")
 	count, err := RawRtdbbGetNamedTypesCountWarp(handle)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -2892,11 +3285,41 @@ func TestRawRtdbbGetAllNamedTypesWarp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取所有自定义类型（预期：成功）")
+	fmt.Println("【步骤2】创建自定义类型（预期：成功）")
+	_ = RawRtdbbRemoveNamedTypeWarp(handle, "TestAllNamedType")
+	fields := []RtdbDataTypeField{
+		{Name: "f1", Type: RtdbTypeReal64, Length: 8, Desc: "f1"},
+	}
+	err := RawRtdbbCreateNamedTypeWarp(handle, "TestAllNamedType", "列表测试", fields...)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— 创建自定义类型失败: %s\n", err)
+		t.Error("创建自定义类型失败:", err)
+		return
+	}
+	fmt.Println("  结果：通过 —— 自定义类型创建成功")
+	defer func() {
+		fmt.Println("【步骤5】清理自定义类型（预期：成功或已清除）")
+		_ = RawRtdbbRemoveNamedTypeWarp(handle, "TestAllNamedType")
+		fmt.Println("  结果：通过 —— 自定义类型已清理")
+	}()
+
+	fmt.Println("【步骤3】获取所有自定义类型（预期：成功且包含新类型）")
 	names, counts, err := RawRtdbbGetAllNamedTypesWarp(handle, 100)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("获取所有自定义类型失败:", err)
+		return
+	}
+	found := false
+	for _, name := range names {
+		if name == "TestAllNamedType" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		fmt.Printf("  结果：失败 —— 未在列表中找到 TestAllNamedType，列表=%v\n", names)
+		t.Error("应包含刚创建的自定义类型")
 		return
 	}
 	fmt.Printf("  结果：通过 —— 自定义类型数量=%d/%d\n", len(names), len(counts))
@@ -2963,16 +3386,62 @@ func TestRawRtdbbGetNamedTypeNamesPropertyWarp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索标签点（预期：找到至少1个）")
-	ids, err := RawRtdbbSearchWarp(handle, "*", "*", "", "", "", "", RtdbSortFlag(0))
-	if !RteIsOk(err) || len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无标签点")
-		t.Skip("无标签点")
+	fmt.Println("【步骤2】创建自定义类型（预期：成功）")
+	_ = RawRtdbbRemoveNamedTypeWarp(handle, "TestNamePropType")
+	fields := []RtdbDataTypeField{
+		{Name: "f1", Type: RtdbTypeReal64, Length: 8, Desc: "f1"},
 	}
-	fmt.Printf("  结果：通过 —— 搜索到 %d 个标签点\n", len(ids))
+	err := RawRtdbbCreateNamedTypeWarp(handle, "TestNamePropType", "名称属性测试", fields...)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— 创建自定义类型失败: %s\n", err)
+		t.Error("创建自定义类型失败:", err)
+		return
+	}
+	fmt.Println("  结果：通过 —— 自定义类型创建成功")
+	defer func() {
+		fmt.Println("【步骤7】清理自定义类型（预期：成功或已清除）")
+		_ = RawRtdbbRemoveNamedTypeWarp(handle, "TestNamePropType")
+		fmt.Println("  结果：通过 —— 自定义类型已清理")
+	}()
 
-	fmt.Println("【步骤3】批量获取自定义类型名称属性（预期：成功）")
-	names, counts, errs, err := RawRtdbbGetNamedTypeNamesPropertyWarp(handle, ids[:3])
+	fmt.Println("【步骤3】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblNameProp", "测试名称属性")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】创建自定义类型点（预期：成功）")
+	base := &RtdbPoint{Tag: "TestNamePropPt", Type: RtdbTypeNamedT, Class: RtdbClassBase, Table: tbl.ID, Desc: "测试点"}
+	scan := &RtdbScan{}
+	base, scan, rte := RawRtdbbInsertNamedTypePointWarp(handle, base, scan, "TestNamePropType")
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：失败 —— 创建自定义类型点失败: %s\n", rte)
+		t.Error("创建自定义类型点失败:", rte)
+		return
+	}
+	pid := base.ID
+	fmt.Printf("  结果：通过 —— 自定义类型点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【步骤5】清理标签点（预期：成功或已清除）")
+		_ = RawRtdbbRemovePointByIdWarp(handle, pid)
+		fmt.Println("  结果：通过 —— 标签点已清理")
+	}()
+
+	fmt.Println("【步骤5】批量获取自定义类型名称属性（预期：成功）")
+	names, counts, errs, err := RawRtdbbGetNamedTypeNamesPropertyWarp(handle, []PointID{pid})
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("获取自定义类型名称属性失败:", err)
@@ -2988,11 +3457,70 @@ func TestRawRtdbbGetNamedTypePointsCountWarp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】查询自定义类型 TestNamedType 的点数量（预期：成功或类型不存在）")
-	count, err := RawRtdbbGetNamedTypePointsCountWarp(handle, "TestNamedType")
+	fmt.Println("【步骤2】创建自定义类型（预期：成功）")
+	_ = RawRtdbbRemoveNamedTypeWarp(handle, "TestPtCntType")
+	fields := []RtdbDataTypeField{
+		{Name: "f1", Type: RtdbTypeReal64, Length: 8, Desc: "f1"},
+	}
+	err := RawRtdbbCreateNamedTypeWarp(handle, "TestPtCntType", "点计数测试", fields...)
 	if !RteIsOk(err) {
-		fmt.Printf("  结果：跳过 —— 获取自定义类型点数量失败（可能类型不存在）: %v\n", err)
-		t.Logf("获取自定义类型点数量(可能类型不存在): %v", err)
+		fmt.Printf("  结果：失败 —— 创建自定义类型失败: %s\n", err)
+		t.Error("创建自定义类型失败:", err)
+		return
+	}
+	fmt.Println("  结果：通过 —— 自定义类型创建成功")
+	defer func() {
+		fmt.Println("【步骤7】清理自定义类型（预期：成功或已清除）")
+		_ = RawRtdbbRemoveNamedTypeWarp(handle, "TestPtCntType")
+		fmt.Println("  结果：通过 —— 自定义类型已清理")
+	}()
+
+	fmt.Println("【步骤3】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblPtCnt", "测试点计数")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】创建自定义类型点（预期：成功）")
+	base := &RtdbPoint{Tag: "TestPtCntPt", Type: RtdbTypeNamedT, Class: RtdbClassBase, Table: tbl.ID, Desc: "测试点"}
+	scan := &RtdbScan{}
+	base, scan, rte := RawRtdbbInsertNamedTypePointWarp(handle, base, scan, "TestPtCntType")
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：失败 —— 创建自定义类型点失败: %s\n", rte)
+		t.Error("创建自定义类型点失败:", rte)
+		return
+	}
+	pid := base.ID
+	fmt.Printf("  结果：通过 —— 自定义类型点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【步骤5】清理标签点（预期：成功或已清除）")
+		_ = RawRtdbbRemovePointByIdWarp(handle, pid)
+		fmt.Println("  结果：通过 —— 标签点已清理")
+	}()
+
+	fmt.Println("【步骤5】查询自定义类型点数量（预期：>=1）")
+	count, err := RawRtdbbGetNamedTypePointsCountWarp(handle, "TestPtCntType")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("获取自定义类型点数量失败:", err)
+		return
+	}
+	if count < 1 {
+		fmt.Printf("  结果：失败 —— 自定义类型点数量=%d，预期>=1\n", count)
+		t.Error("自定义类型点数量应>=1")
 		return
 	}
 	fmt.Printf("  结果：通过 —— 自定义类型点数量=%d\n", count)
