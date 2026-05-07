@@ -1520,98 +1520,185 @@ func TestRawRtdbbUpdateTableDescByNameWarp(t *testing.T) {
 
 // ==================== 05. 标签点管理 ====================
 
-func getFirstTableID(t *testing.T, handle ConnectHandle) TableID {
-	ids, err := RawRtdbbGetTablesWarp(handle, 100)
-	if !RteIsOk(err) || len(ids) == 0 {
-		t.Skip("无可用表")
-	}
-	return ids[0]
-}
-
-// TC-PTBASE-01/02 最小属性创建 bool/float64 点
+// TC-PTBASE-01/02 完整流程：创建表→创建基础点→清理点→清理表
 func TestRawRtdbbInsertBasePointWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取第一个表ID（预期：成功）")
-	tableID := getFirstTableID(t, handle)
-	fmt.Printf("  结果：通过 —— 表ID=%d\n", tableID)
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblBasePt", "测试基础点创建")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
 	fmt.Println("【步骤3】创建基础点 TestBaseBool（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestBaseBool", RtdbTypeBool, tableID, 0)
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestBaseBool", RtdbTypeBool, tbl.ID, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建基础点失败:", err)
 		return
 	}
 	fmt.Printf("  结果：通过 —— 创建基础点ID=%d\n", pid)
-	defer RawRtdbbRemovePointByIdWarp(handle, pid)
+	defer func() {
+		fmt.Println("【步骤4】清理标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
 }
 
-// TC-PTINS-01 正常创建模拟量标签点
+// TC-PTINS-01 完整流程：创建表→创建完整点→清理点→清理表
 func TestRawRtdbbInsertPointWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取第一个表ID（预期：成功）")
-	tableID := getFirstTableID(t, handle)
-	fmt.Printf("  结果：通过 —— 表ID=%d\n", tableID)
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblInsertPt", "测试完整点创建")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
 	fmt.Println("【步骤3】创建完整点 TestInsertPt（预期：成功）")
-	base := &RtdbPoint{Tag: "TestInsertPt", Table: tableID, Type: RtdbTypeReal64}
+	base := &RtdbPoint{Tag: "TestInsertPt", Table: tbl.ID, Type: RtdbTypeReal64}
 	scan := &RtdbScan{Source: "go_test"}
-	base, _, _, err := RawRtdbbInsertPointWarp(handle, base, scan, nil)
+	base, _, _, err = RawRtdbbInsertPointWarp(handle, base, scan, nil)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建完整点失败:", err)
 		return
 	}
 	fmt.Printf("  结果：通过 —— 创建完整点ID=%d\n", base.ID)
-	defer RawRtdbbRemovePointByIdWarp(handle, base.ID)
+	defer func() {
+		fmt.Println("【步骤4】清理标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, base.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
 }
 
-// TC-PTINSMAX-01 正常创建（字段超长）
+// TC-PTINSMAX-01 完整流程：创建表→创建Max点→清理点→清理表
 func TestRawRtdbbInsertMaxPointWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取第一个表ID（预期：成功）")
-	tableID := getFirstTableID(t, handle)
-	fmt.Printf("  结果：通过 —— 表ID=%d\n", tableID)
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblMaxPt", "测试Max点创建")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
 	fmt.Println("【步骤3】创建Max点 TestMaxPt（预期：成功）")
-	base := &RtdbPoint{Tag: "TestMaxPt", Table: tableID, Type: RtdbTypeReal64}
+	base := &RtdbPoint{Tag: "TestMaxPt", Table: tbl.ID, Type: RtdbTypeReal64}
 	scan := &RtdbScan{Source: "go_test"}
-	base, _, _, err := RawRtdbbInsertMaxPointWarp(handle, base, scan, nil)
+	base, _, _, err = RawRtdbbInsertMaxPointWarp(handle, base, scan, nil)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建Max点失败:", err)
 		return
 	}
 	fmt.Printf("  结果：通过 —— 创建Max点ID=%d\n", base.ID)
-	defer RawRtdbbRemovePointByIdWarp(handle, base.ID)
+	defer func() {
+		fmt.Println("【步骤4】清理标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, base.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
 }
 
-// TC-PTRMVID-01 删除存在的标签点
+// TC-PTRMVID-01 完整流程：创建表→创建点→按ID删除点→清理表
 func TestRawRtdbbRemovePointByIdWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取第一个表ID并创建临时点（预期：成功）")
-	tableID := getFirstTableID(t, handle)
-	pid, _ := RawRtdbbInsertBasePointWarp(handle, "TestRmvPtId", RtdbTypeBool, tableID, 0)
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblRmvId", "测试按ID删除点")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤3】创建临时点（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestRmvPtId", RtdbTypeBool, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时点失败:", err)
+		return
+	}
 	fmt.Printf("  结果：通过 —— 临时点ID=%d\n", pid)
 
-	fmt.Println("【步骤3】按ID删除临时点（预期：成功）")
-	err := RawRtdbbRemovePointByIdWarp(handle, pid)
+	fmt.Println("【步骤4】按ID删除临时点（预期：成功）")
+	err = RawRtdbbRemovePointByIdWarp(handle, pid)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("按ID删除点失败:", err)
@@ -1620,29 +1707,44 @@ func TestRawRtdbbRemovePointByIdWarp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 点已删除")
 }
 
-// TC-PTRMVNAME-01 删除存在的点
+// TC-PTRMVNAME-01 完整流程：创建表→创建点→按名称删除点→清理表
 func TestRawRtdbbRemovePointByNameWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取表列表（预期：成功）")
-	ids, _ := RawRtdbbGetTablesWarp(handle, 100)
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无表")
-		t.Skip("无表")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblRmvName", "测试按名称删除点")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 获取到 %d 个表\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
 	fmt.Println("【步骤3】创建临时点（预期：成功）")
-	prop, _ := RawRtdbbGetTablePropertyByIdWarp(handle, ids[0])
-	_, _ = RawRtdbbInsertBasePointWarp(handle, "TestRmvPtName", RtdbTypeBool, ids[0], 0)
-	fullName := prop.Name + ".TestRmvPtName"
-	fmt.Printf("  结果：通过 —— 临时点全名=%s\n", fullName)
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestRmvPtName", RtdbTypeBool, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时点ID=%d\n", pid)
+	fullName := tbl.Name + ".TestRmvPtName"
 
 	fmt.Println("【步骤4】按名称删除临时点（预期：成功）")
-	err := RawRtdbbRemovePointByNameWarp(handle, fullName)
+	err = RawRtdbbRemovePointByNameWarp(handle, fullName)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("按名称删除点失败:", err)
@@ -1651,23 +1753,38 @@ func TestRawRtdbbRemovePointByNameWarp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 点已删除")
 }
 
-// TC-PTINSBATCH-01 批量创建 10 个点
+// TC-PTINSBATCH-01 完整流程：创建表→批量创建点→清理点→清理表
 func TestRawRtdbbInsertMaxPointsWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取第一个表ID（预期：成功）")
-	tableID := getFirstTableID(t, handle)
-	fmt.Printf("  结果：通过 —— 表ID=%d\n", tableID)
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblBatchPt", "测试批量创建点")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
 	fmt.Println("【步骤3】批量创建3个点（预期：成功）")
 	bases := make([]RtdbPoint, 3)
 	scans := make([]RtdbScan, 3)
 	calcs := make([]RtdbCalc, 3)
 	for i := 0; i < 3; i++ {
-		bases[i] = RtdbPoint{Tag: fmt.Sprintf("TestBatchPt%d", i), Table: tableID, Type: RtdbTypeReal64}
+		bases[i] = RtdbPoint{Tag: fmt.Sprintf("TestBatchPt%d", i), Table: tbl.ID, Type: RtdbTypeReal64}
 		scans[i] = RtdbScan{Source: "go_test"}
 	}
 	bases, _, _, errs, err := RawRtdbbInsertMaxPointsWarp(handle, bases, scans, calcs)
@@ -1688,21 +1805,36 @@ func TestRawRtdbbInsertMaxPointsWarp(t *testing.T) {
 	}
 }
 
-// TC-PTNAMED-02 不存在的自定义类型
+// TC-PTNAMED-02 完整流程：创建表→使用不存在的自定义类型创建点→清理表
 func TestRawRtdbbInsertNamedTypePointWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取第一个表ID（预期：成功）")
-	tableID := getFirstTableID(t, handle)
-	fmt.Printf("  结果：通过 —— 表ID=%d\n", tableID)
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblNamedPt", "测试自定义类型点")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤4】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
 	fmt.Println("【步骤3】使用不存在的自定义类型创建点（预期：返回错误）")
-	base := &RtdbPoint{Tag: "TestNamedPt", Table: tableID}
+	base := &RtdbPoint{Tag: "TestNamedPt", Table: tbl.ID}
 	scan := &RtdbScan{Source: "go_test"}
-	_, _, err := RawRtdbbInsertNamedTypePointWarp(handle, base, scan, "NotExistType")
+	_, _, err = RawRtdbbInsertNamedTypePointWarp(handle, base, scan, "NotExistType")
 	if RteIsOk(err) {
 		fmt.Println("  结果：失败 —— 不存在的类型居然成功了！")
 		t.Error("不存在的类型应失败")
@@ -1711,58 +1843,124 @@ func TestRawRtdbbInsertNamedTypePointWarp(t *testing.T) {
 	fmt.Printf("  结果：通过 —— 返回了预期的错误：%s\n", err)
 }
 
-// TC-PTMOVE-01 正常移动点到新表
+// TC-PTMOVE-01 完整流程：创建2个表→创建点→移动点→清理点→清理2个表
 func TestRawRtdbbMovePointByIdWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取表列表（预期：至少2个表）")
-	ids, _ := RawRtdbbGetTablesWarp(handle, 100)
-	if len(ids) < 2 {
-		fmt.Println("  结果：跳过 —— 需要至少2个表测试移动")
-		t.Skip("需要至少2个表测试移动")
+	fmt.Println("【步骤2】创建两个临时表（预期：成功）")
+	tbl1, err := RawRtdbbAppendTableWarp(handle, "TestTblMove1", "测试移动点源表")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建源表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 获取到 %d 个表\n", len(ids))
+	fmt.Printf("  结果：通过 —— 源表ID=%d\n", tbl1.ID)
+	defer func() {
+		fmt.Println("【步骤7】清理源表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl1.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理源表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 源表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】创建临时点并移动到第二个表（预期：成功或权限约束）")
-	prop1, _ := RawRtdbbGetTablePropertyByIdWarp(handle, ids[0])
-	prop2, _ := RawRtdbbGetTablePropertyByIdWarp(handle, ids[1])
-	pid, _ := RawRtdbbInsertBasePointWarp(handle, "TestMovePt", RtdbTypeBool, ids[0], 0)
-	defer RawRtdbbRemovePointByIdWarp(handle, pid)
-	fmt.Printf("  结果：通过 —— 临时点ID=%d，目标表=%s\n", pid, prop2.Name)
-	err := RawRtdbbMovePointByIdWarp(handle, pid, prop2.Name)
+	tbl2, err := RawRtdbbAppendTableWarp(handle, "TestTblMove2", "测试移动点目标表")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建目标表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 目标表ID=%d\n", tbl2.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理目标表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl2.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理目标表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 目标表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤3】在源表创建临时点（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestMovePt", RtdbTypeBool, tbl1.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【步骤5】清理标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】移动临时点到目标表（预期：成功或权限约束）")
+	fmt.Printf("  目标表名=%s\n", tbl2.Name)
+	err = RawRtdbbMovePointByIdWarp(handle, pid, tbl2.Name)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：跳过 —— 移动点失败（可能权限或约束）: %v\n", err)
 		t.Logf("移动点(可能权限或约束): %v", err)
 		return
 	}
 	fmt.Println("  结果：通过 —— 点移动成功")
-	_ = prop1
 }
 
-// TC-PTGETPROP-01 批量获取存在的点属性
+// TC-PTGETPROP-01 完整流程：创建表→创建3个点→批量获取点属性→清理点→清理表
 func TestRawRtdbbGetPointsPropertyWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索标签点（预期：找到至少1个）")
-	ids, err := RawRtdbbSearchWarp(handle, "*", "*", "", "", "", "", RtdbSortFlag(0))
-	if !RteIsOk(err) || len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 未找到标签点")
-		t.Skip("未找到标签点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblGetProp", "测试获取点属性")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 搜索到 %d 个标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】批量获取点属性（预期：成功）")
-	count := 3
-	if len(ids) < count {
-		count = len(ids)
+	fmt.Println("【步骤3】创建3个标签点（预期：成功）")
+	var pids []PointID
+	for i := 0; i < 3; i++ {
+		tag := fmt.Sprintf("TestGetPropPt%d", i)
+		pid, err := RawRtdbbInsertBasePointWarp(handle, tag, RtdbTypeReal64, tbl.ID, 0)
+		if !RteIsOk(err) {
+			fmt.Printf("  结果：失败 —— %s\n", err)
+			t.Error("创建标签点失败:", err)
+			return
+		}
+		fmt.Printf("  第%d个点创建成功: ID=%d\n", i, pid)
+		pids = append(pids, pid)
+		defer RawRtdbbRemovePointByIdWarp(handle, pid)
 	}
-	bases, scans, calcs, errs, err := RawRtdbbGetPointsPropertyWarp(handle, ids[:count])
+	fmt.Println("  结果：通过 —— 3个标签点创建完成")
+
+	fmt.Println("【步骤4】批量获取点属性（预期：成功）")
+	bases, scans, calcs, errs, err := RawRtdbbGetPointsPropertyWarp(handle, pids)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("批量获取点属性失败:", err)
@@ -1777,23 +1975,44 @@ func TestRawRtdbbGetPointsPropertyWarp(t *testing.T) {
 	fmt.Printf("  结果：通过 —— 获取属性点数=%d/%d/%d\n", len(bases), len(scans), len(calcs))
 }
 
-// TC-PTGETMAX-01 获取含超长字段的点
+// TC-PTGETMAX-01 完整流程：创建表→创建点→获取Max点属性→清理点→清理表
 func TestRawRtdbbGetMaxPointsPropertyWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索标签点（预期：找到至少1个）")
-	ids, err := RawRtdbbSearchWarp(handle, "*", "*", "", "", "", "", RtdbSortFlag(0))
-	if !RteIsOk(err) || len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 未找到标签点")
-		t.Skip("未找到标签点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblGetMax", "测试获取Max点属性")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 搜索到 %d 个标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】获取Max点属性（预期：成功）")
-	_, _, _, _, err = RawRtdbbGetMaxPointsPropertyWarp(handle, ids[:1])
+	fmt.Println("【步骤3】创建标签点（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestGetMaxPt", RtdbTypeReal64, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer RawRtdbbRemovePointByIdWarp(handle, pid)
+
+	fmt.Println("【步骤4】获取Max点属性（预期：成功）")
+	_, _, _, _, err = RawRtdbbGetMaxPointsPropertyWarp(handle, []PointID{pid})
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("Max获取点属性失败:", err)
@@ -1802,23 +2021,50 @@ func TestRawRtdbbGetMaxPointsPropertyWarp(t *testing.T) {
 	fmt.Println("  结果：通过 —— Max点属性获取成功")
 }
 
-// TC-PTGETTYPE-01 批量获取类型
+// TC-PTGETTYPE-01 完整流程：创建表→创建3个点→批量获取类型→清理点→清理表
 func TestRawRtdbbGetTypesPropertyWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索标签点（预期：找到至少1个）")
-	ids, err := RawRtdbbSearchWarp(handle, "*", "*", "", "", "", "", RtdbSortFlag(0))
-	if !RteIsOk(err) || len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 未找到标签点")
-		t.Skip("未找到标签点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblGetType", "测试获取点类型")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 搜索到 %d 个标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】批量获取点类型（预期：成功）")
-	types, errs, err := RawRtdbbGetTypesPropertyWarp(handle, ids[:3])
+	fmt.Println("【步骤3】创建3个标签点（预期：成功）")
+	var pids []PointID
+	for i := 0; i < 3; i++ {
+		tag := fmt.Sprintf("TestGetTypePt%d", i)
+		pid, err := RawRtdbbInsertBasePointWarp(handle, tag, RtdbTypeReal64, tbl.ID, 0)
+		if !RteIsOk(err) {
+			fmt.Printf("  结果：失败 —— %s\n", err)
+			t.Error("创建标签点失败:", err)
+			return
+		}
+		fmt.Printf("  第%d个点创建成功: ID=%d\n", i, pid)
+		pids = append(pids, pid)
+		defer RawRtdbbRemovePointByIdWarp(handle, pid)
+	}
+	fmt.Println("  结果：通过 —— 3个标签点创建完成")
+
+	fmt.Println("【步骤4】批量获取点类型（预期：成功）")
+	types, errs, err := RawRtdbbGetTypesPropertyWarp(handle, pids)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("批量获取类型失败:", err)
@@ -1833,23 +2079,57 @@ func TestRawRtdbbGetTypesPropertyWarp(t *testing.T) {
 	fmt.Printf("  结果：通过 —— 类型列表=%v\n", types)
 }
 
-// TC-PTSEARCH-01/03 通配符搜索 tag / 无匹配条件
+// TC-PTSEARCH-01/03 完整流程：创建表→创建点→通配符搜索→清理点→清理表
 func TestRawRtdbbSearchWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】通配符搜索所有标签点（预期：成功）")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblSearch", "测试搜索点")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤3】创建标签点（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestSearchPt", RtdbTypeReal64, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer RawRtdbbRemovePointByIdWarp(handle, pid)
+
+	fmt.Println("【步骤4】通配符搜索所有标签点（预期：成功且>=1）")
 	ids, err := RawRtdbbSearchWarp(handle, "*", "*", "", "", "", "", RtdbSortFlag(0))
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("搜索失败:", err)
 		return
 	}
+	if len(ids) < 1 {
+		fmt.Printf("  结果：失败 —— 搜索到点数=%d，预期至少1个\n", len(ids))
+		t.Errorf("搜索点数预期>=1，实际=%d", len(ids))
+		return
+	}
 	fmt.Printf("  结果：通过 —— 搜索到点数=%d\n", len(ids))
 
-	fmt.Println("【步骤3】搜索不存在的标签点（预期：成功，返回0个）")
+	fmt.Println("【步骤5】搜索不存在的标签点（预期：成功，返回0个）")
 	ids2, err := RawRtdbbSearchWarp(handle, "NOTEXIST_*", "*", "", "", "", "", RtdbSortFlag(0))
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -1859,23 +2139,48 @@ func TestRawRtdbbSearchWarp(t *testing.T) {
 	fmt.Printf("  结果：通过 —— 无匹配点数=%d\n", len(ids2))
 }
 
-// TC-PTBATCH-01 分批获取第 2 批
+// TC-PTBATCH-01 完整流程：创建表→创建2个点→分批搜索→清理点→清理表
 func TestRawRtdbbSearchInBatchesWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索标签点（预期：至少2个点）")
-	ids, err := RawRtdbbSearchWarp(handle, "*", "*", "", "", "", "", RtdbSortFlag(0))
-	if !RteIsOk(err) || len(ids) <= 1 {
-		fmt.Println("  结果：跳过 —— 点数不足分批测试")
-		t.Skip("点数不足分批测试")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblBatch", "测试分批搜索")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 搜索到 %d 个标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】分批搜索获取第一批（预期：成功）")
-	batch, err := RawRtdbbSearchInBatchesWarp(handle, 0, 1, "*", "*", "", "", "", "", RtdbSortFlag(0))
+	fmt.Println("【步骤3】创建2个标签点（预期：成功）")
+	for i := 0; i < 2; i++ {
+		tag := fmt.Sprintf("TestBatchPt%d", i)
+		pid, err := RawRtdbbInsertBasePointWarp(handle, tag, RtdbTypeReal64, tbl.ID, 0)
+		if !RteIsOk(err) {
+			fmt.Printf("  结果：失败 —— %s\n", err)
+			t.Error("创建标签点失败:", err)
+			return
+		}
+		fmt.Printf("  第%d个点创建成功: ID=%d\n", i, pid)
+		defer RawRtdbbRemovePointByIdWarp(handle, pid)
+	}
+	fmt.Println("  结果：通过 —— 2个标签点创建完成")
+
+	fmt.Println("【步骤4】分批搜索获取第一批（预期：成功）")
+	batch, err := RawRtdbbSearchInBatchesWarp(handle, 0, 1, "*", tbl.Name, "", "", "", "", RtdbSortFlag(0))
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("分批搜索失败:", err)
@@ -1884,65 +2189,146 @@ func TestRawRtdbbSearchInBatchesWarp(t *testing.T) {
 	fmt.Printf("  结果：通过 —— 第一批数量=%d\n", len(batch))
 }
 
-// TC-PTSEARCHEX-01 按数据类型搜索
+// TC-PTSEARCHEX-01 完整流程：创建表→创建float64点→高级搜索→清理点→清理表
 func TestRawRtdbbSearchExWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】高级搜索 float64 类型点（预期：成功）")
-	ids, err := RawRtdbbSearchExWarp(handle, 100, "*", "*", "", "", "", "", "float64", 0, 0, 0, "", RtdbSortFlag(0))
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblSearchEx", "测试高级搜索")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤3】创建float64标签点（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestSearchExPt", RtdbTypeReal64, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer RawRtdbbRemovePointByIdWarp(handle, pid)
+
+	fmt.Println("【步骤4】高级搜索 float64 类型点（预期：成功且>=1）")
+	ids, err := RawRtdbbSearchExWarp(handle, 100, "*", tbl.Name, "", "", "", "", "float64", 0, 0, 0, "", RtdbSortFlag(0))
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("高级搜索失败:", err)
 		return
 	}
+	if len(ids) < 1 {
+		fmt.Printf("  结果：失败 —— 高级搜索点数=%d，预期至少1个\n", len(ids))
+		t.Errorf("高级搜索点数预期>=1，实际=%d", len(ids))
+		return
+	}
 	fmt.Printf("  结果：通过 —— 高级搜索点数=%d\n", len(ids))
 }
 
-// TC-PTCNT-01 统计匹配数量
+// TC-PTCNT-01 完整流程：创建表→创建点→统计匹配数量→清理点→清理表
 func TestRawRtdbbSearchPointsCountWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】统计所有标签点数量（预期：成功）")
-	count, err := RawRtdbbSearchPointsCountWarp(handle, "*", "*", "", "", "", "", "", 0, 0, 0, "")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblCount", "测试统计点数")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤3】创建标签点（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestCountPt", RtdbTypeReal64, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer RawRtdbbRemovePointByIdWarp(handle, pid)
+
+	fmt.Println("【步骤4】统计所有标签点数量（预期：成功且>=1）")
+	count, err := RawRtdbbSearchPointsCountWarp(handle, "*", tbl.Name, "", "", "", "", "", 0, 0, 0, "")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("统计点数失败:", err)
 		return
 	}
+	if count < 1 {
+		fmt.Printf("  结果：失败 —— 总点数=%d，预期至少1个\n", count)
+		t.Errorf("总点数预期>=1，实际=%d", count)
+		return
+	}
 	fmt.Printf("  结果：通过 —— 总点数=%d\n", count)
 }
 
-// TC-PTFIND-01/02 查找存在的点 / 含不存在的点
+// TC-PTFIND-01/02 完整流程：创建表→创建点→查找存在的点/不存在的点→清理点→清理表
 func TestRawRtdbbFindPointsWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索标签点（预期：找到至少1个）")
-	ids, err := RawRtdbbSearchWarp(handle, "*", "*", "", "", "", "", RtdbSortFlag(0))
-	if !RteIsOk(err) || len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无标签点")
-		t.Skip("无标签点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblFind", "测试查找点")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 搜索到 %d 个标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】获取第一个点的属性（预期：成功）")
-	bases, _, _, _, _ := RawRtdbbGetPointsPropertyWarp(handle, ids[:1])
-	if len(bases) == 0 {
-		fmt.Println("  结果：跳过 —— 无法获取点属性")
-		t.Skip("无法获取点属性")
+	fmt.Println("【步骤3】创建标签点（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestFindPt", RtdbTypeReal64, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建标签点失败:", err)
+		return
 	}
-	fullName := bases[0].TableDotTag
-	fmt.Printf("  结果：通过 —— 点全名=%s\n", fullName)
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer RawRtdbbRemovePointByIdWarp(handle, pid)
 
 	fmt.Println("【步骤4】查找存在的点和不存在的点（预期：成功）")
+	fullName := tbl.Name + ".TestFindPt"
 	fids, types, classes, useMs, err := RawRtdbbFindPointsWarp(handle, []string{fullName, "Table.NotExist"})
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -1952,31 +2338,44 @@ func TestRawRtdbbFindPointsWarp(t *testing.T) {
 	fmt.Printf("  结果：通过 —— 查找结果: fids=%v, types=%v, classes=%v, useMs=%v\n", fids, types, classes, useMs)
 }
 
-// TC-PTFINDEX-01 查找存在的点
+// TC-PTFINDEX-01 完整流程：创建表→创建点→高级查找点→清理点→清理表
 func TestRawRtdbbFindPointsExWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索标签点（预期：找到至少1个）")
-	ids, err := RawRtdbbSearchWarp(handle, "*", "*", "", "", "", "", RtdbSortFlag(0))
-	if !RteIsOk(err) || len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无标签点")
-		t.Skip("无标签点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblFindEx", "测试高级查找点")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 搜索到 %d 个标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】获取第一个点的属性（预期：成功）")
-	bases, _, _, _, _ := RawRtdbbGetPointsPropertyWarp(handle, ids[:1])
-	if len(bases) == 0 {
-		fmt.Println("  结果：跳过 —— 无法获取点属性")
-		t.Skip("无法获取点属性")
+	fmt.Println("【步骤3】创建标签点（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestFindExPt", RtdbTypeReal64, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建标签点失败:", err)
+		return
 	}
-	fullName := bases[0].TableDotTag
-	fmt.Printf("  结果：通过 —— 点全名=%s\n", fullName)
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer RawRtdbbRemovePointByIdWarp(handle, pid)
 
 	fmt.Println("【步骤4】高级查找点（预期：成功）")
+	fullName := tbl.Name + ".TestFindExPt"
 	fids, types, classes, precisions, errs, err := RawRtdbbFindPointsExWarp(handle, []string{fullName})
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -1986,23 +2385,50 @@ func TestRawRtdbbFindPointsExWarp(t *testing.T) {
 	fmt.Printf("  结果：通过 —— 查找Ex结果: fids=%v, types=%v, classes=%v, precisions=%v, errs=%v\n", fids, types, classes, precisions, errs)
 }
 
-// TC-PTSORT-01 按标签名升序排序
+// TC-PTSORT-01 完整流程：创建表→创建多个点→按标签名升序排序→清理点→清理表
 func TestRawRtdbbSortPointsWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索标签点（预期：至少2个点）")
-	ids, err := RawRtdbbSearchWarp(handle, "*", "*", "", "", "", "", RtdbSortFlag(0))
-	if !RteIsOk(err) || len(ids) < 2 {
-		fmt.Println("  结果：跳过 —— 点数不足排序测试")
-		t.Skip("点数不足排序测试")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblSort", "测试排序点")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 搜索到 %d 个标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】按标签名升序排序前5个点（预期：成功）")
-	sorted, err := RawRtdbbSortPointsWarp(handle, ids[:5], RtdbTagIndexTag, RtdbSortFlag(0))
+	fmt.Println("【步骤3】创建5个标签点（预期：成功）")
+	var pids []PointID
+	for i := 0; i < 5; i++ {
+		tag := fmt.Sprintf("TestSortPt%d", i)
+		pid, err := RawRtdbbInsertBasePointWarp(handle, tag, RtdbTypeReal64, tbl.ID, 0)
+		if !RteIsOk(err) {
+			fmt.Printf("  结果：失败 —— %s\n", err)
+			t.Error("创建标签点失败:", err)
+			return
+		}
+		fmt.Printf("  第%d个点创建成功: ID=%d\n", i, pid)
+		pids = append(pids, pid)
+		defer RawRtdbbRemovePointByIdWarp(handle, pid)
+	}
+	fmt.Println("  结果：通过 —— 5个标签点创建完成")
+
+	fmt.Println("【步骤4】按标签名升序排序前5个点（预期：成功）")
+	sorted, err := RawRtdbbSortPointsWarp(handle, pids, RtdbTagIndexTag, RtdbSortFlag(0))
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("排序失败:", err)
@@ -2011,26 +2437,55 @@ func TestRawRtdbbSortPointsWarp(t *testing.T) {
 	fmt.Printf("  结果：通过 —— 排序后前5个ID=%v\n", sorted)
 }
 
-// TC-PTUPD-01 正常更新描述
+// TC-PTUPD-01 完整流程：创建表→创建点→更新描述→清理点→清理表
 func TestRawRtdbbUpdatePointPropertyWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取第一个表ID（预期：成功）")
-	tableID := getFirstTableID(t, handle)
-	fmt.Printf("  结果：通过 —— 表ID=%d\n", tableID)
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblUpd", "测试更新点属性")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
 	fmt.Println("【步骤3】创建测试点 TestUpdPt（预期：成功）")
-	base := &RtdbPoint{Tag: "TestUpdPt", Table: tableID, Type: RtdbTypeReal64}
-	base, _, _, _ = RawRtdbbInsertPointWarp(handle, base, &RtdbScan{Source: "go_test"}, nil)
+	base := &RtdbPoint{Tag: "TestUpdPt", Table: tbl.ID, Type: RtdbTypeReal64}
+	base, _, _, err = RawRtdbbInsertPointWarp(handle, base, &RtdbScan{Source: "go_test"}, nil)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建测试点失败:", err)
+		return
+	}
 	fmt.Printf("  结果：通过 —— 测试点ID=%d\n", base.ID)
-	defer RawRtdbbRemovePointByIdWarp(handle, base.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, base.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
 
 	fmt.Println("【步骤4】更新点描述为 UpdatedDesc（预期：成功）")
 	base.Desc = "UpdatedDesc"
-	err := RawRtdbbUpdatePointPropertyWarp(handle, base, nil, nil)
+	err = RawRtdbbUpdatePointPropertyWarp(handle, base, nil, nil)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("更新点属性失败:", err)
@@ -2039,26 +2494,55 @@ func TestRawRtdbbUpdatePointPropertyWarp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 点描述更新成功")
 }
 
-// TC-PTUPDMAX-01 更新超长字段
+// TC-PTUPDMAX-01 完整流程：创建表→创建Max点→更新超长字段→清理点→清理表
 func TestRawRtdbbUpdateMaxPointPropertyWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取第一个表ID（预期：成功）")
-	tableID := getFirstTableID(t, handle)
-	fmt.Printf("  结果：通过 —— 表ID=%d\n", tableID)
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblUpdMax", "测试更新Max点属性")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
 	fmt.Println("【步骤3】创建Max测试点 TestUpdMaxPt（预期：成功）")
-	base := &RtdbPoint{Tag: "TestUpdMaxPt", Table: tableID, Type: RtdbTypeReal64}
-	base, _, _, _ = RawRtdbbInsertMaxPointWarp(handle, base, &RtdbScan{Source: "go_test"}, nil)
+	base := &RtdbPoint{Tag: "TestUpdMaxPt", Table: tbl.ID, Type: RtdbTypeReal64}
+	base, _, _, err = RawRtdbbInsertMaxPointWarp(handle, base, &RtdbScan{Source: "go_test"}, nil)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建Max测试点失败:", err)
+		return
+	}
 	fmt.Printf("  结果：通过 —— Max测试点ID=%d\n", base.ID)
-	defer RawRtdbbRemovePointByIdWarp(handle, base.ID)
+	defer func() {
+		fmt.Println("【步骤5】清理标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, base.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
 
 	fmt.Println("【步骤4】更新Max点描述为 UpdatedMaxDesc（预期：成功）")
 	base.Desc = "UpdatedMaxDesc"
-	err := RawRtdbbUpdateMaxPointPropertyWarp(handle, base, nil, nil)
+	err = RawRtdbbUpdateMaxPointPropertyWarp(handle, base, nil, nil)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("更新Max点属性失败:", err)
@@ -2069,62 +2553,127 @@ func TestRawRtdbbUpdateMaxPointPropertyWarp(t *testing.T) {
 
 // ==================== 06. 回收站与自定义类型 ====================
 
-// TC-RECY-01 正常恢复点到指定表
+// TC-RECY-01 完整流程：创建表→创建点→删除点→恢复回收站点→清理点→清理表
 func TestRawRtdbbRecoverPointWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取第一个表ID并创建临时点（预期：成功）")
-	tableID := getFirstTableID(t, handle)
-	pid, _ := RawRtdbbInsertBasePointWarp(handle, "TestRecyPt", RtdbTypeBool, tableID, 0)
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblRecy", "测试恢复回收站点")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤7】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤3】创建临时点并删除（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestRecyPt", RtdbTypeBool, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时点失败:", err)
+		return
+	}
 	fmt.Printf("  结果：通过 —— 临时点ID=%d\n", pid)
-	RawRtdbbRemovePointByIdWarp(handle, pid)
+	rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：失败 —— 删除点失败: %s\n", rte)
+		t.Error("删除点失败:", rte)
+		return
+	}
 	fmt.Println("  结果：通过 —— 临时点已删除（进入回收站）")
 
-	fmt.Println("【步骤3】获取回收站点列表（预期：非空）")
-	recycled, _ := RawRtdbbGetRecycledPointsWarp(handle, 100)
-	if len(recycled) == 0 {
+	fmt.Println("【步骤4】获取回收站点列表（预期：非空）")
+	recycled, err := RawRtdbbGetRecycledPointsWarp(handle, 100)
+	if !RteIsOk(err) || len(recycled) == 0 {
 		fmt.Println("  结果：跳过 —— 回收站为空")
 		t.Skip("回收站为空")
 	}
 	fmt.Printf("  结果：通过 —— 回收站有 %d 个点\n", len(recycled))
 
-	fmt.Println("【步骤4】恢复回收站点到原表（预期：成功或策略差异）")
-	err := RawRtdbbRecoverPointWarp(handle, tableID, recycled[0])
+	fmt.Println("【步骤5】恢复回收站点到原表（预期：成功或策略差异）")
+	err = RawRtdbbRecoverPointWarp(handle, tbl.ID, recycled[0])
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：跳过 —— 恢复点失败（可能回收站策略差异）: %v\n", err)
 		t.Logf("恢复点(可能回收站策略差异): %v", err)
 		return
 	}
 	fmt.Println("  结果：通过 —— 点已恢复")
+
+	fmt.Println("【步骤6】清理恢复后的点（预期：成功）")
+	rte = RawRtdbbRemovePointByIdWarp(handle, pid)
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：失败 —— %s\n", rte)
+		t.Logf("清理恢复后的点失败: %s", rte)
+	} else {
+		fmt.Println("  结果：通过 —— 恢复后的点已删除")
+	}
 }
 
-// TC-PURGE-01 清除回收站中的点
+// TC-PURGE-01 完整流程：创建表→创建点→删除点→清除回收站点→清理表
 func TestRawRtdbbPurgePointWarp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】获取第一个表ID并创建临时点（预期：成功）")
-	tableID := getFirstTableID(t, handle)
-	pid, _ := RawRtdbbInsertBasePointWarp(handle, "TestPurgePt", RtdbTypeBool, tableID, 0)
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblPurge", "测试清除回收站点")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【步骤6】清理临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤3】创建临时点并删除（预期：成功）")
+	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPurgePt", RtdbTypeBool, tbl.ID, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时点失败:", err)
+		return
+	}
 	fmt.Printf("  结果：通过 —— 临时点ID=%d\n", pid)
-	RawRtdbbRemovePointByIdWarp(handle, pid)
+	rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+	if !RteIsOk(rte) {
+		fmt.Printf("  结果：失败 —— 删除点失败: %s\n", rte)
+		t.Error("删除点失败:", rte)
+		return
+	}
 	fmt.Println("  结果：通过 —— 临时点已删除（进入回收站）")
 
-	fmt.Println("【步骤3】获取回收站点列表（预期：非空）")
-	recycled, _ := RawRtdbbGetRecycledPointsWarp(handle, 100)
-	if len(recycled) == 0 {
+	fmt.Println("【步骤4】获取回收站点列表（预期：非空）")
+	recycled, err := RawRtdbbGetRecycledPointsWarp(handle, 100)
+	if !RteIsOk(err) || len(recycled) == 0 {
 		fmt.Println("  结果：跳过 —— 回收站为空")
 		t.Skip("回收站为空")
 	}
 	fmt.Printf("  结果：通过 —— 回收站有 %d 个点\n", len(recycled))
 
-	fmt.Println("【步骤4】清除回收站点（预期：成功或策略差异）")
-	err := RawRtdbbPurgePointWarp(handle, recycled[0])
+	fmt.Println("【步骤5】清除回收站点（预期：成功或策略差异）")
+	err = RawRtdbbPurgePointWarp(handle, recycled[0])
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：跳过 —— 清除点失败（可能回收站策略差异）: %v\n", err)
 		t.Logf("清除点(可能回收站策略差异): %v", err)
