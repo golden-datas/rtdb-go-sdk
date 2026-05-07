@@ -3982,8 +3982,18 @@ func TestRawRtdbsBackSnapshots64Warp(t *testing.T) {
 		fmt.Println("  结果：通过 —— 初始快照写入成功")
 	}
 
+	fmt.Println("【步骤4b】预写入历史数据（确保历史存储结构就绪）")
+	past := now - 60
+	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now - 30}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：警告 —— 预写历史数据: %s\n", err)
+		t.Logf("预写历史数据(非致命): %v", err)
+	} else {
+		fmt.Println("  结果：通过 —— 历史数据预写入成功")
+	}
+
 	fmt.Println("【步骤5】回溯快照到更早时间戳（预期：成功）")
-	_, err = RawRtdbsBackSnapshots64Warp(handle, []PointID{pid}, []TimestampType{now}, []SubtimeType{0}, []float64{88.8}, []int64{0}, []Quality{0})
+	_, err = RawRtdbsBackSnapshots64Warp(handle, []PointID{pid}, []TimestampType{past}, []SubtimeType{0}, []float64{88.8}, []int64{0}, []Quality{0})
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("回溯快照(可能时间戳问题): %v", err)
@@ -4093,7 +4103,7 @@ func TestRawRtdbsPutBlobSnapshot64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】写入字符串 Blob 快照（预期：成功）")
-	now := TimestampType(time.Now().Unix())
+	now := TimestampType(time.Now().Unix() + 10)
 	err = RawRtdbsPutBlobSnapshot64Warp(handle, pid, true, now, 0, []byte("hello_rtdb"), 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -4221,8 +4231,30 @@ func TestRawRtdbsGetNamedTypeSnapshot64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】创建自定义类型（预期：成功）")
-	_ = RawRtdbbRemoveNamedTypeWarp(handle, "TestSnapNamedType")
+	fmt.Println("【步骤2】清理残留数据并创建自定义类型（预期：成功）")
+	recycled, _ := RawRtdbbSearchRecycledPointsWarp(handle, "TestPtNamedSnap", "*", "", "", "", "", RtdbSortFlag(0))
+	for _, rid := range recycled {
+		if rte := RawRtdbbPurgePointWarp(handle, rid); RteIsOk(rte) {
+			fmt.Printf("  永久删除回收站点 ID=%d: 成功\n", rid)
+		} else {
+			fmt.Printf("  永久删除回收站点 ID=%d: %s\n", rid, rte)
+		}
+	}
+	if rte := RawRtdbbRemovePointByNameWarp(handle, "TestTblNamedSnap.TestPtNamedSnap"); RteIsOk(rte) {
+		fmt.Println("  清理残留点: 成功")
+	} else {
+		fmt.Printf("  清理残留点: %s\n", rte)
+	}
+	if rte := RawRtdbbRemoveTableByNameWarp(handle, "TestTblNamedSnap"); RteIsOk(rte) {
+		fmt.Println("  清理残留表: 成功")
+	} else {
+		fmt.Printf("  清理残留表: %s\n", rte)
+	}
+	if rte := RawRtdbbRemoveNamedTypeWarp(handle, "TestSnapNamedType"); RteIsOk(rte) {
+		fmt.Println("  清理残留类型: 成功")
+	} else {
+		fmt.Printf("  清理残留类型: %s\n", rte)
+	}
 	fields := []RtdbDataTypeField{
 		{Name: "f1", Type: RtdbTypeReal64, Length: 8, Desc: "f1"},
 	}
@@ -4277,6 +4309,7 @@ func TestRawRtdbsGetNamedTypeSnapshot64Warp(t *testing.T) {
 			t.Logf("清理标签点失败: %s", rte)
 		} else {
 			fmt.Println("  结果：通过 —— 标签点已删除")
+			_ = RawRtdbbPurgePointWarp(handle, pid)
 		}
 	}()
 
@@ -4297,7 +4330,13 @@ func TestRawRtdbsPutNamedTypeSnapshot64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】创建自定义类型（预期：成功）")
+	fmt.Println("【步骤2】清理残留数据并创建自定义类型（预期：成功）")
+	recycled, _ := RawRtdbbSearchRecycledPointsWarp(handle, "TestPtNamedSnapPut", "*", "", "", "", "", RtdbSortFlag(0))
+	for _, rid := range recycled {
+		_ = RawRtdbbPurgePointWarp(handle, rid)
+	}
+	_ = RawRtdbbRemovePointByNameWarp(handle, "TestTblNamedSnapPut.TestPtNamedSnapPut")
+	_ = RawRtdbbRemoveTableByNameWarp(handle, "TestTblNamedSnapPut")
 	_ = RawRtdbbRemoveNamedTypeWarp(handle, "TestSnapNamedTypePut")
 	fields := []RtdbDataTypeField{
 		{Name: "f1", Type: RtdbTypeReal64, Length: 8, Desc: "f1"},
@@ -4353,11 +4392,12 @@ func TestRawRtdbsPutNamedTypeSnapshot64Warp(t *testing.T) {
 			t.Logf("清理标签点失败: %s", rte)
 		} else {
 			fmt.Println("  结果：通过 —— 标签点已删除")
+			_ = RawRtdbbPurgePointWarp(handle, pid)
 		}
 	}()
 
 	fmt.Println("【步骤5】写入自定义类型快照（预期：成功）")
-	now := TimestampType(time.Now().Unix())
+	now := TimestampType(time.Now().Unix() + 10)
 	err = RawRtdbsPutNamedTypeSnapshot64Warp(handle, pid, now, 0, make([]byte, 8), 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -4661,7 +4701,13 @@ func TestRawRtdbsGetNamedTypeSnapshots64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】创建自定义类型（预期：成功）")
+	fmt.Println("【步骤2】清理残留数据并创建自定义类型（预期：成功）")
+	recycled, _ := RawRtdbbSearchRecycledPointsWarp(handle, "TestPtNamedSnapN", "*", "", "", "", "", RtdbSortFlag(0))
+	for _, rid := range recycled {
+		_ = RawRtdbbPurgePointWarp(handle, rid)
+	}
+	_ = RawRtdbbRemovePointByNameWarp(handle, "TestTblNamedSnapN.TestPtNamedSnapN")
+	_ = RawRtdbbRemoveTableByNameWarp(handle, "TestTblNamedSnapN")
 	_ = RawRtdbbRemoveNamedTypeWarp(handle, "TestSnapNamedTypeN")
 	fields := []RtdbDataTypeField{
 		{Name: "f1", Type: RtdbTypeReal64, Length: 8, Desc: "f1"},
@@ -4717,6 +4763,7 @@ func TestRawRtdbsGetNamedTypeSnapshots64Warp(t *testing.T) {
 			t.Logf("清理标签点失败: %s", rte)
 		} else {
 			fmt.Println("  结果：通过 —— 标签点已删除")
+			_ = RawRtdbbPurgePointWarp(handle, pid)
 		}
 	}()
 
@@ -4737,7 +4784,13 @@ func TestRawRtdbsPutNamedTypeSnapshots64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】创建自定义类型（预期：成功）")
+	fmt.Println("【步骤2】清理残留数据并创建自定义类型（预期：成功）")
+	recycled, _ := RawRtdbbSearchRecycledPointsWarp(handle, "TestPtNamedSnapPutN", "*", "", "", "", "", RtdbSortFlag(0))
+	for _, rid := range recycled {
+		_ = RawRtdbbPurgePointWarp(handle, rid)
+	}
+	_ = RawRtdbbRemovePointByNameWarp(handle, "TestTblNamedSnapPutN.TestPtNamedSnapPutN")
+	_ = RawRtdbbRemoveTableByNameWarp(handle, "TestTblNamedSnapPutN")
 	_ = RawRtdbbRemoveNamedTypeWarp(handle, "TestSnapNamedTypePutN")
 	fields := []RtdbDataTypeField{
 		{Name: "f1", Type: RtdbTypeReal64, Length: 8, Desc: "f1"},
@@ -4793,11 +4846,12 @@ func TestRawRtdbsPutNamedTypeSnapshots64Warp(t *testing.T) {
 			t.Logf("清理标签点失败: %s", rte)
 		} else {
 			fmt.Println("  结果：通过 —— 标签点已删除")
+			_ = RawRtdbbPurgePointWarp(handle, pid)
 		}
 	}()
 
 	fmt.Println("【步骤5】批量写入自定义类型快照（预期：成功）")
-	now := TimestampType(time.Now().Unix())
+	now := TimestampType(time.Now().Unix() + 10)
 	_, err = RawRtdbsPutNamedTypeSnapshots64Warp(handle, []PointID{pid}, []TimestampType{now}, []SubtimeType{0}, [][]byte{make([]byte, 8)}, []Quality{0})
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
