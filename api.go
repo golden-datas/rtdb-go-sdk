@@ -11364,7 +11364,7 @@ func RawRtdbhGetArchivedBlobValues64Warp(handle ConnectHandle, id PointID, maxCo
 	}
 	defer func() {
 		for i := 0; i < int(maxCount); i++ {
-			C.free(unsafe.Pointer(blobs[0]))
+			C.free(unsafe.Pointer(blobs[i]))
 		}
 	}()
 	cBlobs := &blobs[0]
@@ -11430,7 +11430,7 @@ func RawRtdbhGetArchivedBlobValuesFilt64Warp(handle ConnectHandle, id PointID, m
 	}
 	defer func() {
 		for i := 0; i < int(maxCount); i++ {
-			C.free(unsafe.Pointer(blobs[0]))
+			C.free(unsafe.Pointer(blobs[i]))
 		}
 	}()
 	cBlobs := &blobs[0]
@@ -11534,7 +11534,7 @@ func RawRtdbhGetArchivedDatetimeValues64Warp(handle ConnectHandle, id PointID, m
 	}
 	defer func() {
 		for i := 0; i < int(maxCount); i++ {
-			C.free(unsafe.Pointer(blobs[0]))
+			C.free(unsafe.Pointer(blobs[i]))
 		}
 	}()
 	cBlobs := &blobs[0]

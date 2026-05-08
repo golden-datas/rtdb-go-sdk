@@ -5554,6 +5554,25 @@ func createCleanTempTable(handle ConnectHandle, name, desc string) (RtdbTable, R
 	return RawRtdbbAppendTableWarp(handle, name, desc)
 }
 
+// createTestNamedType 创建测试用的自定义类型（包含一个4字节整数字段），创建前会先删除已存在的同名类型
+func createTestNamedType(handle ConnectHandle, name string) RtdbError {
+	_ = RawRtdbbRemoveNamedTypeWarp(handle, name)
+	return RawRtdbbCreateNamedTypeWarp(handle, name, "测试自定义类型",
+		RtdbDataTypeField{Name: "value", Type: RtdbTypeInt32, Length: 4, Desc: "整数字段"})
+}
+
+// createTestNamedTypePoint 创建自定义类型测试点
+func createTestNamedTypePoint(t *testing.T, handle ConnectHandle, name string, tableID TableID, typeName string) (PointID, RtdbError) {
+	base := NewDefaultPoint(name, RtdbTypeNamedT, tableID, RtdbClassBase, RtdbPrecisionSecond)
+	base.Compress = OFF
+	base.Summary = ON
+	base, _, err := RawRtdbbInsertNamedTypePointWarp(handle, base, nil, typeName)
+	if !RteIsOk(err) {
+		return 0, err
+	}
+	return base.ID, RteOk
+}
+
 // TC-HCNT-01 统计历史值数量
 func TestRawRtdbhArchivedValuesCount64Warp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
@@ -7441,17 +7460,75 @@ func TestRawRtdbhGetSingleNamedTypeValue64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索自定义类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "", 0, 0, RtdbSearchNull, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无自定义类型点")
-		t.Skip("无自定义类型点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblNTP", "测试自定义类型单值")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个自定义类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】读取自定义类型历史单值（预期：成功）")
+	fmt.Println("【步骤3】创建自定义类型（预期：成功）")
+	typeName := "TestNamedType"
+	err = createTestNamedType(handle, typeName)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建自定义类型失败:", err)
+		return
+	}
+	fmt.Println("  结果：通过 —— 自定义类型已创建")
+
+	fmt.Println("【步骤4】创建自定义类型标签点（预期：成功）")
+	pid, err := createTestNamedTypePoint(t, handle, "TestPtNTP", tbl.ID, typeName)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建自定义类型标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点和自定义类型（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+		_ = RawRtdbbPurgePointWarp(handle, pid)
+		rte = RawRtdbbRemoveNamedTypeWarp(handle, typeName)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理自定义类型失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 自定义类型已删除")
+		}
+	}()
+
+	fmt.Println("【步骤5】写入自定义类型历史单值（预期：成功）")
 	now := TimestampType(time.Now().Unix())
-	_, _, obj, _, err := RawRtdbhGetSingleNamedTypeValue64Warp(handle, ids[0], RtdbHisModePrevious, now, 0, 256)
+	objData := []byte{0x01, 0x02, 0x03, 0x04}
+	err = RawRtdbhPutSingleNamedTypeValue64Warp(handle, pid, now, 0, objData, 0)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Logf("写入自定义类型历史单値: %v", err)
+		return
+	}
+	fmt.Println("  结果：通过 —— 写入自定义类型历史单值成功")
+
+	fmt.Println("【步骤6】读取自定义类型历史单值（预期：成功）")
+	_, _, obj, _, err := RawRtdbhGetSingleNamedTypeValue64Warp(handle, pid, RtdbHisModePrevious, now, 0, 4)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("读取自定义类型历史单値: %v", err)
@@ -7467,18 +7544,80 @@ func TestRawRtdbhGetArchivedNamedTypeValues64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索自定义类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "", 0, 0, RtdbSearchNull, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无自定义类型点")
-		t.Skip("无自定义类型点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblNTB", "测试自定义类型批量")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个自定义类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】连续读取自定义类型历史数据（预期：成功）")
+	fmt.Println("【步骤3】创建自定义类型（预期：成功）")
+	typeName := "TestNamedTypeB"
+	err = createTestNamedType(handle, typeName)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建自定义类型失败:", err)
+		return
+	}
+	fmt.Println("  结果：通过 —— 自定义类型已创建")
+
+	fmt.Println("【步骤4】创建自定义类型标签点（预期：成功）")
+	pid, err := createTestNamedTypePoint(t, handle, "TestPtNTB", tbl.ID, typeName)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建自定义类型标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点和自定义类型（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+		_ = RawRtdbbPurgePointWarp(handle, pid)
+		rte = RawRtdbbRemoveNamedTypeWarp(handle, typeName)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理自定义类型失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 自定义类型已删除")
+		}
+	}()
+
+	fmt.Println("【步骤5】批量写入自定义类型历史数据（预期：成功）")
 	now := TimestampType(time.Now().Unix())
+	ids := []PointID{pid}
+	dts := []TimestampType{now - 10, now - 5, now}
+	subs := []SubtimeType{0, 0, 0}
+	objs := [][]byte{{0x01, 0x02, 0x03, 0x04}, {0x05, 0x06, 0x07, 0x08}, {0x09, 0x0A, 0x0B, 0x0C}}
+	quals := []Quality{0, 0, 0}
+	_, err = RawRtdbhPutArchivedNamedTypeValues64Warp(handle, ids, dts, subs, objs, quals)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Logf("批量写入自定义类型历史: %v", err)
+		return
+	}
+	fmt.Println("  结果：通过 —— 批量写入自定义类型历史成功")
+
+	fmt.Println("【步骤6】连续读取自定义类型历史数据（预期：成功）")
 	past := now - 3600*24
-	dts, _, objs, quals, err := RawRtdbhGetArchivedNamedTypeValues64Warp(handle, ids[0], 10, past, 0, now, 0, 256)
+	dts, _, objs, quals, err = RawRtdbhGetArchivedNamedTypeValues64Warp(handle, pid, 10, past, 0, now, 0, 4)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("读取自定义类型历史: %v", err)
@@ -7843,17 +7982,65 @@ func TestRawRtdbhPutSingleNamedTypeValue64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索自定义类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "", 0, 0, RtdbSearchNull, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无自定义类型点")
-		t.Skip("无自定义类型点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblPSN", "测试写入自定义类型单值")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个自定义类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】写入自定义类型历史单值（预期：成功）")
+	fmt.Println("【步骤3】创建自定义类型（预期：成功）")
+	typeName := "TestNamedTypePSN"
+	err = createTestNamedType(handle, typeName)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建自定义类型失败:", err)
+		return
+	}
+	fmt.Println("  结果：通过 —— 自定义类型已创建")
+
+	fmt.Println("【步骤4】创建自定义类型标签点（预期：成功）")
+	pid, err := createTestNamedTypePoint(t, handle, "TestPtPSN", tbl.ID, typeName)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建自定义类型标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点和自定义类型（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+		_ = RawRtdbbPurgePointWarp(handle, pid)
+		rte = RawRtdbbRemoveNamedTypeWarp(handle, typeName)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理自定义类型失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 自定义类型已删除")
+		}
+	}()
+
+	fmt.Println("【步骤5】写入自定义类型历史单值（预期：成功）")
 	now := TimestampType(time.Now().Unix())
-	err := RawRtdbhPutSingleNamedTypeValue64Warp(handle, ids[0], now, 0, []byte{0, 0, 0, 0}, 0)
+	err = RawRtdbhPutSingleNamedTypeValue64Warp(handle, pid, now, 0, []byte{0x01, 0x02, 0x03, 0x04}, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("写入自定义类型历史单値: %v", err)
@@ -8043,19 +8230,67 @@ func TestRawRtdbhPutArchivedNamedTypeValues64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索自定义类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "", 0, 0, RtdbSearchNull, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无自定义类型点")
-		t.Skip("无自定义类型点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblPAN", "测试批量写入自定义类型")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个自定义类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】批量写入自定义类型历史数据（预期：成功）")
+	fmt.Println("【步骤3】创建自定义类型（预期：成功）")
+	typeName := "TestNamedTypePAN"
+	err = createTestNamedType(handle, typeName)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建自定义类型失败:", err)
+		return
+	}
+	fmt.Println("  结果：通过 —— 自定义类型已创建")
+
+	fmt.Println("【步骤4】创建自定义类型标签点（预期：成功）")
+	pid, err := createTestNamedTypePoint(t, handle, "TestPtPAN", tbl.ID, typeName)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建自定义类型标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点和自定义类型（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+		_ = RawRtdbbPurgePointWarp(handle, pid)
+		rte = RawRtdbbRemoveNamedTypeWarp(handle, typeName)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理自定义类型失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 自定义类型已删除")
+		}
+	}()
+
+	fmt.Println("【步骤5】批量写入自定义类型历史数据（预期：成功）")
 	now := TimestampType(time.Now().Unix())
-	_, err := RawRtdbhPutArchivedNamedTypeValues64Warp(handle,
-		[]PointID{ids[0]}, []TimestampType{now}, []SubtimeType{0},
-		[][]byte{{0, 0, 0, 0}}, []Quality{0})
+	_, err = RawRtdbhPutArchivedNamedTypeValues64Warp(handle,
+		[]PointID{pid}, []TimestampType{now}, []SubtimeType{0},
+		[][]byte{{0x01, 0x02, 0x03, 0x04}}, []Quality{0})
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("批量写入自定义类型历史: %v", err)
