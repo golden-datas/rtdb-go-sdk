@@ -42,6 +42,54 @@ func disconnect(t *testing.T, handle ConnectHandle) {
 	}
 }
 
+// prepareTestHistoryData 先写实时快照激活点，再批量写入 count 条测试历史数据，最后刷盘。
+// 返回当前时间戳，供后续步骤使用。
+func prepareTestHistoryData(t *testing.T, handle ConnectHandle, pid PointID, count int) (TimestampType, RtdbError) {
+	now := TimestampType(time.Now().Unix())
+
+	// 0. 关闭压缩，防止旋转门压缩过滤掉测试历史数据
+	bases, _, _, _, err := RawRtdbbGetPointsPropertyWarp(handle, []PointID{pid})
+	if RteIsOk(err) && len(bases) > 0 {
+		bases[0].Compress = OFF
+		rte := RawRtdbbUpdatePointPropertyWarp(handle, &bases[0], nil, nil)
+		if !RteIsOk(rte) {
+			t.Logf("关闭压缩(非致命): %v", rte)
+		}
+	}
+
+	// 1. 先写入实时快照，确保点处于激活状态
+	_, err = RawRtdbsPutSnapshots64Warp(handle, []PointID{pid}, []TimestampType{now}, []SubtimeType{0}, []float64{float64(count)}, []int64{0}, []Quality{0})
+	if !RteIsOk(err) {
+		t.Logf("写入激活快照(非致命): %v", err)
+	}
+
+	// 2. 批量构造历史数据（count 个点，每10秒一个）
+	dts := make([]TimestampType, count)
+	vals := make([]float64, count)
+	states := make([]int64, count)
+	quals := make([]Quality, count)
+	subs := make([]SubtimeType, count)
+
+	start := now - TimestampType(count*10)
+	for i := 0; i < count; i++ {
+		dts[i] = start + TimestampType(i*10)
+		vals[i] = float64(i + 1)
+		states[i] = 0
+		quals[i] = 0
+		subs[i] = 0
+	}
+
+	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, dts, subs, vals, states, quals)
+	if !RteIsOk(err) {
+		return now, err
+	}
+
+	// 3. 刷盘确保立即可查
+	_, _ = RawRtdbhFlushArchivedValuesWarp(handle, pid)
+
+	return now, RteOk
+}
+
 func TestNULL(t *testing.T) {}
 
 // ==================== 01. 连接与系统参数 ====================
@@ -5408,9 +5456,7 @@ func TestRawRtdbhArchivedValuesCount64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -5420,7 +5466,7 @@ func TestRawRtdbhArchivedValuesCount64Warp(t *testing.T) {
 
 	fmt.Println("【步骤5】统计历史值数量（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600*24
+	past := now - 3600*24
 	count, err := RawRtdbhArchivedValuesCount64Warp(handle, pid, past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -5476,9 +5522,7 @@ func TestRawRtdbhGetArchivedValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -5488,7 +5532,7 @@ func TestRawRtdbhGetArchivedValues64Warp(t *testing.T) {
 
 	fmt.Println("【步骤5】正向读取历史数据（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600*24
+	past := now - 3600*24
 	dts, sts, vals, states, quals, err := RawRtdbhGetArchivedValues64Warp(handle, pid, 100, past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -5548,23 +5592,12 @@ func TestRawRtdbhGetSingleValue64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
 	} else {
 		fmt.Println("  结果：通过 —— 预写入历史数据成功")
-	}
-
-	fmt.Println("【步骤4b】刷盘历史缓存（预期：成功）")
-	_, err = RawRtdbhFlushArchivedValuesWarp(handle, pid)
-	if !RteIsOk(err) {
-		fmt.Printf("  结果：警告 —— 刷盘历史缓存: %s\n", err)
-		t.Logf("刷盘历史缓存(非致命): %v", err)
-	} else {
-		fmt.Println("  结果：通过 —— 历史缓存已刷盘")
 	}
 
 	fmt.Println("【步骤5】读取单值历史（Previous模式）（预期：成功）")
@@ -5624,9 +5657,7 @@ func TestRawRtdbhSummaryDataWarp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -5636,7 +5667,7 @@ func TestRawRtdbhSummaryDataWarp(t *testing.T) {
 
 	fmt.Println("【步骤5】获取统计值（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600*24
+	past := now - 3600*24
 	data, err := RawRtdbhSummaryDataWarp(handle, pid, past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -5692,9 +5723,7 @@ func TestRawRtdbhGetPlotValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -5704,7 +5733,7 @@ func TestRawRtdbhGetPlotValues64Warp(t *testing.T) {
 
 	fmt.Println("【步骤5】获取绘图数据（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600*24
+	past := now - 3600*24
 	dts, _, _, _, _, err := RawRtdbhGetPlotValues64Warp(handle, pid, 100, past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -5790,9 +5819,7 @@ func TestRawRtdbhArchivedValuesRealCount64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -5802,7 +5829,7 @@ func TestRawRtdbhArchivedValuesRealCount64Warp(t *testing.T) {
 
 	fmt.Println("【步骤5】统计真实存储值数量（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600*24
+	past := now - 3600*24
 	count, err := RawRtdbhArchivedValuesRealCount64Warp(handle, pid, past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -5858,9 +5885,7 @@ func TestRawRtdbhGetArchivedValuesBackward64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -5870,7 +5895,7 @@ func TestRawRtdbhGetArchivedValuesBackward64Warp(t *testing.T) {
 
 	fmt.Println("【步骤5】逆向读取历史数据（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600*24
+	past := now - 3600*24
 	dts, sts, vals, states, quals, err := RawRtdbhGetArchivedValuesBackward64Warp(handle, pid, 100, past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -5988,9 +6013,7 @@ func TestRawRtdbhGetArchivedValuesInBatches64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -6000,7 +6023,7 @@ func TestRawRtdbhGetArchivedValuesInBatches64Warp(t *testing.T) {
 
 	fmt.Println("【步骤5】启动分段读取（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600*24
+	past := now - 3600*24
 	count, batchCount, err := RawRtdbhGetArchivedValuesInBatches64Warp(handle, pid, past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -6056,9 +6079,7 @@ func TestRawRtdbhGetNextArchivedValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -6068,7 +6089,7 @@ func TestRawRtdbhGetNextArchivedValues64Warp(t *testing.T) {
 
 	fmt.Println("【步骤5】启动分段读取（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600*24
+	past := now - 3600*24
 	_, batchCount, err := RawRtdbhGetArchivedValuesInBatches64Warp(handle, pid, past, 0, now, 0)
 	if !RteIsOk(err) || batchCount <= 0 {
 		fmt.Println("  结果：跳过 —— 无分段数据")
@@ -6132,9 +6153,7 @@ func TestRawRtdbhGetTimedValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -6231,9 +6250,7 @@ func TestRawRtdbhGetInterpoValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -6243,7 +6260,7 @@ func TestRawRtdbhGetInterpoValues64Warp(t *testing.T) {
 
 	fmt.Println("【步骤5】等间隔历史插值（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600
+	past := now - 3600
 	dts, _, _, _, _, err := RawRtdbhGetInterpoValues64Warp(handle, pid, 10, past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -6299,9 +6316,7 @@ func TestRawRtdbhGetIntervalValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -6311,7 +6326,7 @@ func TestRawRtdbhGetIntervalValues64Warp(t *testing.T) {
 
 	fmt.Println("【步骤5】等间隔读取历史数据（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600
+	past := now - 3600
 	dts, _, _, _, _, err := RawRtdbhGetIntervalValues64Warp(handle, pid, time.Minute, 60, TimestampType(past), 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -6532,9 +6547,7 @@ func TestRawRtdbhSummaryDataInBatchesWarp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -6544,7 +6557,7 @@ func TestRawRtdbhSummaryDataInBatchesWarp(t *testing.T) {
 
 	fmt.Println("【步骤5】分批获取等间隔统计值（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600*24
+	past := now - 3600*24
 	data, errs, err := RawRtdbhSummaryDataInBatchesWarp(handle, pid, 24, time.Hour, past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -6601,9 +6614,7 @@ func TestRawRtdbhGetArchivedValuesFilt64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -6613,7 +6624,7 @@ func TestRawRtdbhGetArchivedValuesFilt64Warp(t *testing.T) {
 
 	fmt.Println("【步骤5】条件过滤读取历史数据（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600*24
+	past := now - 3600*24
 	dts, _, _, _, _, err := RawRtdbhGetArchivedValuesFilt64Warp(handle, pid, 100, "value >= 0", past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -6669,9 +6680,7 @@ func TestRawRtdbhGetIntervalValuesFilt64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -6681,7 +6690,7 @@ func TestRawRtdbhGetIntervalValuesFilt64Warp(t *testing.T) {
 
 	fmt.Println("【步骤5】过滤等间隔读取历史数据（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600
+	past := now - 3600
 	dts, _, _, _, _, err := RawRtdbhGetIntervalValuesFilt64Warp(handle, pid, "quality == 0", time.Minute, 60, TimestampType(past), 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -6737,9 +6746,7 @@ func TestRawRtdbhGetInterpoValuesFilt64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -6749,7 +6756,7 @@ func TestRawRtdbhGetInterpoValuesFilt64Warp(t *testing.T) {
 
 	fmt.Println("【步骤5】过滤等间隔插值（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600
+	past := now - 3600
 	dts, _, _, _, _, err := RawRtdbhGetInterpoValuesFilt64Warp(handle, pid, "value >= 0", 10, past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -6805,9 +6812,7 @@ func TestRawRtdbhSummaryDataFiltWarp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -6817,7 +6822,7 @@ func TestRawRtdbhSummaryDataFiltWarp(t *testing.T) {
 
 	fmt.Println("【步骤5】过滤统计（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600*24
+	past := now - 3600*24
 	data, err := RawRtdbhSummaryDataFiltWarp(handle, pid, "value >= 0", past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -6873,9 +6878,7 @@ func TestRawRtdbhSummaryDataFiltInBatchesWarp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -6885,7 +6888,7 @@ func TestRawRtdbhSummaryDataFiltInBatchesWarp(t *testing.T) {
 
 	fmt.Println("【步骤5】过滤分批统计（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 3600*24
+	past := now - 3600*24
 	data, errs, err := RawRtdbhSummaryDataFiltInBatchesWarp(handle, pid, "value >= 0", 24, time.Hour, past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -7111,9 +7114,7 @@ func TestRawRtdbhUpdateValue64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -7420,9 +7421,7 @@ func TestRawRtdbhRemoveValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -7432,7 +7431,7 @@ func TestRawRtdbhRemoveValues64Warp(t *testing.T) {
 
 	fmt.Println("【步骤5】删除时间段内的历史数据（预期：成功）")
 	now = TimestampType(time.Now().Unix())
-	past = now - 60
+	past := now - 60
 	count, err := RawRtdbhRemoveValues64Warp(handle, pid, past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -7488,9 +7487,7 @@ func TestRawRtdbhRemoveValue64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	now, err := prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
@@ -7555,16 +7552,14 @@ func TestRawRtdbhFlushArchivedValuesWarp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
-	past := now - 60
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, []TimestampType{past, now}, []SubtimeType{0, 0}, []float64{10.0, 20.0}, []int64{0, 0}, []Quality{0, 0})
+	_, err = prepareTestHistoryData(t, handle, pid, 30)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("预写入历史数据: %v", err)
 	} else {
 		fmt.Println("  结果：通过 —— 预写入历史数据成功")
 	}
-
+	
 	fmt.Println("【步骤5】刷新历史缓存（预期：成功）")
 	count, err := RawRtdbhFlushArchivedValuesWarp(handle, pid)
 	if !RteIsOk(err) {
