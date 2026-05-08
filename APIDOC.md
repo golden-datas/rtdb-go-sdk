@@ -5628,7 +5628,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbb\_sort\_points\_warp\(rtdb\_int32 handle, rtdb\_int32 count, rtdb\_int32 \*ids, rtdb\_int32 index, rtdb\_int32 flag\)
 
 <a name="RawRtdbeComputeHistory64Warp"></a>
-## func [RawRtdbeComputeHistory64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12472>)
+## func [RawRtdbeComputeHistory64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12484>)
 
 ```go
 func RawRtdbeComputeHistory64Warp(handle ConnectHandle, ids []PointID, flag int16, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]RtdbError, RtdbError)
@@ -5655,7 +5655,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbe\_compute\_history64\_warp\(rtdb\_int32 handle, rtdb\_int32\* count, rtdb\_int16 flag, rtdb\_timestamp\_type datetime1, rtdb\_subtime\_type subtime1, rtdb\_timestamp\_type datetime2, rtdb\_subtime\_type subtime2, const rtdb\_int32\* ids, rtdb\_error\* errors\)
 
 <a name="RawRtdbeGetEquationGraphDatasWarp"></a>
-## func [RawRtdbeGetEquationGraphDatasWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12563>)
+## func [RawRtdbeGetEquationGraphDatasWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12575>)
 
 ```go
 func RawRtdbeGetEquationGraphDatasWarp(handle ConnectHandle, id PointID, flag RtdbGraphFlag, count int32) ([]RtdbGraph, RtdbError)
@@ -5679,7 +5679,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbe\_get\_equation\_graph\_datas\_warp\(rtdb\_int32 handle, rtdb\_int32 id, RTDB\_GRAPH\_FLAG flag, rtdb\_int32 \*count, RTDB\_GRAPH \*graph\)
 
 <a name="RawRtdbhGetArchivedBlobValues64Warp"></a>
-## func [RawRtdbhGetArchivedBlobValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11340>)
+## func [RawRtdbhGetArchivedBlobValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11344>)
 
 ```go
 func RawRtdbhGetArchivedBlobValues64Warp(handle ConnectHandle, id PointID, maxCount int32, isString bool, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType, maxLen int32) ([]TimestampType, []SubtimeType, [][]byte, []Quality, RtdbError)
@@ -5711,7 +5711,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_get\_archived\_blob\_values64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_int32\* count, rtdb\_timestamp\_type datetime1, rtdb\_subtime\_type subtime1, rtdb\_timestamp\_type datetime2, rtdb\_subtime\_type subtime2, rtdb\_timestamp\_type\* datetimes, rtdb\_subtime\_type\* subtimes, rtdb\_length\_type\* lens, rtdb\_byte\* const\* blobs, rtdb\_int16\* qualities\)
 
 <a name="RawRtdbhGetArchivedBlobValuesFilt64Warp"></a>
-## func [RawRtdbhGetArchivedBlobValuesFilt64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11404>)
+## func [RawRtdbhGetArchivedBlobValuesFilt64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11408>)
 
 ```go
 func RawRtdbhGetArchivedBlobValuesFilt64Warp(handle ConnectHandle, id PointID, maxLen int32, maxCount int32, isString bool, filter string, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]TimestampType, []SubtimeType, [][]byte, []Quality, RtdbError)
@@ -5806,7 +5806,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_get\_archived\_coor\_values\_backward64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_int32\* count, rtdb\_timestamp\_type\* datetimes, rtdb\_subtime\_type\* subtimes, rtdb\_float32\* x, rtdb\_float32\* y, rtdb\_int16\* qualities\)
 
 <a name="RawRtdbhGetArchivedDatetimeValues64Warp"></a>
-## func [RawRtdbhGetArchivedDatetimeValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11505>)
+## func [RawRtdbhGetArchivedDatetimeValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11513>)
 
 ```go
 func RawRtdbhGetArchivedDatetimeValues64Warp(handle ConnectHandle, id PointID, maxCount int32, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType, dtType int16) ([]TimestampType, []SubtimeType, [][]byte, []Quality, RtdbError)
@@ -5841,7 +5841,7 @@ raw\_fn:
 ```
 
 <a name="RawRtdbhGetArchivedNamedTypeValues64Warp"></a>
-## func [RawRtdbhGetArchivedNamedTypeValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12356>)
+## func [RawRtdbhGetArchivedNamedTypeValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12368>)
 
 ```go
 func RawRtdbhGetArchivedNamedTypeValues64Warp(handle ConnectHandle, id PointID, maxCount int32, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType, length int32) ([]TimestampType, []SubtimeType, [][]byte, []Quality, RtdbError)
@@ -5934,7 +5934,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_get\_archived\_values\_backward64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_int32\* count, rtdb\_timestamp\_type\* datetimes, rtdb\_subtime\_type\* subtimes, rtdb\_float64\* values, rtdb\_int64\* states, rtdb\_int16\* qualities\)
 
 <a name="RawRtdbhGetArchivedValuesFilt64Warp"></a>
-## func [RawRtdbhGetArchivedValuesFilt64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11770>)
+## func [RawRtdbhGetArchivedValuesFilt64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11778>)
 
 ```go
 func RawRtdbhGetArchivedValuesFilt64Warp(handle ConnectHandle, id PointID, count int32, filter string, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]TimestampType, []SubtimeType, []float64, []int64, []Quality, RtdbError)
@@ -5966,7 +5966,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_get\_archived\_values\_filt64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, const char\* filter, rtdb\_int32\* count, rtdb\_timestamp\_type\* datetimes, rtdb\_subtime\_type\* subtimes, rtdb\_float64\* values, rtdb\_int64\* states, rtdb\_int16\* qualities\)
 
 <a name="RawRtdbhGetCrossSectionValues64Warp"></a>
-## func [RawRtdbhGetCrossSectionValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11722>)
+## func [RawRtdbhGetCrossSectionValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11730>)
 
 ```go
 func RawRtdbhGetCrossSectionValues64Warp(handle ConnectHandle, ids []PointID, mode RtdbHisMode, datetime TimestampType, subtime SubtimeType) ([]TimestampType, []SubtimeType, []float64, []int64, []Quality, []RtdbError, RtdbError)
@@ -6027,7 +6027,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_get\_interpo\_values64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_int32\* count, rtdb\_timestamp\_type\* datetimes, rtdb\_subtime\_type\* subtimes, rtdb\_float64\* values, rtdb\_int64\* states, rtdb\_int16\* qualities\)
 
 <a name="RawRtdbhGetInterpoValuesFilt64Warp"></a>
-## func [RawRtdbhGetInterpoValuesFilt64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11866>)
+## func [RawRtdbhGetInterpoValuesFilt64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11874>)
 
 ```go
 func RawRtdbhGetInterpoValuesFilt64Warp(handle ConnectHandle, id PointID, filter string, count int32, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]TimestampType, []SubtimeType, []float64, []int64, []Quality, RtdbError)
@@ -6093,7 +6093,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_get\_interval\_values64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_int64 interval, rtdb\_int32 count, rtdb\_timestamp\_type\* datetimes, rtdb\_subtime\_type\* subtimes, rtdb\_float64\* values, rtdb\_int64\* states, rtdb\_int16\* qualities\)
 
 <a name="RawRtdbhGetIntervalValuesFilt64Warp"></a>
-## func [RawRtdbhGetIntervalValuesFilt64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11816>)
+## func [RawRtdbhGetIntervalValuesFilt64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11824>)
 
 ```go
 func RawRtdbhGetIntervalValuesFilt64Warp(handle ConnectHandle, id PointID, filter string, interval time.Duration, count int32, datetime1 TimestampType, subtime1 SubtimeType) ([]TimestampType, []SubtimeType, []float64, []int64, []Quality, RtdbError)
@@ -6153,7 +6153,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_get\_next\_archived\_values64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_int32\* count, rtdb\_timestamp\_type\* datetimes, rtdb\_subtime\_type\* subtimes, rtdb\_float64\* values, rtdb\_int64\* states, rtdb\_int16\* qualities\)
 
 <a name="RawRtdbhGetPlotValues64Warp"></a>
-## func [RawRtdbhGetPlotValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11679>)
+## func [RawRtdbhGetPlotValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11687>)
 
 ```go
 func RawRtdbhGetPlotValues64Warp(handle ConnectHandle, id PointID, interval int32, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]TimestampType, []SubtimeType, []float64, []int64, []Quality, RtdbError)
@@ -6243,7 +6243,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_get\_single\_coor\_value64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_int32 mode, rtdb\_timestamp\_type\* datetime, rtdb\_subtime\_type\* subtime, rtdb\_float32\* x, rtdb\_float32\* y, rtdb\_int16\* quality\)
 
 <a name="RawRtdbhGetSingleDatetimeValue64Warp"></a>
-## func [RawRtdbhGetSingleDatetimeValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11466>)
+## func [RawRtdbhGetSingleDatetimeValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11470>)
 
 ```go
 func RawRtdbhGetSingleDatetimeValue64Warp(handle ConnectHandle, id PointID, mode RtdbHisMode, datetime TimestampType, subtime SubtimeType, dtType int16) (TimestampType, SubtimeType, []byte, Quality, RtdbError)
@@ -6272,7 +6272,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_get\_single\_datetime\_value64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_int32 mode, rtdb\_timestamp\_type\* datetime, rtdb\_subtime\_type\* subtime, rtdb\_byte\* dtblob, rtdb\_length\_type\* dtlen, rtdb\_int16\* quality, rtdb\_int16 type\)
 
 <a name="RawRtdbhGetSingleNamedTypeValue64Warp"></a>
-## func [RawRtdbhGetSingleNamedTypeValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12322>)
+## func [RawRtdbhGetSingleNamedTypeValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12330>)
 
 ```go
 func RawRtdbhGetSingleNamedTypeValue64Warp(handle ConnectHandle, id PointID, mode RtdbHisMode, datetime TimestampType, subtime SubtimeType, length int32) (TimestampType, SubtimeType, []byte, Quality, RtdbError)
@@ -6383,7 +6383,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_get\_timed\_values64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_int32 count, const rtdb\_timestamp\_type\* datetimes, const rtdb\_subtime\_type\* subtimes, rtdb\_float64\* values, rtdb\_int64\* states, rtdb\_int16\* qualities\)
 
 <a name="RawRtdbhPutArchivedBlobValues64Warp"></a>
-## func [RawRtdbhPutArchivedBlobValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12252>)
+## func [RawRtdbhPutArchivedBlobValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12260>)
 
 ```go
 func RawRtdbhPutArchivedBlobValues64Warp(handle ConnectHandle, ids []PointID, isString []bool, datetimes []TimestampType, subtimes []SubtimeType, blobs [][]byte, qualities []Quality) ([]RtdbError, RtdbError)
@@ -6411,7 +6411,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_put\_archived\_blob\_values64\_warp\(rtdb\_int32 handle, rtdb\_int32\* count, const rtdb\_int32\* ids, const rtdb\_timestamp\_type\* datetimes, const rtdb\_subtime\_type\* subtimes, const rtdb\_byte\* const\* blobs, const rtdb\_length\_type\* lens, const rtdb\_int16\* qualities, rtdb\_error\* errors\)
 
 <a name="RawRtdbhPutArchivedCoorValues64Warp"></a>
-## func [RawRtdbhPutArchivedCoorValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12194>)
+## func [RawRtdbhPutArchivedCoorValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12202>)
 
 ```go
 func RawRtdbhPutArchivedCoorValues64Warp(handle ConnectHandle, ids []PointID, datetimes []TimestampType, subtimes []SubtimeType, xs []float32, ys []float32, qualities []Quality) ([]RtdbError, RtdbError)
@@ -6439,7 +6439,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_put\_archived\_coor\_values64\_warp\(rtdb\_int32 handle, rtdb\_int32\* count, const rtdb\_int32\* ids, const rtdb\_timestamp\_type\* datetimes, const rtdb\_subtime\_type\* subtimes, const rtdb\_float32\* x, const rtdb\_float32\* y, const rtdb\_int16\* qualities, rtdb\_error\* errors\)
 
 <a name="RawRtdbhPutArchivedDatetimeValues64Warp"></a>
-## func [RawRtdbhPutArchivedDatetimeValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11559>)
+## func [RawRtdbhPutArchivedDatetimeValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11567>)
 
 ```go
 func RawRtdbhPutArchivedDatetimeValues64Warp(handle ConnectHandle, ids []PointID, datetimes []TimestampType, subtimes []SubtimeType, dtValues []string, qualities []Quality) ([]RtdbError, RtdbError)
@@ -6465,7 +6465,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_put\_archived\_datetime\_values64\_warp\(rtdb\_int32 handle, rtdb\_int32\* count, const rtdb\_int32\* ids, const rtdb\_timestamp\_type\* datetimes, const rtdb\_subtime\_type\* subtimes, const rtdb\_byte\* const\* dtvalues, const rtdb\_length\_type\* dtlens, const rtdb\_int16\* qualities, rtdb\_error\* errors\)
 
 <a name="RawRtdbhPutArchivedNamedTypeValues64Warp"></a>
-## func [RawRtdbhPutArchivedNamedTypeValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12428>)
+## func [RawRtdbhPutArchivedNamedTypeValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12440>)
 
 ```go
 func RawRtdbhPutArchivedNamedTypeValues64Warp(handle ConnectHandle, ids []PointID, datetimes []TimestampType, subtimes []SubtimeType, objects [][]byte, qualities []Quality) ([]RtdbError, RtdbError)
@@ -6491,7 +6491,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_put\_archived\_named\_type\_values64\_warp\(rtdb\_int32 handle, rtdb\_int32\* count, const rtdb\_int32\* ids, const rtdb\_timestamp\_type\* datetimes, const rtdb\_subtime\_type\* subtimes, const void\* const\* objects, const rtdb\_length\_type\* lengths, const rtdb\_int16\* qualities, rtdb\_error\* errors\)
 
 <a name="RawRtdbhPutArchivedValues64Warp"></a>
-## func [RawRtdbhPutArchivedValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12162>)
+## func [RawRtdbhPutArchivedValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12170>)
 
 ```go
 func RawRtdbhPutArchivedValues64Warp(handle ConnectHandle, ids []PointID, datetimes []TimestampType, subtimes []SubtimeType, values []float64, states []int64, qualities []Quality) ([]RtdbError, RtdbError)
@@ -6519,7 +6519,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_put\_archived\_values64\_warp\(rtdb\_int32 handle, rtdb\_int32\* count, const rtdb\_int32\* ids, const rtdb\_timestamp\_type\* datetimes, const rtdb\_subtime\_type\* subtimes, const rtdb\_float64\* values, const rtdb\_int64\* states, const rtdb\_int16\* qualities, rtdb\_error\* errors\)
 
 <a name="RawRtdbhSummaryDataFiltInBatchesWarp"></a>
-## func [RawRtdbhSummaryDataFiltInBatchesWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11945>)
+## func [RawRtdbhSummaryDataFiltInBatchesWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11953>)
 
 ```go
 func RawRtdbhSummaryDataFiltInBatchesWarp(handle ConnectHandle, id PointID, filter string, maxCount int32, interval time.Duration, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]RtdbSummaryData, []RtdbError, RtdbError)
@@ -6550,7 +6550,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_summary\_data\_filt\_in\_batches\_warp\(rtdb\_int32 handle, rtdb\_int32 id, const char\* filter, rtdb\_int32\* count, rtdb\_int64 interval, rtdb\_timestamp\_type datetime1, rtdb\_subtime\_type subtime1, rtdb\_timestamp\_type datetime2, rtdb\_subtime\_type subtime2, RTDB\_SUMMARY\_DATA\* summary\_datas, rtdb\_error\* errors\)
 
 <a name="RawRtdbhSummaryDataFiltWarp"></a>
-## func [RawRtdbhSummaryDataFiltWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11908>)
+## func [RawRtdbhSummaryDataFiltWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11916>)
 
 ```go
 func RawRtdbhSummaryDataFiltWarp(handle ConnectHandle, id PointID, filter string, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) (*RtdbSummaryData, RtdbError)
@@ -6577,7 +6577,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_summary\_data\_filt\_warp\(rtdb\_int32 handle, rtdb\_int32 id, const char\* filter, rtdb\_timestamp\_type datetime1, rtdb\_subtime\_type subtime1, rtdb\_timestamp\_type datetime2, rtdb\_subtime\_type subtime2, RTDB\_SUMMARY\_DATA\* summary\_data\)
 
 <a name="RawRtdbhSummaryDataInBatchesWarp"></a>
-## func [RawRtdbhSummaryDataInBatchesWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11638>)
+## func [RawRtdbhSummaryDataInBatchesWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11646>)
 
 ```go
 func RawRtdbhSummaryDataInBatchesWarp(handle ConnectHandle, id PointID, maxCount int32, interval time.Duration, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) ([]RtdbSummaryData, []RtdbError, RtdbError)
@@ -6607,7 +6607,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_summary\_data\_in\_batches\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_int32\* count, rtdb\_int64 interval, rtdb\_timestamp\_type datetime1, rtdb\_subtime\_type subtime1, rtdb\_timestamp\_type datetime2, rtdb\_subtime\_type subtime2, RTDB\_SUMMARY\_DATA\* summary\_datas, rtdb\_error\* errors\)
 
 <a name="RawRtdbhSummaryDataWarp"></a>
-## func [RawRtdbhSummaryDataWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11606>)
+## func [RawRtdbhSummaryDataWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11614>)
 
 ```go
 func RawRtdbhSummaryDataWarp(handle ConnectHandle, id PointID, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) (*RtdbSummaryData, RtdbError)
@@ -6633,7 +6633,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_summary\_data\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_timestamp\_type datetime1, rtdb\_subtime\_type subtime1, rtdb\_timestamp\_type datetime2, rtdb\_subtime\_type subtime2, RTDB\_SUMMARY\_DATA\* summary\_data\)
 
 <a name="RawRtdbpGetPerfTagsInfoWarp"></a>
-## func [RawRtdbpGetPerfTagsInfoWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12607>)
+## func [RawRtdbpGetPerfTagsInfoWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12619>)
 
 ```go
 func RawRtdbpGetPerfTagsInfoWarp(handle ConnectHandle, ids []RtdbPerfTagID) ([]RtdbPerfTagInfo, []RtdbError, RtdbError)
@@ -6656,7 +6656,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbp\_get\_perf\_tags\_info\_warp\(rtdb\_int32 handle, rtdb\_int32\* count, RTDB\_PERF\_TAG\_INFO\* tags\_info, rtdb\_error\* errors\)
 
 <a name="RawRtdbpGetPerfValues64Warp"></a>
-## func [RawRtdbpGetPerfValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12640>)
+## func [RawRtdbpGetPerfValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12652>)
 
 ```go
 func RawRtdbpGetPerfValues64Warp(handle ConnectHandle, ids []RtdbPerfTagID) ([]TimestampType, []SubtimeType, []float64, []int64, []Quality, []RtdbError, RtdbError)
@@ -11003,7 +11003,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbb\_get\_base\_type\_points\_count\_warp\(rtdb\_int32 handle, rtdb\_int32 type, rtdb\_int32 \*points\_count\)
 
 <a name="RawRtdbbGetEquationByFileNameWarp"></a>
-### func [RawRtdbbGetEquationByFileNameWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12498>)
+### func [RawRtdbbGetEquationByFileNameWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12510>)
 
 ```go
 func RawRtdbbGetEquationByFileNameWarp(handle ConnectHandle, name string) ([]byte, RtdbError)
@@ -11025,7 +11025,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbb\_get\_equation\_by\_file\_name\_warp\(rtdb\_int32 handle, const char\* file\_name, char equation\[RTDB\_MAX\_EQUATION\_SIZE\]\)
 
 <a name="RawRtdbbGetEquationByIdWarp"></a>
-### func [RawRtdbbGetEquationByIdWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12519>)
+### func [RawRtdbbGetEquationByIdWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12531>)
 
 ```go
 func RawRtdbbGetEquationByIdWarp(handle ConnectHandle, id PointID) ([]byte, RtdbError)
@@ -11533,7 +11533,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbb\_update\_table\_name\_warp\(rtdb\_int32 handle, rtdb\_int32 tab\_id, const char \*name\)
 
 <a name="RawRtdbeGetEquationGraphCountWarp"></a>
-### func [RawRtdbeGetEquationGraphCountWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12540>)
+### func [RawRtdbeGetEquationGraphCountWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12552>)
 
 ```go
 func RawRtdbeGetEquationGraphCountWarp(handle ConnectHandle, id PointID, flag RtdbGraphFlag) (int32, RtdbError)
@@ -11610,7 +11610,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_archived\_values\_real\_count64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_timestamp\_type datetime1, rtdb\_subtime\_type subtime1, rtdb\_timestamp\_type datetime2, rtdb\_subtime\_type subtime2, rtdb\_int32\* count\)
 
 <a name="RawRtdbhFlushArchivedValuesWarp"></a>
-### func [RawRtdbhFlushArchivedValuesWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12297>)
+### func [RawRtdbhFlushArchivedValuesWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12305>)
 
 ```go
 func RawRtdbhFlushArchivedValuesWarp(handle ConnectHandle, id PointID) (int32, RtdbError)
@@ -11660,7 +11660,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_get\_archived\_values\_in\_batches64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_timestamp\_type datetime1, rtdb\_subtime\_type subtime1, rtdb\_timestamp\_type datetime2, rtdb\_subtime\_type subtime2, rtdb\_int32\* count, rtdb\_int32\* batch\_count\)
 
 <a name="RawRtdbhPutSingleBlobValue64Warp"></a>
-### func [RawRtdbhPutSingleBlobValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12129>)
+### func [RawRtdbhPutSingleBlobValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12137>)
 
 ```go
 func RawRtdbhPutSingleBlobValue64Warp(handle ConnectHandle, id PointID, isString bool, datetime TimestampType, subtime SubtimeType, blob []byte, quality Quality) RtdbError
@@ -11684,7 +11684,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_put\_single\_blob\_value64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_timestamp\_type datetime, rtdb\_subtime\_type subtime, const rtdb\_byte\* blob, rtdb\_length\_type len, rtdb\_int16 quality\)
 
 <a name="RawRtdbhPutSingleCoorValue64Warp"></a>
-### func [RawRtdbhPutSingleCoorValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12103>)
+### func [RawRtdbhPutSingleCoorValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12111>)
 
 ```go
 func RawRtdbhPutSingleCoorValue64Warp(handle ConnectHandle, id PointID, datetime TimestampType, subtime SubtimeType, x float32, y float32, quality Quality) RtdbError
@@ -11707,7 +11707,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_put\_single\_coor\_value64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_timestamp\_type datetime, rtdb\_subtime\_type subtime, rtdb\_float32 x, rtdb\_float32 y, rtdb\_int16 quality\)
 
 <a name="RawRtdbhPutSingleDatetimeValue64Warp"></a>
-### func [RawRtdbhPutSingleDatetimeValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12221>)
+### func [RawRtdbhPutSingleDatetimeValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12229>)
 
 ```go
 func RawRtdbhPutSingleDatetimeValue64Warp(handle ConnectHandle, id PointID, datetime TimestampType, subtime SubtimeType, blob []byte, quality Quality) RtdbError
@@ -11729,7 +11729,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_put\_single\_datetime\_value64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_timestamp\_type datetime, rtdb\_subtime\_type subtime, const rtdb\_byte\* blob, rtdb\_length\_type len, rtdb\_int16 quality\)
 
 <a name="RawRtdbhPutSingleNamedTypeValue64Warp"></a>
-### func [RawRtdbhPutSingleNamedTypeValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12401>)
+### func [RawRtdbhPutSingleNamedTypeValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12413>)
 
 ```go
 func RawRtdbhPutSingleNamedTypeValue64Warp(handle ConnectHandle, id PointID, datetime TimestampType, subtime SubtimeType, object []byte, quality Quality) RtdbError
@@ -11751,7 +11751,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_put\_single\_named\_type\_value64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_timestamp\_type datetime, rtdb\_subtime\_type subtime, const void\* object, rtdb\_length\_type length, rtdb\_int16 quality\)
 
 <a name="RawRtdbhPutSingleValue64Warp"></a>
-### func [RawRtdbhPutSingleValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12078>)
+### func [RawRtdbhPutSingleValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12086>)
 
 ```go
 func RawRtdbhPutSingleValue64Warp(handle ConnectHandle, id PointID, datetime TimestampType, subtime SubtimeType, value float64, state int64, quality Quality) RtdbError
@@ -11774,7 +11774,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_put\_single\_value64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_timestamp\_type datetime, rtdb\_subtime\_type subtime, rtdb\_float64 value, rtdb\_int64 state, rtdb\_int16 quality\)
 
 <a name="RawRtdbhRemoveValue64Warp"></a>
-### func [RawRtdbhRemoveValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12029>)
+### func [RawRtdbhRemoveValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12037>)
 
 ```go
 func RawRtdbhRemoveValue64Warp(handle ConnectHandle, id PointID, datetime TimestampType, subtime SubtimeType) RtdbError
@@ -11794,7 +11794,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_remove\_value64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_timestamp\_type datetime, rtdb\_subtime\_type subtime\)
 
 <a name="RawRtdbhRemoveValues64Warp"></a>
-### func [RawRtdbhRemoveValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12053>)
+### func [RawRtdbhRemoveValues64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12061>)
 
 ```go
 func RawRtdbhRemoveValues64Warp(handle ConnectHandle, id PointID, datetime1 TimestampType, subtime1 SubtimeType, datetime2 TimestampType, subtime2 SubtimeType) (int32, RtdbError)
@@ -11818,7 +11818,7 @@ output:
 raw\_fn: rtdb\_error RTDBAPI\_CALLRULE rtdbh\_remove\_values64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_timestamp\_type datetime1, rtdb\_subtime\_type subtime1, rtdb\_timestamp\_type datetime2, rtdb\_subtime\_type subtime2, rtdb\_int32\* count\)
 
 <a name="RawRtdbhUpdateCoorValue64Warp"></a>
-### func [RawRtdbhUpdateCoorValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12007>)
+### func [RawRtdbhUpdateCoorValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12015>)
 
 ```go
 func RawRtdbhUpdateCoorValue64Warp(handle ConnectHandle, id PointID, datetime TimestampType, subtime SubtimeType, x float32, y float32, quality Quality) RtdbError
@@ -11841,7 +11841,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_update\_coor\_value64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_timestamp\_type datetime, rtdb\_subtime\_type subtime, rtdb\_float32 x, rtdb\_float32 y, rtdb\_int16 quality\)
 
 <a name="RawRtdbhUpdateValue64Warp"></a>
-### func [RawRtdbhUpdateValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11982>)
+### func [RawRtdbhUpdateValue64Warp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L11990>)
 
 ```go
 func RawRtdbhUpdateValue64Warp(handle ConnectHandle, id PointID, datetime TimestampType, subtime SubtimeType, value float64, state int64, quality Quality) RtdbError
@@ -11864,7 +11864,7 @@ raw\_fn:
 - rtdb\_error RTDBAPI\_CALLRULE rtdbh\_update\_value64\_warp\(rtdb\_int32 handle, rtdb\_int32 id, rtdb\_timestamp\_type datetime, rtdb\_subtime\_type subtime, rtdb\_float64 value, rtdb\_int64 state, rtdb\_int16 quality\)
 
 <a name="RawRtdbpGetPerfTagsCountWarp"></a>
-### func [RawRtdbpGetPerfTagsCountWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12588>)
+### func [RawRtdbpGetPerfTagsCountWarp](<https://github.com/kkbase/rtdb_api/blob/main/api.go#L12600>)
 
 ```go
 func RawRtdbpGetPerfTagsCountWarp(handle ConnectHandle) (int32, RtdbError)
