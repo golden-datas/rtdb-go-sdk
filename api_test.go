@@ -5558,8 +5558,17 @@ func TestRawRtdbhGetSingleValue64Warp(t *testing.T) {
 		fmt.Println("  结果：通过 —— 预写入历史数据成功")
 	}
 
+	fmt.Println("【步骤4b】刷盘历史缓存（预期：成功）")
+	_, err = RawRtdbhFlushArchivedValuesWarp(handle, pid)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：警告 —— 刷盘历史缓存: %s\n", err)
+		t.Logf("刷盘历史缓存(非致命): %v", err)
+	} else {
+		fmt.Println("  结果：通过 —— 历史缓存已刷盘")
+	}
+
 	fmt.Println("【步骤5】读取单值历史（Previous模式）（预期：成功）")
-	now = TimestampType(time.Now().Unix())
+	// 使用步骤4写入的 now 作为查询时间，确保落在已有数据区间内
 	_, _, val, state, qual, err := RawRtdbhGetSingleValue64Warp(handle, pid, RtdbHisModePrevious, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
