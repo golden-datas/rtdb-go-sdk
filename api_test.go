@@ -44,16 +44,29 @@ func disconnect(t *testing.T, handle ConnectHandle) {
 
 // prepareTestHistoryData 先写实时快照激活点，再批量写入 count 条测试历史数据，最后刷盘。
 // 返回当前时间戳，供后续步骤使用。
+// createTestPoint 使用全量接口创建测试标签点，默认关闭压缩
+func createTestPoint(t *testing.T, handle ConnectHandle, name string, tableID TableID) (PointID, RtdbError) {
+	base := NewDefaultPoint(name, RtdbTypeReal64, tableID, RtdbClassBase, RtdbPrecisionSecond)
+	base.Compress = OFF
+	base.Summary = ON
+	base, _, _, err := RawRtdbbInsertMaxPointWarp(handle, base, nil, nil)
+	if !RteIsOk(err) {
+		return 0, err
+	}
+	return base.ID, RteOk
+}
+
 func prepareTestHistoryData(t *testing.T, handle ConnectHandle, pid PointID, count int) (TimestampType, RtdbError) {
 	now := TimestampType(time.Now().Unix())
 
-	// 0. 关闭压缩，防止旋转门压缩过滤掉测试历史数据
+	// 0. 关闭压缩并开启统计加速
 	bases, _, _, _, err := RawRtdbbGetPointsPropertyWarp(handle, []PointID{pid})
 	if RteIsOk(err) && len(bases) > 0 {
 		bases[0].Compress = OFF
+		bases[0].Summary = ON
 		rte := RawRtdbbUpdatePointPropertyWarp(handle, &bases[0], nil, nil)
 		if !RteIsOk(rte) {
-			t.Logf("关闭压缩(非致命): %v", rte)
+			t.Logf("关闭压缩/开启统计(非致命): %v", rte)
 		}
 	}
 
@@ -64,6 +77,7 @@ func prepareTestHistoryData(t *testing.T, handle ConnectHandle, pid PointID, cou
 	}
 
 	// 2. 批量构造历史数据（count 个点，每10秒一个）
+	ids := make([]PointID, count)
 	dts := make([]TimestampType, count)
 	vals := make([]float64, count)
 	states := make([]int64, count)
@@ -72,6 +86,7 @@ func prepareTestHistoryData(t *testing.T, handle ConnectHandle, pid PointID, cou
 
 	start := now - TimestampType(count*10)
 	for i := 0; i < count; i++ {
+		ids[i] = pid
 		dts[i] = start + TimestampType(i*10)
 		vals[i] = float64(i + 1)
 		states[i] = 0
@@ -79,7 +94,7 @@ func prepareTestHistoryData(t *testing.T, handle ConnectHandle, pid PointID, cou
 		subs[i] = 0
 	}
 
-	_, err = RawRtdbhPutArchivedValues64Warp(handle, []PointID{pid}, dts, subs, vals, states, quals)
+	_, err = RawRtdbhPutArchivedValues64Warp(handle, ids, dts, subs, vals, states, quals)
 	if !RteIsOk(err) {
 		return now, err
 	}
@@ -5410,6 +5425,135 @@ func TestRawRtdbaConvertIndexWarp(t *testing.T) {
 
 // ==================== 10. 历史数据查询 ====================
 
+// createTestCoorPoint 创建坐标类型测试点
+func createTestCoorPoint(t *testing.T, handle ConnectHandle, name string, tableID TableID) (PointID, RtdbError) {
+	base := NewDefaultPoint(name, RtdbTypeCoor, tableID, RtdbClassBase, RtdbPrecisionSecond)
+	base.Compress = OFF
+	base.Summary = ON
+	base, _, _, err := RawRtdbbInsertMaxPointWarp(handle, base, nil, nil)
+	if !RteIsOk(err) {
+		return 0, err
+	}
+	return base.ID, RteOk
+}
+
+// prepareTestCoorHistoryData 为坐标类型点批量写入测试历史数据
+func prepareTestCoorHistoryData(t *testing.T, handle ConnectHandle, pid PointID, count int) (TimestampType, RtdbError) {
+	now := TimestampType(time.Now().Unix())
+
+	ids := make([]PointID, count)
+	dts := make([]TimestampType, count)
+	xs := make([]float32, count)
+	ys := make([]float32, count)
+	quals := make([]Quality, count)
+	subs := make([]SubtimeType, count)
+
+	start := now - TimestampType(count*10)
+	for i := 0; i < count; i++ {
+		ids[i] = pid
+		dts[i] = start + TimestampType(i*10)
+		xs[i] = float32(i + 1)
+		ys[i] = float32(i + 2)
+		quals[i] = 0
+		subs[i] = 0
+	}
+
+	_, err := RawRtdbhPutArchivedCoorValues64Warp(handle, ids, dts, subs, xs, ys, quals)
+	if !RteIsOk(err) {
+		return now, err
+	}
+	_, _ = RawRtdbhFlushArchivedValuesWarp(handle, pid)
+	return now, RteOk
+}
+
+// createTestPointOfType 创建指定类型的测试点
+func createTestPointOfType(t *testing.T, handle ConnectHandle, name string, tableID TableID, rtdbType RtdbType) (PointID, RtdbError) {
+	base := NewDefaultPoint(name, rtdbType, tableID, RtdbClassBase, RtdbPrecisionSecond)
+	base.Compress = OFF
+	base.Summary = ON
+	base, _, _, err := RawRtdbbInsertMaxPointWarp(handle, base, nil, nil)
+	if !RteIsOk(err) {
+		return 0, err
+	}
+	return base.ID, RteOk
+}
+
+// prepareTestBlobHistoryData 为字符串/Blob类型点批量写入测试历史数据
+func prepareTestBlobHistoryData(t *testing.T, handle ConnectHandle, pid PointID, count int, isString bool) (TimestampType, RtdbError) {
+	now := TimestampType(time.Now().Unix())
+
+	ids := make([]PointID, count)
+	dts := make([]TimestampType, count)
+	blobs := make([][]byte, count)
+	quals := make([]Quality, count)
+	subs := make([]SubtimeType, count)
+	isStrings := make([]bool, count)
+
+	start := now - TimestampType(count*10)
+	for i := 0; i < count; i++ {
+		ids[i] = pid
+		dts[i] = start + TimestampType(i*10)
+		blobs[i] = []byte(fmt.Sprintf("test-data-%d", i+1))
+		quals[i] = 0
+		subs[i] = 0
+		isStrings[i] = isString
+	}
+
+	_, err := RawRtdbhPutArchivedBlobValues64Warp(handle, ids, isStrings, dts, subs, blobs, quals)
+	if !RteIsOk(err) {
+		return now, err
+	}
+	_, _ = RawRtdbhFlushArchivedValuesWarp(handle, pid)
+	return now, RteOk
+}
+
+// prepareTestDatetimeHistoryData 为datetime类型点批量写入测试历史数据
+func prepareTestDatetimeHistoryData(t *testing.T, handle ConnectHandle, pid PointID, count int) (TimestampType, RtdbError) {
+	now := TimestampType(time.Now().Unix())
+
+	ids := make([]PointID, count)
+	dts := make([]TimestampType, count)
+	dtValues := make([]string, count)
+	quals := make([]Quality, count)
+	subs := make([]SubtimeType, count)
+
+	start := now - TimestampType(count*10)
+	for i := 0; i < count; i++ {
+		ids[i] = pid
+		dts[i] = start + TimestampType(i*10)
+		dtValues[i] = time.Unix(int64(dts[i]), 0).Format("2006-01-02 15:04:05")
+		quals[i] = 0
+		subs[i] = 0
+	}
+
+	_, err := RawRtdbhPutArchivedDatetimeValues64Warp(handle, ids, dts, subs, dtValues, quals)
+	if !RteIsOk(err) {
+		return now, err
+	}
+	_, _ = RawRtdbhFlushArchivedValuesWarp(handle, pid)
+	return now, RteOk
+}
+
+// cleanupTableIfExists 清理已存在的同名表（包括表中的点和回收站）
+func cleanupTableIfExists(handle ConnectHandle, name string) {
+	tbl, err := RawRtdbbGetTablePropertyByNameWarp(handle, name)
+	if !RteIsOk(err) || tbl.ID == 0 {
+		return
+	}
+	ids, _ := RawRtdbbSearchExWarp(handle, 100, "*", name, "", "", "", "", "", 0, 0, 0, "", RtdbSortFlag(0))
+	for _, pid := range ids {
+		_ = RawRtdbbRemovePointByIdWarp(handle, pid)
+	}
+	_ = RawRtdbbClearRecyclerWarp(handle)
+	_ = RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+}
+
+// createCleanTempTable 创建临时表，若同名表已存在则先清理
+func createCleanTempTable(handle ConnectHandle, name, desc string) (RtdbTable, RtdbError) {
+	cleanupTableIfExists(handle, name)
+	return RawRtdbbAppendTableWarp(handle, name, desc)
+}
+
 // TC-HCNT-01 统计历史值数量
 func TestRawRtdbhArchivedValuesCount64Warp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
@@ -5418,7 +5562,7 @@ func TestRawRtdbhArchivedValuesCount64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisCnt", "测试统计历史值数量")
+	tbl, err := createCleanTempTable(handle, "TestTblHisCnt", "测试统计历史值数量")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -5437,7 +5581,7 @@ func TestRawRtdbhArchivedValuesCount64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisCnt", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisCnt", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -5484,7 +5628,7 @@ func TestRawRtdbhGetArchivedValues64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisGet", "测试正向读取历史数据")
+	tbl, err := createCleanTempTable(handle, "TestTblHisGet", "测试正向读取历史数据")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -5503,7 +5647,7 @@ func TestRawRtdbhGetArchivedValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisGet", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisGet", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -5546,7 +5690,7 @@ func TestRawRtdbhGetArchivedValues64Warp(t *testing.T) {
 	_ = quals
 }
 
-// TC-HSNG-01 读取单值历史（Previous模式）
+// TC-HSNG-01 读取单值历史
 func TestRawRtdbhGetSingleValue64Warp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
@@ -5554,7 +5698,7 @@ func TestRawRtdbhGetSingleValue64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisSng", "测试读取单值历史")
+	tbl, err := createCleanTempTable(handle, "TestTblHisSng", "测试读取单值历史")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -5573,7 +5717,7 @@ func TestRawRtdbhGetSingleValue64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisSng", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisSng", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -5602,7 +5746,7 @@ func TestRawRtdbhGetSingleValue64Warp(t *testing.T) {
 
 	fmt.Println("【步骤5】读取单值历史（Previous模式）（预期：成功）")
 	// 使用步骤4写入的 now 作为查询时间，确保落在已有数据区间内
-	_, _, val, state, qual, err := RawRtdbhGetSingleValue64Warp(handle, pid, RtdbHisModePrevious, now, 0)
+	_, _, val, state, qual, err := RawRtdbhGetSingleValue64Warp(handle, pid, RtdbHisModeExactOrPrev, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("获取单值历史: %v", err)
@@ -5619,7 +5763,7 @@ func TestRawRtdbhSummaryDataWarp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisSum", "测试获取统计值")
+	tbl, err := createCleanTempTable(handle, "TestTblHisSum", "测试获取统计值")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -5638,7 +5782,7 @@ func TestRawRtdbhSummaryDataWarp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisSum", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisSum", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -5685,7 +5829,7 @@ func TestRawRtdbhGetPlotValues64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisPlt", "测试获取绘图数据")
+	tbl, err := createCleanTempTable(handle, "TestTblHisPlt", "测试获取绘图数据")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -5704,7 +5848,7 @@ func TestRawRtdbhGetPlotValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisPlt", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisPlt", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -5750,21 +5894,63 @@ func TestRawRtdbhGetCrossSectionValues64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchWarp(handle, "*", "*", "", "", "", "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无标签点")
-		t.Skip("无标签点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblHisCrs", "测试断面数据")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】获取断面数据（预期：成功）")
-	count := 3
-	if len(ids) < count {
-		count = len(ids)
+	fmt.Println("【步骤3】创建3个 Real64 标签点（预期：成功）")
+	pids := make([]PointID, 3)
+	for i := 0; i < 3; i++ {
+		name := fmt.Sprintf("TestPtHisCrs%d", i)
+		pid, rte := createTestPoint(t, handle, name, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Errorf("创建标签点%d失败: %v", i, rte)
+			return
+		}
+		pids[i] = pid
+		fmt.Printf("  结果：通过 —— 标签点%d ID=%d\n", i, pid)
+		defer func(idx int, id PointID) {
+			fmt.Printf("【清理】删除标签点%d（预期：成功）\n", idx)
+			rte := RawRtdbbRemovePointByIdWarp(handle, id)
+			if !RteIsOk(rte) {
+				fmt.Printf("  结果：失败 —— %s\n", rte)
+				t.Logf("清理标签点%d失败: %s", idx, rte)
+			} else {
+				fmt.Printf("  结果：通过 —— 标签点%d已删除\n", idx)
+			}
+		}(i, pid)
 	}
+
+	fmt.Println("【步骤4】预写入历史数据（预期：成功）")
+	for i, pid := range pids {
+		_, rte := prepareTestHistoryData(t, handle, pid, 30)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— 标签点%d: %s\n", i, rte)
+			t.Logf("预写入历史数据(点%d): %v", i, rte)
+		} else {
+			fmt.Printf("  结果：通过 —— 标签点%d历史数据已写入\n", i)
+		}
+	}
+
+	fmt.Println("【步骤5】获取断面数据（预期：成功）")
 	now := TimestampType(time.Now().Unix())
-	_, _, _, _, _, _, err := RawRtdbhGetCrossSectionValues64Warp(handle, ids[:count], RtdbHisModePrevious, now, 0)
+	_, _, _, _, _, _, err = RawRtdbhGetCrossSectionValues64Warp(handle, pids, RtdbHisModePrevious, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("获取断面数据: %v", err)
@@ -5781,7 +5967,7 @@ func TestRawRtdbhArchivedValuesRealCount64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisRCnt", "测试真实存储值数量")
+	tbl, err := createCleanTempTable(handle, "TestTblHisRCnt", "测试真实存储值数量")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -5800,7 +5986,7 @@ func TestRawRtdbhArchivedValuesRealCount64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisRCnt", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisRCnt", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -5847,7 +6033,7 @@ func TestRawRtdbhGetArchivedValuesBackward64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisBwd", "测试逆向读取历史")
+	tbl, err := createCleanTempTable(handle, "TestTblHisBwd", "测试逆向读取历史")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -5866,7 +6052,7 @@ func TestRawRtdbhGetArchivedValuesBackward64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisBwd", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisBwd", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -5916,18 +6102,56 @@ func TestRawRtdbhGetArchivedCoorValues64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索坐标类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "coor", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无坐标类型点")
-		t.Skip("无坐标类型点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblHisCoor", "测试坐标历史数据")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个坐标类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】正向读取坐标历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
+	fmt.Println("【步骤3】创建坐标类型标签点（预期：成功）")
+	pid, err := createTestCoorPoint(t, handle, "TestPtHisCoor", tbl.ID)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建坐标标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】预写入坐标历史数据（预期：成功）")
+	now, err := prepareTestCoorHistoryData(t, handle, pid, 30)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Logf("预写入坐标历史数据: %v", err)
+	} else {
+		fmt.Println("  结果：通过 —— 预写入坐标历史数据成功")
+	}
+
+	fmt.Println("【步骤5】正向读取坐标历史数据（预期：成功）")
 	past := now - 3600*24
-	dts, sts, xs, ys, quals, err := RawRtdbhGetArchivedCoorValues64Warp(handle, ids[0], 100, past, 0, now, 0)
+	dts, sts, xs, ys, quals, err := RawRtdbhGetArchivedCoorValues64Warp(handle, pid, 100, past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("读取坐标历史: %v", err)
@@ -5947,18 +6171,56 @@ func TestRawRtdbhGetArchivedCoorValuesBackward64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索坐标类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "coor", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无坐标类型点")
-		t.Skip("无坐标类型点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblHisCoorB", "测试逆向坐标历史")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个坐标类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】逆向读取坐标历史数据（预期：成功）")
-	now := TimestampType(time.Now().Unix())
+	fmt.Println("【步骤3】创建坐标类型标签点（预期：成功）")
+	pid, err := createTestCoorPoint(t, handle, "TestPtHisCoorB", tbl.ID)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建坐标标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】预写入坐标历史数据（预期：成功）")
+	now, err := prepareTestCoorHistoryData(t, handle, pid, 30)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Logf("预写入坐标历史数据: %v", err)
+	} else {
+		fmt.Println("  结果：通过 —— 预写入坐标历史数据成功")
+	}
+
+	fmt.Println("【步骤5】逆向读取坐标历史数据（预期：成功）")
 	past := now - 3600*24
-	dts, _, _, _, _, err := RawRtdbhGetArchivedCoorValuesBackward64Warp(handle, ids[0], 100, past, 0, now, 0)
+	dts, _, _, _, _, err := RawRtdbhGetArchivedCoorValuesBackward64Warp(handle, pid, 100, past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("逆向读取坐标历史: %v", err)
@@ -5975,7 +6237,7 @@ func TestRawRtdbhGetArchivedValuesInBatches64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisBat", "测试分段读取")
+	tbl, err := createCleanTempTable(handle, "TestTblHisBat", "测试分段读取")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -5994,7 +6256,7 @@ func TestRawRtdbhGetArchivedValuesInBatches64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisBat", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisBat", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -6041,7 +6303,7 @@ func TestRawRtdbhGetNextArchivedValues64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisNxt", "测试读取下一段")
+	tbl, err := createCleanTempTable(handle, "TestTblHisNxt", "测试读取下一段")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -6060,7 +6322,7 @@ func TestRawRtdbhGetNextArchivedValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisNxt", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisNxt", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -6115,7 +6377,7 @@ func TestRawRtdbhGetTimedValues64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisTim", "测试指定时间插值")
+	tbl, err := createCleanTempTable(handle, "TestTblHisTim", "测试指定时间插值")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -6134,7 +6396,7 @@ func TestRawRtdbhGetTimedValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisTim", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisTim", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -6182,18 +6444,57 @@ func TestRawRtdbhGetTimedCoorValues64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索坐标类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "coor", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无坐标类型点")
-		t.Skip("无坐标类型点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblTimC", "测试坐标插值")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个坐标类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】坐标型指定时间插值（预期：成功）")
+	fmt.Println("【步骤3】创建坐标类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtTimC", tbl.ID, RtdbTypeCoor)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建坐标标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】预写入坐标历史数据（预期：成功）")
+	_, err = prepareTestCoorHistoryData(t, handle, pid, 30)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Logf("预写入坐标历史数据: %v", err)
+	} else {
+		fmt.Println("  结果：通过 —— 预写入坐标历史数据成功")
+	}
+
+	fmt.Println("【步骤5】坐标型指定时间插值（预期：成功）")
 	now := TimestampType(time.Now().Unix())
 	datetimes := []TimestampType{now - 3600, now - 1800, now}
-	xs, ys, quals, err := RawRtdbhGetTimedCoorValues64Warp(handle, ids[0], datetimes, []SubtimeType{0, 0, 0})
+	xs, ys, quals, err := RawRtdbhGetTimedCoorValues64Warp(handle, pid, datetimes, []SubtimeType{0, 0, 0})
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("坐标插值: %v", err)
@@ -6212,7 +6513,7 @@ func TestRawRtdbhGetInterpoValues64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisInt", "测试等间隔插值")
+	tbl, err := createCleanTempTable(handle, "TestTblHisInt", "测试等间隔插值")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -6231,7 +6532,7 @@ func TestRawRtdbhGetInterpoValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisInt", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisInt", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -6278,7 +6579,7 @@ func TestRawRtdbhGetIntervalValues64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisIvl", "测试等间隔读取")
+	tbl, err := createCleanTempTable(handle, "TestTblHisIvl", "测试等间隔读取")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -6297,7 +6598,7 @@ func TestRawRtdbhGetIntervalValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisIvl", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisIvl", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -6343,17 +6644,56 @@ func TestRawRtdbhGetSingleCoorValue64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索坐标类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "coor", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无坐标类型点")
-		t.Skip("无坐标类型点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblSngC", "测试坐标单值")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个坐标类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】读取坐标型单值（预期：成功）")
+	fmt.Println("【步骤3】创建坐标类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtSngC", tbl.ID, RtdbTypeCoor)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建坐标标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】预写入坐标历史数据（预期：成功）")
+	_, err = prepareTestCoorHistoryData(t, handle, pid, 30)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Logf("预写入坐标历史数据: %v", err)
+	} else {
+		fmt.Println("  结果：通过 —— 预写入坐标历史数据成功")
+	}
+
+	fmt.Println("【步骤5】读取坐标型单值（预期：成功）")
 	now := TimestampType(time.Now().Unix())
-	_, _, x, y, _, err := RawRtdbhGetSingleCoorValue64Warp(handle, ids[0], RtdbHisModePrevious, now, 0)
+	_, _, x, y, _, err := RawRtdbhGetSingleCoorValue64Warp(handle, pid, RtdbHisModeExactOrPrev, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("读取坐标单値: %v", err)
@@ -6369,17 +6709,56 @@ func TestRawRtdbhGetSingleBlobValue64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索字符串类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "string", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无字符串点")
-		t.Skip("无字符串点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblSngB", "测试字符串单值")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个字符串类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】读取 Blob 单值（预期：成功）")
+	fmt.Println("【步骤3】创建字符串类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtSngB", tbl.ID, RtdbTypeString)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建字符串标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】预写入字符串历史数据（预期：成功）")
+	_, err = prepareTestBlobHistoryData(t, handle, pid, 30, true)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Logf("预写入字符串历史数据: %v", err)
+	} else {
+		fmt.Println("  结果：通过 —— 预写入字符串历史数据成功")
+	}
+
+	fmt.Println("【步骤5】读取 Blob 单值（预期：成功）")
 	now := TimestampType(time.Now().Unix())
-	_, _, blob, _, err := RawRtdbhGetSingleBlobValue64Warp(handle, ids[0], RtdbHisModePrevious, now, 0, 256)
+	_, _, blob, _, err := RawRtdbhGetSingleBlobValue64Warp(handle, pid, RtdbHisModeExactOrPrev, now, 0, 256)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("读取Blob单値: %v", err)
@@ -6395,17 +6774,56 @@ func TestRawRtdbhGetSingleDatetimeValue64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索 datetime 类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "datetime", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无 datetime 点")
-		t.Skip("无datetime点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblSngD", "测试datetime单值")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个 datetime 类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】读取 datetime 单值（预期：成功）")
+	fmt.Println("【步骤3】创建 datetime 类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtSngD", tbl.ID, RtdbTypeDatetime)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建 datetime 标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】预写入 datetime 历史数据（预期：成功）")
+	_, err = prepareTestDatetimeHistoryData(t, handle, pid, 30)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Logf("预写入 datetime 历史数据: %v", err)
+	} else {
+		fmt.Println("  结果：通过 —— 预写入 datetime 历史数据成功")
+	}
+
+	fmt.Println("【步骤5】读取 datetime 单值（预期：成功）")
 	now := TimestampType(time.Now().Unix())
-	_, _, blob, _, err := RawRtdbhGetSingleDatetimeValue64Warp(handle, ids[0], RtdbHisModePrevious, now, 0, -1)
+	_, _, blob, _, err := RawRtdbhGetSingleDatetimeValue64Warp(handle, pid, RtdbHisModeExactOrPrev, now, 0, -1)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("读取datetime单値: %v", err)
@@ -6421,18 +6839,57 @@ func TestRawRtdbhGetArchivedBlobValues64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索字符串类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "string", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无字符串点")
-		t.Skip("无字符串点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblBlb", "测试字符串批量历史")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个字符串类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】批量读取 Blob 历史数据（预期：成功）")
+	fmt.Println("【步骤3】创建字符串类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtBlb", tbl.ID, RtdbTypeString)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建字符串标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】预写入字符串历史数据（预期：成功）")
+	_, err = prepareTestBlobHistoryData(t, handle, pid, 30, true)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Logf("预写入字符串历史数据: %v", err)
+	} else {
+		fmt.Println("  结果：通过 —— 预写入字符串历史数据成功")
+	}
+
+	fmt.Println("【步骤5】批量读取 Blob 历史数据（预期：成功）")
 	now := TimestampType(time.Now().Unix())
 	past := now - 3600*24
-	dts, _, blobs, quals, err := RawRtdbhGetArchivedBlobValues64Warp(handle, ids[0], 10, true, past, 0, now, 0, 256)
+	dts, _, blobs, quals, err := RawRtdbhGetArchivedBlobValues64Warp(handle, pid, 10, true, past, 0, now, 0, 256)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("批量读取Blob历史: %v", err)
@@ -6450,18 +6907,57 @@ func TestRawRtdbhGetArchivedBlobValuesFilt64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索字符串类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "string", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无字符串点")
-		t.Skip("无字符串点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblBlbF", "测试Blob模糊搜索")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个字符串类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】模糊搜索批量读取 Blob 历史（预期：成功）")
+	fmt.Println("【步骤3】创建字符串类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtBlbF", tbl.ID, RtdbTypeString)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建字符串标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】预写入字符串历史数据（预期：成功）")
+	_, err = prepareTestBlobHistoryData(t, handle, pid, 30, true)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Logf("预写入字符串历史数据: %v", err)
+	} else {
+		fmt.Println("  结果：通过 —— 预写入字符串历史数据成功")
+	}
+
+	fmt.Println("【步骤5】模糊搜索批量读取 Blob 历史（预期：成功）")
 	now := TimestampType(time.Now().Unix())
 	past := now - 3600*24
-	dts, _, blobs, quals, err := RawRtdbhGetArchivedBlobValuesFilt64Warp(handle, ids[0], 256, 10, true, "*", past, 0, now, 0)
+	dts, _, blobs, quals, err := RawRtdbhGetArchivedBlobValuesFilt64Warp(handle, pid, 256, 10, true, "*", past, 0, now, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("模糊搜索Blob历史: %v", err)
@@ -6479,18 +6975,57 @@ func TestRawRtdbhGetArchivedDatetimeValues64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索 datetime 类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "datetime", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无 datetime 点")
-		t.Skip("无datetime点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblDt", "测试datetime批量历史")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个 datetime 类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】批量读取 datetime 历史（预期：成功）")
+	fmt.Println("【步骤3】创建 datetime 类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtDt", tbl.ID, RtdbTypeDatetime)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建 datetime 标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】预写入 datetime 历史数据（预期：成功）")
+	_, err = prepareTestDatetimeHistoryData(t, handle, pid, 30)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Logf("预写入 datetime 历史数据: %v", err)
+	} else {
+		fmt.Println("  结果：通过 —— 预写入 datetime 历史数据成功")
+	}
+
+	fmt.Println("【步骤5】批量读取 datetime 历史（预期：成功）")
 	now := TimestampType(time.Now().Unix())
 	past := now - 3600*24
-	dts, _, blobs, quals, err := RawRtdbhGetArchivedDatetimeValues64Warp(handle, ids[0], 10, past, 0, now, 0, -1)
+	dts, _, blobs, quals, err := RawRtdbhGetArchivedDatetimeValues64Warp(handle, pid, 10, past, 0, now, 0, -1)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("批量读取datetime历史: %v", err)
@@ -6509,7 +7044,7 @@ func TestRawRtdbhSummaryDataInBatchesWarp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisSIB", "测试分批统计")
+	tbl, err := createCleanTempTable(handle, "TestTblHisSIB", "测试分批统计")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -6528,7 +7063,7 @@ func TestRawRtdbhSummaryDataInBatchesWarp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisSIB", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisSIB", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -6576,7 +7111,7 @@ func TestRawRtdbhGetArchivedValuesFilt64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisFlt", "测试条件过滤读取")
+	tbl, err := createCleanTempTable(handle, "TestTblHisFlt", "测试条件过滤读取")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -6595,7 +7130,7 @@ func TestRawRtdbhGetArchivedValuesFilt64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisFlt", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisFlt", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -6642,7 +7177,7 @@ func TestRawRtdbhGetIntervalValuesFilt64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisIFlt", "测试过滤等间隔读取")
+	tbl, err := createCleanTempTable(handle, "TestTblHisIFlt", "测试过滤等间隔读取")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -6661,7 +7196,7 @@ func TestRawRtdbhGetIntervalValuesFilt64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisIFlt", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisIFlt", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -6708,7 +7243,7 @@ func TestRawRtdbhGetInterpoValuesFilt64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisIPFlt", "测试过滤等间隔插值")
+	tbl, err := createCleanTempTable(handle, "TestTblHisIPFlt", "测试过滤等间隔插值")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -6727,7 +7262,7 @@ func TestRawRtdbhGetInterpoValuesFilt64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisIPFlt", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisIPFlt", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -6774,7 +7309,7 @@ func TestRawRtdbhSummaryDataFiltWarp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisSF", "测试过滤统计")
+	tbl, err := createCleanTempTable(handle, "TestTblHisSF", "测试过滤统计")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -6793,7 +7328,7 @@ func TestRawRtdbhSummaryDataFiltWarp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisSF", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisSF", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -6840,7 +7375,7 @@ func TestRawRtdbhSummaryDataFiltInBatchesWarp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisSFB", "测试过滤分批统计")
+	tbl, err := createCleanTempTable(handle, "TestTblHisSFB", "测试过滤分批统计")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -6859,7 +7394,7 @@ func TestRawRtdbhSummaryDataFiltInBatchesWarp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisSFB", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisSFB", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -6964,7 +7499,7 @@ func TestRawRtdbhPutSingleValue64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisPut", "测试写入历史单值")
+	tbl, err := createCleanTempTable(handle, "TestTblHisPut", "测试写入历史单值")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -6983,7 +7518,7 @@ func TestRawRtdbhPutSingleValue64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisPut", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisPut", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -7020,7 +7555,7 @@ func TestRawRtdbhPutArchivedValues64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisPutB", "测试批量写入历史")
+	tbl, err := createCleanTempTable(handle, "TestTblHisPutB", "测试批量写入历史")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -7039,7 +7574,7 @@ func TestRawRtdbhPutArchivedValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisPutB", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisPutB", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -7076,7 +7611,7 @@ func TestRawRtdbhUpdateValue64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisUpd", "测试更新历史值")
+	tbl, err := createCleanTempTable(handle, "TestTblHisUpd", "测试更新历史值")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -7095,7 +7630,7 @@ func TestRawRtdbhUpdateValue64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisUpd", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisUpd", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -7133,24 +7668,54 @@ func TestRawRtdbhUpdateValue64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 更新历史值成功")
 }
 
-// TC-HPSC-01 写入坐标型历史单値
+// TC-HPSC-01 写入坐标型历史単値
 func TestRawRtdbhPutSingleCoorValue64Warp(t *testing.T) {
 	fmt.Println("【步骤1】连接并登录（预期：成功）")
 	handle := connectAndLogin(t)
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索坐标类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "coor", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无坐标点")
-		t.Skip("无坐标点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblPSC", "测试写入坐标单值")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个坐标类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】写入坐标型历史单值（预期：成功）")
+	fmt.Println("【步骤3】创建坐标类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtPSC", tbl.ID, RtdbTypeCoor)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建坐标标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】写入坐标型历史单值（预期：成功）")
 	now := TimestampType(time.Now().Unix())
-	err := RawRtdbhPutSingleCoorValue64Warp(handle, ids[0], now, 0, 1.1, 2.2, 0)
+	err = RawRtdbhPutSingleCoorValue64Warp(handle, pid, now, 0, 1.1, 2.2, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("写入坐标历史单値: %v", err)
@@ -7166,17 +7731,47 @@ func TestRawRtdbhPutSingleBlobValue64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索字符串类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "string", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无字符串点")
-		t.Skip("无字符串点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblPSB", "测试写入Blob单值")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个字符串类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】写入 Blob 历史单值（预期：成功）")
+	fmt.Println("【步骤3】创建字符串类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtPSB", tbl.ID, RtdbTypeString)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建字符串标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】写入 Blob 历史单值（预期：成功）")
 	now := TimestampType(time.Now().Unix())
-	err := RawRtdbhPutSingleBlobValue64Warp(handle, ids[0], true, now, 0, []byte("testvalue"), 0)
+	err = RawRtdbhPutSingleBlobValue64Warp(handle, pid, true, now, 0, []byte("testvalue"), 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("写入Blob历史单値: %v", err)
@@ -7192,17 +7787,47 @@ func TestRawRtdbhPutSingleDatetimeValue64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索 datetime 类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "datetime", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无 datetime 点")
-		t.Skip("无datetime点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblPSD", "测试写入datetime单值")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个 datetime 类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】写入 datetime 历史单值（预期：成功）")
+	fmt.Println("【步骤3】创建 datetime 类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtPSD", tbl.ID, RtdbTypeDatetime)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建 datetime 标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】写入 datetime 历史单值（预期：成功）")
 	now := TimestampType(time.Now().Unix())
-	err := RawRtdbhPutSingleDatetimeValue64Warp(handle, ids[0], now, 0, []byte("2026-01-01T00:00:00"), 0)
+	err = RawRtdbhPutSingleDatetimeValue64Warp(handle, pid, now, 0, []byte("2026-01-01T00:00:00"), 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("写入datetime历史单値: %v", err)
@@ -7244,18 +7869,48 @@ func TestRawRtdbhPutArchivedCoorValues64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索坐标类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "coor", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无坐标点")
-		t.Skip("无坐标点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblPAC", "测试批量写入坐标")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个坐标类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】批量写入坐标历史数据（预期：成功）")
+	fmt.Println("【步骤3】创建坐标类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtPAC", tbl.ID, RtdbTypeCoor)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建坐标标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】批量写入坐标历史数据（预期：成功）")
 	now := TimestampType(time.Now().Unix())
-	_, err := RawRtdbhPutArchivedCoorValues64Warp(handle,
-		[]PointID{ids[0]}, []TimestampType{now}, []SubtimeType{0},
+	_, err = RawRtdbhPutArchivedCoorValues64Warp(handle,
+		[]PointID{pid}, []TimestampType{now}, []SubtimeType{0},
 		[]float32{1.1}, []float32{2.2}, []Quality{0})
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -7272,18 +7927,48 @@ func TestRawRtdbhPutArchivedBlobValues64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索字符串类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "string", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无字符串点")
-		t.Skip("无字符串点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblPAB", "测试批量写入Blob")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个字符串类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】批量写入 Blob 历史数据（预期：成功）")
+	fmt.Println("【步骤3】创建字符串类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtPAB", tbl.ID, RtdbTypeString)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建字符串标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】批量写入 Blob 历史数据（预期：成功）")
 	now := TimestampType(time.Now().Unix())
-	_, err := RawRtdbhPutArchivedBlobValues64Warp(handle,
-		[]PointID{ids[0]}, []bool{true}, []TimestampType{now}, []SubtimeType{0},
+	_, err = RawRtdbhPutArchivedBlobValues64Warp(handle,
+		[]PointID{pid}, []bool{true}, []TimestampType{now}, []SubtimeType{0},
 		[][]byte{[]byte("testblob")}, []Quality{0})
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -7300,18 +7985,48 @@ func TestRawRtdbhPutArchivedDatetimeValues64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索 datetime 类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "datetime", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无 datetime 点")
-		t.Skip("无datetime点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblPAD", "测试批量写入datetime")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个 datetime 类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】批量写入 datetime 历史数据（预期：成功）")
+	fmt.Println("【步骤3】创建 datetime 类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtPAD", tbl.ID, RtdbTypeDatetime)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建 datetime 标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】批量写入 datetime 历史数据（预期：成功）")
 	now := TimestampType(time.Now().Unix())
-	_, err := RawRtdbhPutArchivedDatetimeValues64Warp(handle,
-		[]PointID{ids[0]}, []TimestampType{now}, []SubtimeType{0},
+	_, err = RawRtdbhPutArchivedDatetimeValues64Warp(handle,
+		[]PointID{pid}, []TimestampType{now}, []SubtimeType{0},
 		[]string{"2026-01-01T00:00:00"}, []Quality{0})
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
@@ -7356,17 +8071,56 @@ func TestRawRtdbhUpdateCoorValue64Warp(t *testing.T) {
 	defer disconnect(t, handle)
 	fmt.Println("  结果：通过 —— 登录成功")
 
-	fmt.Println("【步骤2】搜索坐标类型标签点（预期：成功）")
-	ids, _ := RawRtdbbSearchExWarp(handle, 10, "*", "*", "", "", "", "", "coor", 0, 0, 0, "", RtdbSortFlag(0))
-	if len(ids) == 0 {
-		fmt.Println("  结果：跳过 —— 无坐标点")
-		t.Skip("无坐标点")
+	fmt.Println("【步骤2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblUpdC", "测试修改坐标历史")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
 	}
-	fmt.Printf("  结果：通过 —— 找到 %d 个坐标类型标签点\n", len(ids))
+	fmt.Printf("  结果：通过 —— 临时表ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
 
-	fmt.Println("【步骤3】修改坐标型历史值（预期：成功）")
+	fmt.Println("【步骤3】创建坐标类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtUpdC", tbl.ID, RtdbTypeCoor)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建坐标标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败: %s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤4】预写入坐标历史数据（预期：成功）")
+	_, err = prepareTestCoorHistoryData(t, handle, pid, 5)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Logf("预写入坐标历史数据: %v", err)
+	} else {
+		fmt.Println("  结果：通过 —— 预写入坐标历史数据成功")
+	}
+
+	fmt.Println("【步骤5】修改坐标型历史值（预期：成功）")
 	now := TimestampType(time.Now().Unix())
-	err := RawRtdbhUpdateCoorValue64Warp(handle, ids[0], now, 0, 3.3, 4.4, 0)
+	err = RawRtdbhUpdateCoorValue64Warp(handle, pid, now, 0, 3.3, 4.4, 0)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Logf("修改坐标历史値: %v", err)
@@ -7383,7 +8137,7 @@ func TestRawRtdbhRemoveValues64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisRmv", "测试删除历史区间")
+	tbl, err := createCleanTempTable(handle, "TestTblHisRmv", "测试删除历史区间")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -7402,7 +8156,7 @@ func TestRawRtdbhRemoveValues64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisRmv", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisRmv", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -7449,7 +8203,7 @@ func TestRawRtdbhRemoveValue64Warp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisRm1", "测试删除单个历史值")
+	tbl, err := createCleanTempTable(handle, "TestTblHisRm1", "测试删除单个历史值")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -7468,7 +8222,7 @@ func TestRawRtdbhRemoveValue64Warp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisRm1", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisRm1", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -7514,7 +8268,7 @@ func TestRawRtdbhFlushArchivedValuesWarp(t *testing.T) {
 	fmt.Println("  结果：通过 —— 登录成功")
 
 	fmt.Println("【步骤2】创建临时表（预期：成功）")
-	tbl, err := RawRtdbbAppendTableWarp(handle, "TestTblHisFlu", "测试刷新历史缓存")
+	tbl, err := createCleanTempTable(handle, "TestTblHisFlu", "测试刷新历史缓存")
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建临时表失败:", err)
@@ -7533,7 +8287,7 @@ func TestRawRtdbhFlushArchivedValuesWarp(t *testing.T) {
 	}()
 
 	fmt.Println("【步骤3】创建 Real64 标签点（预期：成功）")
-	pid, err := RawRtdbbInsertBasePointWarp(handle, "TestPtHisFlu", RtdbTypeReal64, tbl.ID, 0)
+	pid, err := createTestPoint(t, handle, "TestPtHisFlu", tbl.ID)
 	if !RteIsOk(err) {
 		fmt.Printf("  结果：失败 —— %s\n", err)
 		t.Error("创建标签点失败:", err)
@@ -7559,7 +8313,7 @@ func TestRawRtdbhFlushArchivedValuesWarp(t *testing.T) {
 	} else {
 		fmt.Println("  结果：通过 —— 预写入历史数据成功")
 	}
-	
+
 	fmt.Println("【步骤5】刷新历史缓存（预期：成功）")
 	count, err := RawRtdbhFlushArchivedValuesWarp(handle, pid)
 	if !RteIsOk(err) {

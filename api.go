@@ -11313,7 +11313,11 @@ func RawRtdbhGetSingleBlobValue64Warp(handle ConnectHandle, id PointID, mode Rtd
 	cLen := C.rtdb_length_type(maxLen)
 	cQuality := C.rtdb_int16(0)
 	err := C.rtdbh_get_single_blob_value64_warp(cHandle, cId, cMode, &cDatetime, &cSubtime, cBlob, &cLen, &cQuality)
-	return TimestampType(cDatetime), SubtimeType(cSubtime), blob[:cLen], Quality(cQuality), RtdbError(err)
+	actualLen := int(cLen)
+	if actualLen > int(maxLen) {
+		actualLen = int(maxLen)
+	}
+	return TimestampType(cDatetime), SubtimeType(cSubtime), blob[:actualLen], Quality(cQuality), RtdbError(err)
 }
 
 // RawRtdbhGetArchivedBlobValues64Warp 读取单个标签点一段时间的二进制/字符串型历史数据
@@ -11476,7 +11480,11 @@ func RawRtdbhGetSingleDatetimeValue64Warp(handle ConnectHandle, id PointID, mode
 	quality := Quality(0)
 	cQuality := (*C.rtdb_int16)(unsafe.Pointer(&quality))
 	err := C.rtdbh_get_single_datetime_value64_warp(cHandle, cId, cMode, &cDatetime, &cSubtime, cBlob, &cLen, cQuality, cDtType)
-	return TimestampType(cDatetime), SubtimeType(cSubtime), []byte(StringOutDB(string(blob[:cLen]))), quality, RtdbError(err)
+	actualLen := int(cLen)
+	if actualLen > 128 {
+		actualLen = 128
+	}
+	return TimestampType(cDatetime), SubtimeType(cSubtime), []byte(StringOutDB(string(blob[:actualLen]))), quality, RtdbError(err)
 }
 
 // RawRtdbhGetArchivedDatetimeValues64Warp 读取单个标签点一段时间的时间类型历史数据
@@ -12330,7 +12338,11 @@ func RawRtdbhGetSingleNamedTypeValue64Warp(handle ConnectHandle, id PointID, mod
 	cLength := C.rtdb_length_type(length)
 	cQuality := C.rtdb_int16(0)
 	err := C.rtdbh_get_single_named_type_value64_warp(cHandle, cId, cMode, &cDatetime, &cSubtime, cObject, &cLength, &cQuality)
-	return TimestampType(cDatetime), SubtimeType(cSubtime), object[:cLength], Quality(cQuality), RtdbError(err)
+	actualLen := int(cLength)
+	if actualLen > int(length) {
+		actualLen = int(length)
+	}
+	return TimestampType(cDatetime), SubtimeType(cSubtime), object[:actualLen], Quality(cQuality), RtdbError(err)
 }
 
 // RawRtdbhGetArchivedNamedTypeValues64Warp 连续读取自定义类型标签点的历史数据
