@@ -13,8 +13,8 @@
 
 格式：Go库版本号+So库版本号
 
-* v0.1.x+4.0.11: 基于SO库4.0.11，这个版本已经定版了，后续除了bug fix不会有其余API的增减
-* v0.2.x+4.0.15: 新增了一些Raw函数, SO库升级到4.0.15，由于API变更所以记作小版本号0.2.0
+* v0.1.x-4.0.11: 基于SO库4.0.11，这个版本已经定版了，后续除了bug fix不会有其余API的增减
+* v0.2.x-4.0.15: 新增了一些Raw函数, SO库升级到4.0.15，由于API变更所以记作小版本号0.2.0
 
 ## 一些基本概念
 
@@ -131,8 +131,8 @@ func main() {
 命令行查看最新版本号
 
 ```text
-require github.com/golden-datas/rtdb-go-sdk v0.1.0
-// 注意这里的 v0.1.0 ， 需替换成最新版本
+require github.com/golden-datas/rtdb-go-sdk v0.2.4-4.0.15
+// 注意这里的 v0.2.4-4.0.15 ， 需替换成最新版本
 ```
 
 ## 版本发布工具
@@ -143,20 +143,20 @@ require github.com/golden-datas/rtdb-go-sdk v0.1.0
 
 ```bash
 # 发布版本
-./publish.sh v0.2.0+4.0.15
+./publish.sh v0.2.4-4.0.15
 
 # 删除版本
-./publish.sh -d v0.2.0+4.0.15
+./publish.sh -d v0.2.4-4.0.15
 ```
 
 ### Windows PowerShell
 
 ```powershell
 # 发布版本
-.\publish.ps1 v0.2.0+4.0.15
+.\publish.ps1 v0.2.4-4.0.15
 
 # 删除版本
-.\publish.ps1 -d v0.2.0+4.0.15
+.\publish.ps1 -d v0.2.4-4.0.15
 ```
 
 ## 可用函数列表
