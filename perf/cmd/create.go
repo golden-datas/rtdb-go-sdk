@@ -3,15 +3,15 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/golden-datas/rtdb-go-sdk/perf/config"
+	"github.com/golden-datas/rtdb-go-sdk/perf/points"
 	"github.com/spf13/cobra"
-	"github.com/kkbase/rtdb_api/perf/config"
-	"github.com/kkbase/rtdb_api/perf/points"
 )
 
 var (
-	createConfig    string
+	createConfig     string
 	createPointsFile string
-	createTableDesc string
+	createTableDesc  string
 )
 
 var createCmd = &cobra.Command{

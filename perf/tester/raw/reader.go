@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kkbase/rtdb_api"
-	"github.com/kkbase/rtdb_api/perf/tester"
+	"github.com/golden-datas/rtdb-go-sdk"
+	"github.com/golden-datas/rtdb-go-sdk/perf/tester"
 )
 
 // Reader Raw API 读取测试器
@@ -26,7 +26,7 @@ func NewReader(conn *rtdb_api.RtdbConnect, points []*rtdb_api.PointInfo) *Reader
 func (r *Reader) ReadLast(workers int, samples int, m *tester.Metrics) error {
 	// 获取连接句柄
 	handle := r.conn.ConnectHandle
-	
+
 	for s := 0; s < samples; s++ {
 		m.Start()
 		var wg sync.WaitGroup
@@ -47,16 +47,16 @@ func (r *Reader) ReadLast(workers int, samples int, m *tester.Metrics) error {
 			go func(points []*rtdb_api.PointInfo) {
 				defer wg.Done()
 				start := time.Now()
-				
+
 				// 准备点ID
 				ids := make([]rtdb_api.PointID, len(points))
 				for i, point := range points {
 					ids[i] = point.ID
 				}
-				
+
 				// 使用 Raw API 批量读取
 				_, _, _, _, _, errs, rte := rtdb_api.RawRtdbsGetSnapshots64Warp(handle, ids)
-				
+
 				if !rtdb_api.RteIsOk(rte) {
 					m.Add(time.Since(start), 0, rte.GoError())
 					return
@@ -84,7 +84,7 @@ func (r *Reader) ReadRaw(start, end time.Time, workers, pointCount int, m *teste
 
 	// 获取连接句柄
 	handle := r.conn.ConnectHandle
-	
+
 	var wg sync.WaitGroup
 	actualPointCount := len(r.points)
 	if pointCount > actualPointCount {
@@ -110,7 +110,7 @@ func (r *Reader) ReadRaw(start, end time.Time, workers, pointCount int, m *teste
 			defer wg.Done()
 			for _, point := range points {
 				s := time.Now()
-				
+
 				// 使用 Raw API 读取历史数据
 				_, _, _, _, _, rte := rtdb_api.RawRtdbhGetArchivedValues64Warp(
 					handle,
@@ -121,7 +121,7 @@ func (r *Reader) ReadRaw(start, end time.Time, workers, pointCount int, m *teste
 					endTs,
 					endSubTs,
 				)
-				
+
 				if !rtdb_api.RteIsOk(rte) {
 					m.Add(time.Since(s), 0, rte.GoError())
 					continue
@@ -142,7 +142,7 @@ func (r *Reader) ReadInterpo(start, end time.Time, count int, workers, pointCoun
 
 	// 获取连接句柄
 	handle := r.conn.ConnectHandle
-	
+
 	var wg sync.WaitGroup
 	actualPointCount := len(r.points)
 	if pointCount > actualPointCount {
@@ -168,7 +168,7 @@ func (r *Reader) ReadInterpo(start, end time.Time, count int, workers, pointCoun
 			defer wg.Done()
 			for _, point := range points {
 				s := time.Now()
-				
+
 				// 使用 Raw API 读取插值
 				_, _, _, _, _, rte := rtdb_api.RawRtdbhGetInterpoValues64Warp(
 					handle,
@@ -179,7 +179,7 @@ func (r *Reader) ReadInterpo(start, end time.Time, count int, workers, pointCoun
 					endTs,
 					endSubTs,
 				)
-				
+
 				if !rtdb_api.RteIsOk(rte) {
 					m.Add(time.Since(s), 0, rte.GoError())
 					continue
@@ -200,7 +200,7 @@ func (r *Reader) ReadPlot(start, end time.Time, interval int, workers, pointCoun
 
 	// 获取连接句柄
 	handle := r.conn.ConnectHandle
-	
+
 	var wg sync.WaitGroup
 	actualPointCount := len(r.points)
 	if pointCount > actualPointCount {
@@ -226,7 +226,7 @@ func (r *Reader) ReadPlot(start, end time.Time, interval int, workers, pointCoun
 			defer wg.Done()
 			for _, point := range points {
 				s := time.Now()
-				
+
 				// 使用 Raw API 读取趋势曲线
 				_, _, _, _, _, rte := rtdb_api.RawRtdbhGetPlotValues64Warp(
 					handle,
@@ -237,7 +237,7 @@ func (r *Reader) ReadPlot(start, end time.Time, interval int, workers, pointCoun
 					endTs,
 					endSubTs,
 				)
-				
+
 				if !rtdb_api.RteIsOk(rte) {
 					m.Add(time.Since(s), 0, rte.GoError())
 					continue
@@ -258,7 +258,7 @@ func (r *Reader) ReadSummary(start, end time.Time, workers, pointCount int, m *t
 
 	// 获取连接句柄
 	handle := r.conn.ConnectHandle
-	
+
 	var wg sync.WaitGroup
 	actualPointCount := len(r.points)
 	if pointCount > actualPointCount {
@@ -284,7 +284,7 @@ func (r *Reader) ReadSummary(start, end time.Time, workers, pointCount int, m *t
 			defer wg.Done()
 			for _, point := range points {
 				s := time.Now()
-				
+
 				// 使用 Raw API 读取统计值
 				_, rte := rtdb_api.RawRtdbhSummaryDataWarp(
 					handle,
@@ -294,7 +294,7 @@ func (r *Reader) ReadSummary(start, end time.Time, workers, pointCount int, m *t
 					endTs,
 					endSubTs,
 				)
-				
+
 				if !rtdb_api.RteIsOk(rte) {
 					m.Add(time.Since(s), 0, rte.GoError())
 					continue
@@ -315,7 +315,7 @@ func (r *Reader) ReadSection(timestamp time.Time, workers, pointCount int, m *te
 
 	// 获取连接句柄
 	handle := r.conn.ConnectHandle
-	
+
 	var wg sync.WaitGroup
 	actualPointCount := len(r.points)
 	if pointCount > actualPointCount {
@@ -339,13 +339,13 @@ func (r *Reader) ReadSection(timestamp time.Time, workers, pointCount int, m *te
 		go func(points []*rtdb_api.PointInfo) {
 			defer wg.Done()
 			s := time.Now()
-			
+
 			// 准备点ID
 			ids := make([]rtdb_api.PointID, len(points))
 			for i, point := range points {
 				ids[i] = point.ID
 			}
-			
+
 			// 使用 Raw API 读取断面数据
 			_, _, _, _, _, errs, rte := rtdb_api.RawRtdbhGetCrossSectionValues64Warp(
 				handle,
@@ -354,7 +354,7 @@ func (r *Reader) ReadSection(timestamp time.Time, workers, pointCount int, m *te
 				ts,
 				subTs,
 			)
-			
+
 			if !rtdb_api.RteIsOk(rte) {
 				m.Add(time.Since(s), 0, rte.GoError())
 				return

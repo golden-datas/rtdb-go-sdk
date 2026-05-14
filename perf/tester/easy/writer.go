@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kkbase/rtdb_api"
-	"github.com/kkbase/rtdb_api/perf/tester"
+	"github.com/golden-datas/rtdb-go-sdk"
+	"github.com/golden-datas/rtdb-go-sdk/perf/tester"
 )
 
 // Writer Easy API 写入测试器

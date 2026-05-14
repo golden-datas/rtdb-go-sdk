@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/golden-datas/rtdb-go-sdk/perf/config"
 	"github.com/spf13/cobra"
-	"github.com/kkbase/rtdb_api/perf/config"
 )
 
 var initOutput string

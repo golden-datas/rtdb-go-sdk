@@ -57,7 +57,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kkbase/rtdb_api"
+	"github.com/golden-datas/rtdb-go-sdk"
 )
 
 const (
@@ -127,11 +127,11 @@ func main() {
 
 ## go.mod引用版本说明
 
-引用本库的时候需注意版本号，请使用最新版本, 可执行 ```git ls-remote --tags git@github.com:kkbase/rtdb_api.git```
+引用本库的时候需注意版本号，请使用最新版本, 可执行 ```git ls-remote --tags git@github.com/golden-datas/rtdb-go-sdk.git```
 命令行查看最新版本号
 
 ```text
-require github.com/kkbase/rtdb_api v0.1.0
+require github.com/golden-datas/rtdb-go-sdk v0.1.0
 // 注意这里的 v0.1.0 ， 需替换成最新版本
 ```
 

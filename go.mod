@@ -1,4 +1,4 @@
-module github.com/kkbase/rtdb_api
+module github.com/golden-datas/rtdb-go-sdk
 
 go 1.24.0
 

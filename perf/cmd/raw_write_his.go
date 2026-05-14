@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golden-datas/rtdb-go-sdk"
+	"github.com/golden-datas/rtdb-go-sdk/perf/config"
+	"github.com/golden-datas/rtdb-go-sdk/perf/points"
+	"github.com/golden-datas/rtdb-go-sdk/perf/tester"
+	"github.com/golden-datas/rtdb-go-sdk/perf/tester/raw"
 	"github.com/spf13/cobra"
-	"github.com/kkbase/rtdb_api"
-	"github.com/kkbase/rtdb_api/perf/config"
-	"github.com/kkbase/rtdb_api/perf/points"
-	"github.com/kkbase/rtdb_api/perf/tester"
-	"github.com/kkbase/rtdb_api/perf/tester/raw"
 )
 
 var (

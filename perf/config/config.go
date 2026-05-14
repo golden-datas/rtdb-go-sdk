@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kkbase/rtdb_api"
+	"github.com/golden-datas/rtdb-go-sdk"
 	"gopkg.in/yaml.v3"
 )
 

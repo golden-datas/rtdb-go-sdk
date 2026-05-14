@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/kkbase/rtdb_api/perf/cmd"
+	"github.com/golden-datas/rtdb-go-sdk/perf/cmd"
 )
 
 func main() {

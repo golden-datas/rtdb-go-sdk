@@ -3,7 +3,7 @@ package points
 import (
 	"fmt"
 
-	"github.com/kkbase/rtdb_api"
+	"github.com/golden-datas/rtdb-go-sdk"
 )
 
 // Manager 测点管理器

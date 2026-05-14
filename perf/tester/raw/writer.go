@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kkbase/rtdb_api"
-	"github.com/kkbase/rtdb_api/perf/tester"
+	"github.com/golden-datas/rtdb-go-sdk"
+	"github.com/golden-datas/rtdb-go-sdk/perf/tester"
 )
 
 // Writer Raw API 写入测试器
@@ -52,7 +52,7 @@ func (w *Writer) WritePeriodic(batchSize int, interval time.Duration, duration t
 			return nil
 		case <-ticker.C:
 			start := time.Now()
-			
+
 			// 准备数据
 			ids := make([]rtdb_api.PointID, batchSize)
 			datetimes := make([]rtdb_api.TimestampType, batchSize)
@@ -83,7 +83,7 @@ func (w *Writer) WritePeriodic(batchSize int, interval time.Duration, duration t
 				states,
 				qualities,
 			)
-			
+
 			if !rtdb_api.RteIsOk(rte) {
 				m.Add(time.Since(start), 0, rte.GoError())
 				continue
@@ -96,7 +96,7 @@ func (w *Writer) WritePeriodic(batchSize int, interval time.Duration, duration t
 					errorCount++
 				}
 			}
-			
+
 			if errorCount > 0 {
 				m.Add(time.Since(start), int64(batchSize-errorCount), fmt.Errorf("%d errors", errorCount))
 			} else {
@@ -134,10 +134,10 @@ func (w *Writer) WriteBurst(batchSize, batchesPerPoint, workers int, m *tester.M
 
 		go func(points []*rtdb_api.PointInfo, workerID int) {
 			defer wg.Done()
-			
+
 			for batch := 0; batch < batchesPerPoint; batch++ {
 				start := time.Now()
-				
+
 				// 准备数据
 				ids := make([]rtdb_api.PointID, len(points))
 				datetimes := make([]rtdb_api.TimestampType, len(points))
@@ -167,7 +167,7 @@ func (w *Writer) WriteBurst(batchSize, batchesPerPoint, workers int, m *tester.M
 					states,
 					qualities,
 				)
-				
+
 				if !rtdb_api.RteIsOk(rte) {
 					m.Add(time.Since(start), 0, rte.GoError())
 					continue
@@ -180,7 +180,7 @@ func (w *Writer) WriteBurst(batchSize, batchesPerPoint, workers int, m *tester.M
 						errorCount++
 					}
 				}
-				
+
 				if errorCount > 0 {
 					m.Add(time.Since(start), int64(len(points)-errorCount), fmt.Errorf("%d errors", errorCount))
 				} else {
@@ -220,7 +220,7 @@ func (w *Writer) WriteHisPeriodic(batchSize int, interval time.Duration, duratio
 			return nil
 		case <-ticker.C:
 			start := time.Now()
-			
+
 			// 准备数据
 			ids := make([]rtdb_api.PointID, batchSize)
 			datetimes := make([]rtdb_api.TimestampType, batchSize)
@@ -251,7 +251,7 @@ func (w *Writer) WriteHisPeriodic(batchSize int, interval time.Duration, duratio
 				states,
 				qualities,
 			)
-			
+
 			if !rtdb_api.RteIsOk(rte) {
 				m.Add(time.Since(start), 0, rte.GoError())
 				continue
@@ -264,7 +264,7 @@ func (w *Writer) WriteHisPeriodic(batchSize int, interval time.Duration, duratio
 					errorCount++
 				}
 			}
-			
+
 			if errorCount > 0 {
 				m.Add(time.Since(start), int64(batchSize-errorCount), fmt.Errorf("%d errors", errorCount))
 			} else {
@@ -300,10 +300,10 @@ func (w *Writer) WriteHisBurst(batchSize, batchesPerPoint, workers int, m *teste
 
 		go func(points []*rtdb_api.PointInfo, workerID int) {
 			defer wg.Done()
-			
+
 			for batch := 0; batch < batchesPerPoint; batch++ {
 				start := time.Now()
-				
+
 				// 准备数据
 				ids := make([]rtdb_api.PointID, len(points))
 				datetimes := make([]rtdb_api.TimestampType, len(points))
@@ -333,7 +333,7 @@ func (w *Writer) WriteHisBurst(batchSize, batchesPerPoint, workers int, m *teste
 					states,
 					qualities,
 				)
-				
+
 				if !rtdb_api.RteIsOk(rte) {
 					m.Add(time.Since(start), 0, rte.GoError())
 					continue
@@ -346,7 +346,7 @@ func (w *Writer) WriteHisBurst(batchSize, batchesPerPoint, workers int, m *teste
 						errorCount++
 					}
 				}
-				
+
 				if errorCount > 0 {
 					m.Add(time.Since(start), int64(len(points)-errorCount), fmt.Errorf("%d errors", errorCount))
 				} else {
@@ -363,7 +363,7 @@ func (w *Writer) WriteHisBurst(batchSize, batchesPerPoint, workers int, m *teste
 // generateRawValue 根据类型生成测试值（返回 value 和 state）
 func generateRawValue(valueType rtdb_api.ValueType) (float64, int64) {
 	timestamp := time.Now().Unix()
-	
+
 	switch valueType {
 	case rtdb_api.ValueTypeInt8:
 		return 0, int64(int8(timestamp % 100))
