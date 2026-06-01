@@ -1,6 +1,6 @@
 package rtdb_api
 
-// #cgo CFLAGS: -DPNG_DEBUG=1 -I./cinclude
+// #cgo CFLAGS: -I./cinclude
 // #cgo CXXFLAGS: -std=c++11
 // #include <stdlib.h>
 // #include "api.h"
