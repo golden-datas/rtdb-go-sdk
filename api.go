@@ -7019,7 +7019,7 @@ func RawRtdbGetBlacklistWarp(handle ConnectHandle) ([]BlackList, RtdbError) {
 	cHandle := C.rtdb_int32(handle)
 	cAddrs := make([]*C.char, RtdbConstMaxBlacklistLen)
 	for i := int32(0); i < int32(RtdbConstMaxBlacklistLen); i++ {
-		cAddrs[i] = (*C.char)(unsafe.Pointer(C.malloc(C.size_t(32))))
+		cAddrs[i] = (*C.char)(unsafe.Pointer(C.malloc(C.size_t(128))))
 	}
 	defer func() {
 		for i := int32(0); i < int32(RtdbConstMaxBlacklistLen); i++ {
@@ -7030,7 +7030,7 @@ func RawRtdbGetBlacklistWarp(handle ConnectHandle) ([]BlackList, RtdbError) {
 
 	cMakes := make([]*C.char, RtdbConstMaxBlacklistLen)
 	for i := int32(0); i < int32(RtdbConstMaxBlacklistLen); i++ {
-		cMakes[i] = (*C.char)(unsafe.Pointer(C.malloc(C.size_t(32))))
+		cMakes[i] = (*C.char)(unsafe.Pointer(C.malloc(C.size_t(128))))
 	}
 	defer func() {
 		for i := int32(0); i < int32(RtdbConstMaxBlacklistLen); i++ {
@@ -7056,8 +7056,8 @@ func RawRtdbGetBlacklistWarp(handle ConnectHandle) ([]BlackList, RtdbError) {
 	rtn := make([]BlackList, 0)
 	for i := int32(0); i < int32(cCount); i++ {
 		rtn = append(rtn, BlackList{
-			Addr: StringOutDB(CCharArrayToString(cAddrs[i], 32)),
-			Mask: StringOutDB(CCharArrayToString(cMakes[i], 32)),
+			Addr: StringOutDB(CCharArrayToString(cAddrs[i], 128)),
+			Mask: StringOutDB(CCharArrayToString(cMakes[i], 128)),
 			Desc: StringOutDB(CCharArrayToString(cDescs[i], 512)),
 		})
 	}
@@ -7164,7 +7164,7 @@ func RawRtdbGetAuthorizationsWarp(handle ConnectHandle) ([]AuthorizationsList, R
 	cHandle := C.rtdb_int32(handle)
 	cAddrs := make([]*C.char, RtdbConstMaxAuthCount)
 	for i := int32(0); i < int32(RtdbConstMaxAuthCount); i++ {
-		cAddrs[i] = (*C.char)(unsafe.Pointer(C.malloc(C.size_t(32))))
+		cAddrs[i] = (*C.char)(unsafe.Pointer(C.malloc(C.size_t(128))))
 	}
 	defer func() {
 		for i := int32(0); i < int32(RtdbConstMaxAuthCount); i++ {
@@ -7175,7 +7175,7 @@ func RawRtdbGetAuthorizationsWarp(handle ConnectHandle) ([]AuthorizationsList, R
 
 	cMakes := make([]*C.char, RtdbConstMaxAuthCount)
 	for i := int32(0); i < int32(RtdbConstMaxAuthCount); i++ {
-		cMakes[i] = (*C.char)(unsafe.Pointer(C.malloc(C.size_t(32))))
+		cMakes[i] = (*C.char)(unsafe.Pointer(C.malloc(C.size_t(128))))
 	}
 	defer func() {
 		for i := int32(0); i < int32(RtdbConstMaxAuthCount); i++ {
@@ -7203,8 +7203,8 @@ func RawRtdbGetAuthorizationsWarp(handle ConnectHandle) ([]AuthorizationsList, R
 	rtn := make([]AuthorizationsList, 0)
 	for i := int32(0); i < int32(cCount); i++ {
 		rtn = append(rtn, AuthorizationsList{
-			Addr: StringOutDB(CCharArrayToString(cAddrs[i], 32)),
-			Mask: StringOutDB(CCharArrayToString(cMakes[i], 32)),
+			Addr: StringOutDB(CCharArrayToString(cAddrs[i], 128)),
+			Mask: StringOutDB(CCharArrayToString(cMakes[i], 128)),
 			Desc: StringOutDB(CCharArrayToString(cDescs[i], 512)),
 			Priv: privs[i],
 		})
