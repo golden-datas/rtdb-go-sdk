@@ -1229,18 +1229,21 @@ func Login(hostIp string, port int32, userName string, password string, serverPr
 
 	// 设置默认时间戳精度为纳秒
 	rte := RawRtdbSetOptionWarp(RtdbApiOptionDefaultPrecision, 3)
+	fmt.Println("1", rte.GoError())
 	if !RteIsOk(rte) {
 		return nil, rte.GoError()
 	}
 
 	// 设置服务端时间戳精度
 	rte = RawRtdbSetOptionWarp(RtdbApiOptionServerPrecision, int32(serverPrecision))
+	fmt.Println("2", rte.GoError())
 	if !RteIsOk(rte) {
 		return nil, rte.GoError()
 	}
 
 	// 连接数据库
 	cHandle, rte := RawRtdbConnectWarp(rtn.HostIp, rtn.Port)
+	fmt.Println("3", rte.GoError())
 	if !RteIsOk(rte) {
 		return nil, rte.GoError()
 	}
@@ -1248,6 +1251,7 @@ func Login(hostIp string, port int32, userName string, password string, serverPr
 
 	// 登录数据库
 	priv, rte := RawRtdbLoginWarp(rtn.ConnectHandle, rtn.UserName, rtn.Password)
+	fmt.Println("4", rte.GoError())
 	if !RteIsOk(rte) {
 		return nil, rte.GoError()
 	}
@@ -1255,6 +1259,7 @@ func Login(hostIp string, port int32, userName string, password string, serverPr
 
 	// 获取元信息
 	infos, errs, rte := RawRtdbbGetMetaSyncInfoWarp(rtn.ConnectHandle, 0)
+	fmt.Println("5", rte.GoError())
 	if !RteIsOk(rte) {
 		return nil, rte.GoError()
 	}
@@ -1266,16 +1271,20 @@ func Login(hostIp string, port int32, userName string, password string, serverPr
 	rtn.SyncInfos = infos
 
 	// 获取套接字句柄
-	for i := range infos {
-		sHandle, rte := RawRtdbGetOwnConnectionWarp(rtn.ConnectHandle, int32(i+1))
-		if !RteIsOk(rte) {
-			return nil, rte.GoError()
+	if priv == PrivGroupRtdbSA {
+		for i := range infos {
+			sHandle, rte := RawRtdbGetOwnConnectionWarp(rtn.ConnectHandle, int32(i+1))
+			fmt.Println("6", rte.GoError())
+			if !RteIsOk(rte) {
+				return nil, rte.GoError()
+			}
+			rtn.SocketHandles = append(rtn.SocketHandles, sHandle)
 		}
-		rtn.SocketHandles = append(rtn.SocketHandles, sHandle)
 	}
 
 	// 获取服务器操作系统类型
 	osType, rte := RawRtdbOsType(rtn.ConnectHandle)
+	fmt.Println("7", rte.GoError())
 	if !RteIsOk(rte) {
 		return nil, rte.GoError()
 	}
@@ -1283,6 +1292,7 @@ func Login(hostIp string, port int32, userName string, password string, serverPr
 
 	// 获取String/Blob最大长度
 	maxLen, rte := RawRtdbGetMaxBlobLenWarp(rtn.ConnectHandle)
+	fmt.Println("8", rte.GoError())
 	if !RteIsOk(rte) {
 		return nil, rte.GoError()
 	}
