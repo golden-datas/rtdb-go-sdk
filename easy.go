@@ -79,6 +79,7 @@ type SocketInfo struct {
 	IpAddr       string       // IP地址
 	Port         int32        // 端口号
 	JobId        int32        // 连接最近处理的任务编号
+	JobDesc      string       // 连接最近处理的任务描述
 	JobTime      DateTimeType // 最近处理任务的时间
 	ConnectTime  DateTimeType // 客户端连接时间
 	Timeout      DateTimeType // 连接超时时间
@@ -93,18 +94,22 @@ func getSocketInfo(handle ConnectHandle, nodeNumber int32, socket SocketHandle) 
 		return nil, rte.GoError()
 	}
 	ipAddr := connInfo.IpAddr6
-	if ipAddr == "" {
+	// "::"表示 ipaddr6 全零，说明是纯 IPv4 连接，需用 ipaddr 字段拼出 IPv4 地址
+	if ipAddr == "" || ipAddr == "::" {
 		ipAddr = fmt.Sprintf("%d.%d.%d.%d", byte(connInfo.IpAddr>>24), byte(connInfo.IpAddr>>16), byte(connInfo.IpAddr>>8), byte(connInfo.IpAddr))
 	}
 	timeout, rte := RawRtdbGetTimeoutWarp(handle, socket)
 	if !RteIsOk(rte) {
 		return nil, rte.GoError()
 	}
+	// 获取任务描述
+	jobDesc, _ := RawRtdbJobMessageWarp(connInfo.Job)
 	info := SocketInfo{
 		SocketHandle: socket,
 		IpAddr:       ipAddr,
 		Port:         int32(connInfo.Port),
 		JobId:        connInfo.Job,
+		JobDesc:      jobDesc,
 		JobTime:      connInfo.JobTime,
 		ConnectTime:  connInfo.ConnectTime,
 		Timeout:      timeout,
