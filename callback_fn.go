@@ -6,6 +6,7 @@ package rtdb_api
 // #include "gofn.h"
 import "C"
 import (
+	"net"
 	"sync"
 	"unsafe"
 )
@@ -207,7 +208,7 @@ type RtdbConnectEvent struct {
 	ReadSize        float32
 	WriteRealSize   float32
 	ReadRealSize    float32
-	ClientAddr6     []byte
+	ClientAddr6     string // ipv6地址，16字节二进制转换后的可读字符串
 }
 
 // SubscribeConnectEventInfo 回调事件信息
@@ -269,10 +270,11 @@ func goConnectEventEx(
 				WriteRealSize:   float32(cEvent.write_real_size),
 				ReadRealSize:    float32(cEvent.read_real_size),
 			}
-			addr6 := make([]byte, C.RTDB_IPV6_ADDR_SIZE)
+			// client_addr6 是 16 字节原始二进制（struct in6_addr），需用 net.IP 转为可读字符串
+			addr6Bytes := make([]byte, 16)
 			src := unsafe.Slice((*byte)(unsafe.Pointer(&cEvent.client_addr6[0])), C.RTDB_IPV6_ADDR_SIZE)
-			copy(addr6, src)
-			event.ClientAddr6 = addr6
+			copy(addr6Bytes, src)
+			event.ClientAddr6 = net.IP(addr6Bytes).String()
 			goEvents = append(goEvents, event)
 		}
 	}

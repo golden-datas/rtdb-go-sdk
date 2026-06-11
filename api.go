@@ -10,6 +10,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -4202,9 +4203,18 @@ type RtdbHostConnectInfoIpv6 struct {
 }
 
 func cToRtdbHostConnectInfoIpv6(cInfo *C.RTDB_HOST_CONNECT_INFO_IPV6) RtdbHostConnectInfoIpv6 {
+	// ipaddr6 是 16 字节原始二进制（struct in6_addr），需用 net.IP 转为可读字符串
+	ipv6Bytes := make([]byte, 16)
+	for i := 0; i < 16; i++ {
+		ipv6Bytes[i] = byte(cInfo.ipaddr6[i])
+	}
+	ipAddr6Str := net.IP(ipv6Bytes).String()
+	if ipAddr6Str == "<nil>" {
+		ipAddr6Str = ""
+	}
 	goInfo := RtdbHostConnectInfoIpv6{
 		IpAddr:      int32(cInfo.ipaddr),
-		IpAddr6:     StringOutDB(CCharArrayToString(&cInfo.ipaddr6[0], len(cInfo.ipaddr6))),
+		IpAddr6:     ipAddr6Str,
 		Port:        uint16(cInfo.port),
 		Job:         int32(cInfo.job),
 		JobTime:     DateTimeType(cInfo.job_time),
