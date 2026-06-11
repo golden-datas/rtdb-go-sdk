@@ -12778,6 +12778,7 @@ type SocketInfo struct {
     IpAddr       string       // IP地址
     Port         int32        // 端口号
     JobId        int32        // 连接最近处理的任务编号
+    JobDesc      string       // 连接最近处理的任务描述
     JobTime      DateTimeType // 最近处理任务的时间
     ConnectTime  DateTimeType // 客户端连接时间
     Timeout      DateTimeType // 连接超时时间
