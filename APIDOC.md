@@ -9844,7 +9844,7 @@ type RtdbConnectEvent struct {
     ReadSize        float32
     WriteRealSize   float32
     ReadRealSize    float32
-    ClientAddr6     []byte
+    ClientAddr6     string // ipv6地址，16字节二进制转换后的可读字符串
 }
 ```
 
