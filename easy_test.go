@@ -1725,8 +1725,8 @@ func TestRtdbConnect_SubscribeConnectEvents(t *testing.T) {
 					if !ev.RetVal.IsOk() {
 						retStr = ev.RetVal.Error()
 					}
-					fmt.Printf("  [事件%d] msg_id=%d(%s), category=%s, elapsed=%.2fms, ret_val=%s, client_addr=%s, client_process=%d, client_thread=%d\n",
-						i+1, ev.MsgID, ev.MsgIdNameString, ev.ApiCategory, ev.Elapsed, retStr, ev.AddrString, ev.ClientProcessID, ev.ClientThreadID)
+					fmt.Printf("  [事件%d] msg_id=%d(%s,%s), category=%s, elapsed=%.2fms, ret_val=%s, client_addr=%s, client_process=%d, client_thread=%d\n",
+						i+1, ev.MsgID, ev.MsgIdNameString, ev.MsgIdDescString, ev.ApiCategory, ev.Elapsed, retStr, ev.AddrString, ev.ClientProcessID, ev.ClientThreadID)
 					// 打印服务端回传的 pre_call 和 post_call
 					if i < len(eventInfo.PreCalls) && eventInfo.PreCalls[i] != "" {
 						fmt.Printf("    pre_call : %s\n", eventInfo.PreCalls[i])
