@@ -139,6 +139,8 @@ import "github.com/golden-datas/rtdb-go-sdk"
 - [func StringToGBKBytes\(str string\) \(\[\]byte, error\)](<#StringToGBKBytes>)
 - [func UTF16PtrFromString\(path string\) \(unsafe.Pointer, error\)](<#UTF16PtrFromString>)
 - [type AnyValue](<#AnyValue>)
+- [type ApiCategory](<#ApiCategory>)
+  - [func \(c ApiCategory\) String\(\) string](<#ApiCategory.String>)
 - [type ApiVersion](<#ApiVersion>)
 - [type ArchivedBaseInfo](<#ArchivedBaseInfo>)
 - [type AuthorizationsList](<#AuthorizationsList>)
@@ -2353,6 +2355,33 @@ const (
 
     // PrivGroupRtdbSA 数据库管理员
     PrivGroupRtdbSA = PrivGroup(C.RTDB_SA)
+)
+```
+
+<a name="ApiCategoryServer"></a>
+
+```go
+const (
+    // ApiCategoryServer 网络服务API
+    ApiCategoryServer = ApiCategory(0)
+    // ApiCategoryBase 标签点服务API
+    ApiCategoryBase = ApiCategory(1)
+    // ApiCategorySnapshot 快照服务API
+    ApiCategorySnapshot = ApiCategory(2)
+    // ApiCategoryHistorian 历史服务API
+    ApiCategoryHistorian = ApiCategory(3)
+    // ApiCategoryArchive 存档文件API
+    ApiCategoryArchive = ApiCategory(4)
+    // ApiCategoryEquation 方程式服务API
+    ApiCategoryEquation = ApiCategory(5)
+    // ApiCategoryLogger 日志服务API
+    ApiCategoryLogger = ApiCategory(6)
+    // ApiCategoryPerf 性能计数服务API
+    ApiCategoryPerf = ApiCategory(7)
+    // ApiCategoryDispatch 转发服务API
+    ApiCategoryDispatch = ApiCategory(8)
+    // ApiCategoryMemoryDB 内存库服务API
+    ApiCategoryMemoryDB = ApiCategory(9)
 )
 ```
 
@@ -7329,6 +7358,24 @@ type AnyValue struct {
 }
 ```
 
+<a name="ApiCategory"></a>
+## type ApiCategory
+
+ApiCategory API类别，对应 C 层 API\_CATEGORY 枚举
+
+```go
+type ApiCategory int16
+```
+
+<a name="ApiCategory.String"></a>
+### func \(ApiCategory\) String
+
+```go
+func (c ApiCategory) String() string
+```
+
+String 返回 API 类别对应的中文名称
+
 <a name="ApiVersion"></a>
 ## type ApiVersion
 
@@ -9817,9 +9864,11 @@ RtdbConnectEvent 映射 C 结构 RTDB\_CONNECT\_EVENT
 ```go
 type RtdbConnectEvent struct {
     MsgID           int32
+    MsgIdNameString string
+    MsgIdDescString string
     BeginS          uint32
     BeginMs         int16
-    ApiCategory     int16
+    ApiCategory     ApiCategory
     ClientAddr      uint32
     ClientProcessID int32
     ClientThreadID  int32
@@ -9845,6 +9894,7 @@ type RtdbConnectEvent struct {
     WriteRealSize   float32
     ReadRealSize    float32
     ClientAddr6     string // ipv6地址，16字节二进制转换后的可读字符串
+    AddrString      string // 客户端地址可读字符串：优先IPv6，其次IPv4点分十进制
 }
 ```
 
