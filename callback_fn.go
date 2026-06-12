@@ -6,6 +6,7 @@ package rtdb_api
 // #include "gofn.h"
 import "C"
 import (
+	"fmt"
 	"net"
 	"sync"
 	"unsafe"
@@ -181,9 +182,11 @@ var SubscribeConnectEventMap = make(map[string]chan SubscribeConnectEventInfo)
 // RtdbConnectEvent 映射 C 结构 RTDB_CONNECT_EVENT
 type RtdbConnectEvent struct {
 	MsgID           int32
+	MsgIdNameString string
+	MsgIdDescString string
 	BeginS          uint32
 	BeginMs         int16
-	ApiCategory     int16
+	ApiCategory     ApiCategory
 	ClientAddr      uint32
 	ClientProcessID int32
 	ClientThreadID  int32
@@ -209,6 +212,7 @@ type RtdbConnectEvent struct {
 	WriteRealSize   float32
 	ReadRealSize    float32
 	ClientAddr6     string // ipv6地址，16字节二进制转换后的可读字符串
+	AddrString      string // 客户端地址可读字符串：优先IPv6，其次IPv4点分十进制
 }
 
 // SubscribeConnectEventInfo 回调事件信息
@@ -244,7 +248,7 @@ func goConnectEventEx(
 				MsgID:           int32(cEvent.msg_id),
 				BeginS:          uint32(cEvent.begin_s),
 				BeginMs:         int16(cEvent.begin_ms),
-				ApiCategory:     int16(cEvent.api_category),
+				ApiCategory:     ApiCategory(cEvent.api_category),
 				ClientAddr:      uint32(cEvent.client_addr),
 				ClientProcessID: int32(cEvent.client_process_id),
 				ClientThreadID:  int32(cEvent.client_thread_id),
@@ -270,11 +274,24 @@ func goConnectEventEx(
 				WriteRealSize:   float32(cEvent.write_real_size),
 				ReadRealSize:    float32(cEvent.read_real_size),
 			}
+			// 通过 MsgID 获取任务名称和描述
+			event.MsgIdNameString, event.MsgIdDescString = RawRtdbJobMessageWarp(int32(cEvent.msg_id))
 			// client_addr6 是 16 字节原始二进制（struct in6_addr），需用 net.IP 转为可读字符串
 			addr6Bytes := make([]byte, 16)
 			src := unsafe.Slice((*byte)(unsafe.Pointer(&cEvent.client_addr6[0])), C.RTDB_IPV6_ADDR_SIZE)
 			copy(addr6Bytes, src)
 			event.ClientAddr6 = net.IP(addr6Bytes).String()
+			// AddrString：IPv6非全零时优先显示IPv6，否则显示IPv4点分十进制
+			ipv6Valid := event.ClientAddr6 != "" && event.ClientAddr6 != "::"
+			if ipv6Valid {
+				event.AddrString = event.ClientAddr6
+			} else {
+				event.AddrString = fmt.Sprintf("%d.%d.%d.%d",
+					(event.ClientAddr>>24)&0xFF,
+					(event.ClientAddr>>16)&0xFF,
+					(event.ClientAddr>>8)&0xFF,
+					event.ClientAddr&0xFF)
+			}
 			goEvents = append(goEvents, event)
 		}
 	}

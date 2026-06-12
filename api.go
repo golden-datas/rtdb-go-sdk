@@ -3198,6 +3198,60 @@ func (pg PrivGroup) Desc() string {
 	}
 }
 
+// ApiCategory API类别，对应 C 层 API_CATEGORY 枚举
+type ApiCategory int16
+
+const (
+	// ApiCategoryServer 网络服务API
+	ApiCategoryServer = ApiCategory(0)
+	// ApiCategoryBase 标签点服务API
+	ApiCategoryBase = ApiCategory(1)
+	// ApiCategorySnapshot 快照服务API
+	ApiCategorySnapshot = ApiCategory(2)
+	// ApiCategoryHistorian 历史服务API
+	ApiCategoryHistorian = ApiCategory(3)
+	// ApiCategoryArchive 存档文件API
+	ApiCategoryArchive = ApiCategory(4)
+	// ApiCategoryEquation 方程式服务API
+	ApiCategoryEquation = ApiCategory(5)
+	// ApiCategoryLogger 日志服务API
+	ApiCategoryLogger = ApiCategory(6)
+	// ApiCategoryPerf 性能计数服务API
+	ApiCategoryPerf = ApiCategory(7)
+	// ApiCategoryDispatch 转发服务API
+	ApiCategoryDispatch = ApiCategory(8)
+	// ApiCategoryMemoryDB 内存库服务API
+	ApiCategoryMemoryDB = ApiCategory(9)
+)
+
+// String 返回 API 类别对应的中文名称
+func (c ApiCategory) String() string {
+	switch c {
+	case ApiCategoryServer:
+		return "网络服务API"
+	case ApiCategoryBase:
+		return "标签点服务API"
+	case ApiCategorySnapshot:
+		return "快照服务API"
+	case ApiCategoryHistorian:
+		return "历史服务API"
+	case ApiCategoryArchive:
+		return "存档文件API"
+	case ApiCategoryEquation:
+		return "方程式服务API"
+	case ApiCategoryLogger:
+		return "日志服务API"
+	case ApiCategoryPerf:
+		return "性能计数服务API"
+	case ApiCategoryDispatch:
+		return "转发服务API"
+	case ApiCategoryMemoryDB:
+		return "内存库服务API"
+	default:
+		return fmt.Sprintf("未知API类别(%d)", int16(c))
+	}
+}
+
 // ConnectHandle 连接句柄, 用于描述一个 API库 与 数据库 之间的连接
 type ConnectHandle int32
 

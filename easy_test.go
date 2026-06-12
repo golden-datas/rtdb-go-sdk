@@ -1719,9 +1719,21 @@ func TestRtdbConnect_SubscribeConnectEvents(t *testing.T) {
 				fmt.Printf("收到API调用事件 [%d]: EventType=%d, Handle=%d, Events数量=%d, PreCalls数量=%d, PostCalls数量=%d\n",
 					receivedCount, eventInfo.EventType, eventInfo.Handle, len(eventInfo.Events),
 					len(eventInfo.PreCalls), len(eventInfo.PostCalls))
-				for _, ev := range eventInfo.Events {
-					fmt.Printf("  API调用详情: msg_id=%d, elapsed=%.2fms, ret_val=%d, client_process=%d, client_thread=%d\n",
-						ev.MsgID, ev.Elapsed, ev.RetVal, ev.ClientProcessID, ev.ClientThreadID)
+				for i, ev := range eventInfo.Events {
+					// ret_val：0 显示成功，否则显示错误描述
+					retStr := "成功"
+					if !ev.RetVal.IsOk() {
+						retStr = ev.RetVal.Error()
+					}
+					fmt.Printf("  [事件%d] msg_id=%d(%s), category=%s, elapsed=%.2fms, ret_val=%s, client_addr=%s, client_process=%d, client_thread=%d\n",
+						i+1, ev.MsgID, ev.MsgIdNameString, ev.ApiCategory, ev.Elapsed, retStr, ev.AddrString, ev.ClientProcessID, ev.ClientThreadID)
+					// 打印服务端回传的 pre_call 和 post_call
+					if i < len(eventInfo.PreCalls) && eventInfo.PreCalls[i] != "" {
+						fmt.Printf("    pre_call : %s\n", eventInfo.PreCalls[i])
+					}
+					if i < len(eventInfo.PostCalls) && eventInfo.PostCalls[i] != "" {
+						fmt.Printf("    post_call: %s\n", eventInfo.PostCalls[i])
+					}
 				}
 			case <-done:
 				return
