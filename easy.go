@@ -1369,11 +1369,22 @@ func (c *RtdbConnect) GetServerOption(param RtdbParam) (*ServerOption, error) {
 		}
 		return &ServerOption{StringOption: opt, IsString: true}, nil
 	} else {
-		opt, rte := RawRtdbGetDbInfo2Warp(c.ConnectHandle, param)
-		if !RteIsOk(rte) {
-			return nil, rte.GoError()
+		if param == RtdbParamMaxBlobSize {
+			maxLen, rte := RawRtdbGetMaxBlobLenWarp(c.ConnectHandle)
+			if !RteIsOk(rte) {
+				return nil, rte.GoError()
+			}
+			return &ServerOption{
+				IntOption: ParamInt(maxLen),
+				IsString:  false,
+			}, nil
+		} else {
+			opt, rte := RawRtdbGetDbInfo2Warp(c.ConnectHandle, param)
+			if !RteIsOk(rte) {
+				return nil, rte.GoError()
+			}
+			return &ServerOption{IntOption: opt, IsString: false}, nil
 		}
-		return &ServerOption{IntOption: opt, IsString: false}, nil
 	}
 }
 
