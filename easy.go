@@ -2722,10 +2722,13 @@ func (c *RtdbConnect) GetPointCountFromValueType(valueType ValueType) (int32, er
 //   - tvq 时间戳+数值+质量码
 func (c *RtdbConnect) WriteValue(info *PointInfo, fix bool, tvq TVQ) error {
 	errs, err := c.WriteValues(info, fix, []TVQ{tvq})
+	if err != nil {
+		return err
+	}
 	if errs[0] != nil {
 		return errs[0]
 	}
-	return err
+	return nil
 }
 
 // WriteValues 批量写入值
