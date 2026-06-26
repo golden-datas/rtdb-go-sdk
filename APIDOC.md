@@ -150,6 +150,8 @@ import "github.com/golden-datas/rtdb-go-sdk"
 - [type Coordinates](<#Coordinates>)
 - [type DatagramHandle](<#DatagramHandle>)
 - [type DateTimeType](<#DateTimeType>)
+- [type DatetimeFmt](<#DatetimeFmt>)
+  - [func \(f DatetimeFmt\) Desc\(\) string](<#DatetimeFmt.Desc>)
 - [type DirItem](<#DirItem>)
 - [type NamedType](<#NamedType>)
 - [type PTVQ](<#PTVQ>)
@@ -7482,6 +7484,37 @@ DateTimeType 32位时间戳类型，秒级时间戳
 type DateTimeType C.rtdb_datetime_type
 ```
 
+<a name="DatetimeFmt"></a>
+## type DatetimeFmt
+
+DatetimeFmt datetime 类型读取时的时间显示格式
+
+```go
+type DatetimeFmt int16
+```
+
+<a name="DatetimeFmtDefault"></a>
+
+```go
+const (
+    // DatetimeFmtDefault 按标签点属性默认显示
+    DatetimeFmtDefault DatetimeFmt = 0
+    // DatetimeFmtDash yyyy-mm-dd hh:mm:ss.000
+    DatetimeFmtDash DatetimeFmt = 1
+    // DatetimeFmtSlash yyyy/mm/dd hh:mm:ss.000
+    DatetimeFmtSlash DatetimeFmt = 2
+)
+```
+
+<a name="DatetimeFmt.Desc"></a>
+### func \(DatetimeFmt\) Desc
+
+```go
+func (f DatetimeFmt) Desc() string
+```
+
+Desc 返回时间格式对应的格式字符串
+
 <a name="DirItem"></a>
 ## type DirItem
 
@@ -7671,6 +7704,9 @@ type PointInfo struct {
     ExcTimeMin     int32      // 最短例外间隔
     Mirror         RtdbMirror // 镜像收发控制
     Summary        Switch     // 统计加速
+    // DateTimeFormat 时间格式类型，仅 datetime 类型有效，参见 DatetimeFmt* 常量
+    // 0 默认；1 yyyy-mm-dd hh:mm:ss.000；2 yyyy/mm/dd hh:mm:ss.00
+    DateTimeFormat DatetimeFmt
 
     // 采集点配置，仅采集点有效
     Source     string                         // 数据源
