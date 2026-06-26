@@ -2212,8 +2212,16 @@ func (c *RtdbConnect) AddPoints(infos []*PointInfo) ([]*PointInfo, []error, erro
 			tIdx = append(tIdx, i)
 		} else {
 			bases = append(bases, *base)
-			scans = append(scans, *scan)
-			calcs = append(calcs, *calc)
+			if scan != nil {
+				scans = append(scans, *scan)
+			} else {
+				scans = append(scans, RtdbScan{})
+			}
+			if calc != nil {
+				calcs = append(calcs, *calc)
+			} else {
+				calcs = append(calcs, RtdbCalc{})
+			}
 			idx = append(idx, i)
 		}
 	}
