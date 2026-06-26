@@ -283,6 +283,30 @@ func FromRawType(typ RtdbType, namedTypeName string) ValueType {
 	}
 }
 
+// DatetimeFmt datetime 类型读取时的时间显示格式
+type DatetimeFmt int16
+
+const (
+	// DatetimeFmtDefault 按标签点属性默认显示
+	DatetimeFmtDefault DatetimeFmt = 0
+	// DatetimeFmtDash yyyy-mm-dd hh:mm:ss.000
+	DatetimeFmtDash DatetimeFmt = 1
+	// DatetimeFmtSlash yyyy/mm/dd hh:mm:ss.000
+	DatetimeFmtSlash DatetimeFmt = 2
+)
+
+// Desc 返回时间格式对应的格式字符串
+func (f DatetimeFmt) Desc() string {
+	switch f {
+	case DatetimeFmtDash:
+		return "yyyy-mm-dd hh:mm:ss.000"
+	case DatetimeFmtSlash:
+		return "yyyy/mm/dd hh:mm:ss.000"
+	default:
+		return "yyyy-mm-dd hh:mm:ss.000"
+	}
+}
+
 // PointClass 点类型
 type PointClass int32
 
@@ -301,14 +325,16 @@ const (
 )
 
 func (p PointClass) Desc() string {
-	switch p {
-	case PointBase:
+	// classof 低4位为点类别，高位为 datetime type，需过滤后判断
+	class := p & 0x0F
+	switch class {
+	case PointClass(RtdbClassBase):
 		return "基本点"
-	case PointScan:
+	case PointClass(RtdbClassBase | RtdbClassScan):
 		return "采集点"
-	case PointCalc:
+	case PointClass(RtdbClassBase | RtdbClassCalc):
 		return "计算点"
-	case PointScanCalc:
+	case PointClass(RtdbClassBase | RtdbClassScan | RtdbClassCalc):
 		return "采集计算点"
 	default:
 		return "未知点类型"
@@ -356,6 +382,9 @@ type PointInfo struct {
 	ExcTimeMin     int32      // 最短例外间隔
 	Mirror         RtdbMirror // 镜像收发控制
 	Summary        Switch     // 统计加速
+	// DateTimeFormat 时间格式类型，仅 datetime 类型有效，参见 DatetimeFmt* 常量
+	// 0 默认；1 yyyy-mm-dd hh:mm:ss.000；2 yyyy/mm/dd hh:mm:ss.00
+	DateTimeFormat DatetimeFmt
 
 	// 采集点配置，仅采集点有效
 	Source     string                         // 数据源
@@ -629,7 +658,7 @@ func PointInfoToRaw(info *PointInfo) (*RtdbPoint, *RtdbScan, *RtdbCalc, string) 
 		ExcDevPercent:  info.ExcDevPercent,
 		ExcTimeMin:     info.ExcTimeMin,
 		ExcTimeMax:     info.ExcTimeMax,
-		Class:          RtdbClass(info.Class),
+		Class:          RtdbClass(uint32(info.Class)&0x0F | uint32(info.DateTimeFormat)<<4),
 		Mirror:         info.Mirror,
 		Summary:        info.Summary,
 		Precision:      info.Precision,
@@ -693,7 +722,8 @@ func PointInfoFromRaw(handle ConnectHandle, base *RtdbPoint, scan *RtdbScan, cal
 		TableID:        base.Table,
 		Name:           base.Tag,
 		ValueType:      FromRawType(base.Type, namedTypeName),
-		Class:          PointClass(base.Class),
+		Class:          PointClass(base.Class) & 0x0F,
+		DateTimeFormat: DatetimeFmt(PointClass(base.Class) >> 4),
 		Precision:      base.Precision,
 		Desc:           base.Desc,
 		Unit:           base.Unit,
@@ -3260,17 +3290,36 @@ func (c *RtdbConnect) ReadLasts(infos []*PointInfo) ([]PTVQ, []error, error) {
 	}
 
 	if len(dtIds) != 0 {
-		dt, ms, datetimes, qualities, rtes, rte := RawRtdbsGetDatetimeSnapshots64Warp(c.ConnectHandle, dtIds, 0)
-		if !RteIsOk(rte) {
-			return nil, nil, rte.GoError()
+		// 按 DateTimeFormat 分组批量读取
+		type dtGroup struct {
+			ids  []PointID
+			idxs []int
 		}
-		for i := 0; i < len(dtIds); i++ {
+		dtGroups := make(map[int16]*dtGroup)
+		for i, id := range dtIds {
 			idx := dtIdx[i]
-			ts := RtdbTimestampToGoTime(dt[i], ms[i])
-			q := qualities[i]
-			rtnRtes[idx] = rtes[i]
-			tvq := NewTvqDatetime(ts, datetimes[i], q)
-			rtnPTVQs[idx] = NewPTVQ(infos[idx], tvq)
+			typ := int16(infos[idx].DateTimeFormat)
+			g, ok := dtGroups[typ]
+			if !ok {
+				g = &dtGroup{}
+				dtGroups[typ] = g
+			}
+			g.ids = append(g.ids, id)
+			g.idxs = append(g.idxs, idx)
+		}
+		for typ, g := range dtGroups {
+			dt, ms, datetimes, qualities, rtes, rte := RawRtdbsGetDatetimeSnapshots64Warp(c.ConnectHandle, g.ids, typ)
+			if !RteIsOk(rte) {
+				return nil, nil, rte.GoError()
+			}
+			for i := 0; i < len(g.ids); i++ {
+				idx := g.idxs[i]
+				ts := RtdbTimestampToGoTime(dt[i], ms[i])
+				q := qualities[i]
+				rtnRtes[idx] = rtes[i]
+				tvq := NewTvqDatetime(ts, datetimes[i], q)
+				rtnPTVQs[idx] = NewPTVQ(infos[idx], tvq)
+			}
 		}
 	}
 
@@ -3374,7 +3423,7 @@ func (c *RtdbConnect) ReadValue(info *PointInfo, mode RtdbHisMode, timestamp tim
 		ts := RtdbTimestampToGoTime(dt, ms)
 		return NewPTVQ(info, NewTvqNamed(ts, info.ValueType, data, quality)), nil
 	case RtdbTypeDatetime:
-		dt, ms, data, quality, rte := RawRtdbhGetSingleDatetimeValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime, 0)
+		dt, ms, data, quality, rte := RawRtdbhGetSingleDatetimeValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime, int16(info.DateTimeFormat))
 		if !RteIsOk(rte) {
 			return PTVQ{}, rte.GoError()
 		}
@@ -3488,7 +3537,7 @@ func (c *RtdbConnect) ReadRange(info *PointInfo, start time.Time, end time.Time)
 			tvqs = append(tvqs, NewTvqNamed(ts, info.ValueType, datas[i], q))
 		}
 	case RtdbTypeDatetime:
-		dt, ms, datetimes, qualities, rte := RawRtdbhGetArchivedDatetimeValues64Warp(c.ConnectHandle, info.ID, maxCount, datetime1, subtime1, datetime2, subtime2, 0)
+		dt, ms, datetimes, qualities, rte := RawRtdbhGetArchivedDatetimeValues64Warp(c.ConnectHandle, info.ID, maxCount, datetime1, subtime1, datetime2, subtime2, int16(info.DateTimeFormat))
 		if !RteIsOk(rte) {
 			return PTVQs{}, rte.GoError()
 		}
