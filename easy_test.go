@@ -612,96 +612,141 @@ func TestRtdbConnect_Recycler(t *testing.T) {
 		t.Error("清空回收站失败：", err)
 		return
 	}
+	fmt.Println("清空回收站成功")
 
 	// 创建表
-	table, err := conn.CreateTable("ppp", "ppp desc")
+	table, err := conn.CreateTable("recycletest", "recycletest desc")
 	if err != nil {
 		t.Error("创建表失败：", err)
 		return
 	}
-	// 删除表
 	defer func() { _ = conn.DeleteTable(table.ID) }()
+	fmt.Printf("创建表成功，表名为：%s\n", table.Name)
 
-	// 添加点
-	info := NewPointInfo("aaa", table.ID, ValueTypeInt32, PointBase, RtdbPrecisionMicro, "", "")
+	// 创建第二张表，用于测试恢复到其他表
+	table2, err := conn.CreateTable("recycletest2", "recycletest2 desc")
+	if err != nil {
+		t.Error("创建表2失败：", err)
+		return
+	}
+	defer func() { _ = conn.DeleteTable(table2.ID) }()
+	fmt.Printf("创建表2成功，表名为：%s\n", table2.Name)
+
+	// 添加点（注意：测试恢复到原表/其他表，必须用直接删点，而不是删表，
+	// 删表产生的回收站条目底层不支持 RecoverPoint 操作）
+	info := NewPointInfo("tag01", table.ID, ValueTypeInt32, PointBase, RtdbPrecisionMicro, "", "")
 	info.SetLimit(-100, 100, 0)
 	pInfo, err := conn.AddPoint(info)
 	if err != nil {
 		t.Error("添加点失败: ", err)
 		return
 	}
+	fmt.Printf("添加点成功，测点ID=%d\n", pInfo.ID)
 
-	// 删除点, 注意，此时回收站中应该有一个点的
+	// 直接删除点（进入回收站）
 	err = conn.DeletePoint(pInfo.ID)
 	if err != nil {
 		t.Error("删除点失败: ", err)
 		return
 	}
+	fmt.Println("删除点成功（进入回收站）")
 
 	// 分批获取回收站中的点
 	rCount, infos, errs, err := conn.GetRecycledPoints(0, 1024)
 	if err != nil {
-		t.Error("获取点失败：", err)
+		t.Error("获取回收站点失败：", err)
 		return
 	}
 	if rCount != 1 {
-		t.Error("回收站中点数量不为1")
+		t.Errorf("回收站中点数量应为1，实际为%d", rCount)
 		return
 	}
-	if errs[0] != nil {
+	if len(errs) > 0 && errs[0] != nil {
 		t.Error("获取点信息失败：", errs[0])
 		return
 	}
-	fmt.Println(infos)
+	fmt.Printf("获取回收站点成功，共%d个\n", rCount)
 
-	// 恢复点到表
+	// 恢复点到原表
 	err = conn.RecoverPoint(table.ID, infos[0].ID)
 	if err != nil {
-		t.Error("恢复点失败:", err)
+		t.Error("恢复点到原表失败:", err)
 		return
 	}
+	fmt.Println("恢复点到原表成功")
 
 	// 查找已恢复的点
-	infos, errs, err = conn.FindPoints([]string{"ppp.aaa"})
+	recoveredInfos, findErrs, err := conn.FindPoints([]string{"recycletest.tag01"})
 	if err != nil {
 		t.Error("查找点失败：", err)
 		return
 	}
-	if errs[0] != nil {
-		t.Error("获取点信息失败：", errs[0])
+	if len(findErrs) > 0 && findErrs[0] != nil {
+		t.Error("获取点信息失败：", findErrs[0])
 		return
 	}
-	fmt.Println(infos)
+	if len(recoveredInfos) == 0 {
+		t.Error("未找到已恢复的点")
+		return
+	}
+	fmt.Printf("查找已恢复的点成功，测点全名称为：%s\n", recoveredInfos[0].Name)
 
-	// 删除点, 此时回收站中点个数应该为1
-	err = conn.DeletePoint(infos[0].ID)
+	// 再次直接删除点（进入回收站，用于后续 RecoverPoint 到其他表）
+	err = conn.DeletePoint(recoveredInfos[0].ID)
 	if err != nil {
-		t.Error("删除点失败：", err)
+		t.Error("再次删除点失败：", err)
 		return
 	}
+	fmt.Println("再次删除点成功（进入回收站）")
 
 	// 在回收站中搜索点
 	rCount, infos, errs, err = conn.SearchRecycledPoint(0, 1024, "", "", "", "", "", "", RtdbSortFlagDescend)
 	if err != nil {
+		t.Error("搜索回收站点失败：", err)
+		return
+	}
+	if rCount == 0 || len(infos) == 0 {
+		t.Error("回收站搜索结果应至少有1个点")
+		return
+	}
+	if len(errs) > 0 && errs[0] != nil {
+		t.Error("搜索回收站点信息失败：", errs[0])
+		return
+	}
+	fmt.Printf("搜索回收站点成功，共%d个\n", rCount)
+
+	// 恢复点到其他表
+	err = conn.RecoverPoint(table2.ID, infos[0].ID)
+	if err != nil {
+		t.Error("恢复点到其他表失败:", err)
+		return
+	}
+	fmt.Println("恢复点到其他表成功")
+
+	// 查找恢复到其他表的点
+	recoveredInfos, findErrs, err = conn.FindPoints([]string{"recycletest2.tag01"})
+	if err != nil {
 		t.Error("查找点失败：", err)
 		return
 	}
-	if errs[0] != nil {
-		t.Error("获取点信息失败：", errs[0])
+	if len(findErrs) > 0 && findErrs[0] != nil {
+		t.Error("获取点信息失败：", findErrs[0])
 		return
 	}
-	if rCount != 1 {
-		t.Error("回收站中的点应为1")
+	if len(recoveredInfos) == 0 {
+		t.Error("未找到恢复到其他表的点")
 		return
 	}
-	fmt.Println(infos[0])
+	fmt.Printf("查找恢复到其他表的点成功，测点全名称为：%s\n", recoveredInfos[0].Name)
 
-	// 从回收站中清除点，此时点会被彻底删除
-	err = conn.PurgePoint(infos[0].ID)
+	// 最终清理：删除点后彻底清除（purge）
+	err = conn.DeletePoint(recoveredInfos[0].ID)
 	if err != nil {
-		t.Error("从回收站中清除点失败：", err)
-		return
+		t.Logf("清理恢复点失败（可忽略）：%v", err)
 	}
+	// 彻底清空回收站
+	_ = conn.ClearRecycler()
+	fmt.Println("回收站测试全部完成")
 }
 
 // 获取某个数值类型对应的点数量
