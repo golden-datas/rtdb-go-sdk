@@ -2237,7 +2237,11 @@ func (c *RtdbConnect) AddPoints(infos []*PointInfo) ([]*PointInfo, []error, erro
 		base, scan, calc, tName := PointInfoToRaw(info)
 		if base.Type == RtdbTypeNamedT {
 			tBases = append(tBases, *base)
-			tScan = append(tScan, *scan)
+			if scan != nil {
+				tScan = append(tScan, *scan)
+			} else {
+				tScan = append(tScan, RtdbScan{})
+			}
 			tNames = append(tNames, tName)
 			tIdx = append(tIdx, i)
 		} else {
