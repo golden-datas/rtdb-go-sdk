@@ -76,6 +76,7 @@
 1. WriteSection  写断面(批量写入多个Point，每个Point写入一个TVQ)
 1. ReadLasts  批量读取实时快照值(当前标签点最后一个写入的TVQ)
 1. ReadLast  读取实时快照值(当前标签点最后一个写入的TVQ)
+1. hisModeForSingleRead  将组合查询模式拆分为底层历史读取接口支持的基础模式与未命中时的回退模式。
 1. ReadValue  读取单个TVQ
 1. ReadRange  读取某个时间段内的TVQ
 1. ReadPlot  读取用于绘图的TVQ
