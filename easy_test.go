@@ -2099,5 +2099,154 @@ func TestRtdbConnect_ReadValueExactOrPrevNext(t *testing.T) {
 	if ptvqs[1].TVQ.Value.IntValue != 22 || ptvqs[1].TVQ.Timestamp.Unix() != t2.Unix() {
 		t.Errorf("断面ExactOrNext int16点应返回t2的值22，实际: Time=%v, Value=%v", ptvqs[1].TVQ.Timestamp, ptvqs[1].TVQ.Value.IntValue)
 	}
+
+	// 部分命中场景：新增一个在 midTime 有精确数据的点，验证只有未命中的点被回退补查且结果合并位置正确
+	mInfo, err := conn.AddPoint(NewPointInfo("m01", table.ID, ValueTypeFloat64, PointBase, RtdbPrecisionNano, "", "组合模式部分命中测试点"))
+	if err != nil {
+		t.Error("添加部分命中测试点失败: ", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(mInfo.ID) }()
+	if _, err := conn.WriteValues(mInfo, false, []TVQ{
+		NewTvqFloat64(midTime, 9.9, Quality(0)),
+	}); err != nil {
+		t.Error("写入部分命中测试点数据失败：", err)
+		return
+	}
+	ptvqs, errs, err = conn.ReadSection([]*PointInfo{fInfo, mInfo, iInfo}, RtdbHisModeExactOrPrev, midTime)
+	if err != nil {
+		t.Error("断面部分命中ExactOrPrev查询失败：", err)
+		return
+	}
+	for i, e := range errs {
+		if e != nil {
+			t.Errorf("断面部分命中ExactOrPrev查询第%d个点失败: %v", i, e)
+		}
+	}
+	fmt.Printf("ReadSection(部分命中ExactOrPrev): f01=%v@%v, m01=%v@%v, i01=%v@%v\n",
+		ptvqs[0].TVQ.Value.FloatValue, ptvqs[0].TVQ.Timestamp.Format(time.RFC3339Nano),
+		ptvqs[1].TVQ.Value.FloatValue, ptvqs[1].TVQ.Timestamp.Format(time.RFC3339Nano),
+		ptvqs[2].TVQ.Value.IntValue, ptvqs[2].TVQ.Timestamp.Format(time.RFC3339Nano))
+	if ptvqs[0].TVQ.Value.FloatValue != 1.5 || ptvqs[0].TVQ.Timestamp.Unix() != t1.Unix() {
+		t.Errorf("部分命中场景f01应回退到t1的值1.5，实际: Time=%v, Value=%v", ptvqs[0].TVQ.Timestamp, ptvqs[0].TVQ.Value.FloatValue)
+	}
+	if ptvqs[1].TVQ.Value.FloatValue != 9.9 || ptvqs[1].TVQ.Timestamp.Unix() != midTime.Unix() {
+		t.Errorf("部分命中场景m01应精确命中midTime的值9.9，实际: Time=%v, Value=%v", ptvqs[1].TVQ.Timestamp, ptvqs[1].TVQ.Value.FloatValue)
+	}
+	if ptvqs[2].TVQ.Value.IntValue != 11 || ptvqs[2].TVQ.Timestamp.Unix() != t1.Unix() {
+		t.Errorf("部分命中场景i01应回退到t1的值11，实际: Time=%v, Value=%v", ptvqs[2].TVQ.Timestamp, ptvqs[2].TVQ.Value.IntValue)
+	}
 	fmt.Println("组合模式查询测试完成")
+}
+
+// 断面 InterOrNext 测试：底层断面接口不支持 InterOrNext 组合模式，
+// 修复前直接透传会逐点返回"找不到数据"；修复后先 Inter（服务器原生计算插值，
+// BOOL 等整型也支持），未命中再 Next 补查
+func TestRtdbConnect_ReadSectionInterOrNext(t *testing.T) {
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
+	if err != nil {
+		t.Fatal("登录用户失败", err)
+	}
+	defer func() { _ = conn.Logout() }()
+
+	table, err := conn.CreateTable("ttiorn", "InterOrNext断面测试表")
+	if err != nil {
+		t.Error("创建表失败：", err)
+		return
+	}
+	defer func() { _ = conn.DeleteTable(table.ID) }()
+
+	// 复现截图场景：BOOL 点 + float64 点
+	bInfo, err := conn.AddPoint(NewPointInfo("b01", table.ID, ValueTypeBool, PointBase, RtdbPrecisionNano, "", "InterOrNext测试bool点"))
+	if err != nil {
+		t.Error("添加bool点失败: ", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(bInfo.ID) }()
+	fInfo, err := conn.AddPoint(NewPointInfo("f01", table.ID, ValueTypeFloat64, PointBase, RtdbPrecisionNano, "", "InterOrNext测试float点"))
+	if err != nil {
+		t.Error("添加float点失败: ", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(fInfo.ID) }()
+
+	// 写入两条数据（时间戳晚于初始快照，走快照路径落库）
+	now := time.Now()
+	t1 := now.Add(10 * time.Second)
+	t2 := now.Add(30 * time.Second)
+	if _, err := conn.WriteValues(bInfo, false, []TVQ{
+		NewTvqBool(t1, true, Quality(0)),
+		NewTvqBool(t2, true, Quality(0)),
+	}); err != nil {
+		t.Error("写入bool数据失败：", err)
+		return
+	}
+	if _, err := conn.WriteValues(fInfo, false, []TVQ{
+		NewTvqFloat64(t1, 1.5, Quality(0)),
+		NewTvqFloat64(t2, 2.5, Quality(0)),
+	}); err != nil {
+		t.Error("写入float数据失败：", err)
+		return
+	}
+
+	// 中间时刻：Inter 可计算插值，修复前逐点报"找不到数据"
+	midTime := now.Add(20 * time.Second)
+	ptvqs, errs, err := conn.ReadSection([]*PointInfo{bInfo, fInfo}, RtdbHisModeInterOrNext, midTime)
+	if err != nil {
+		t.Error("断面InterOrNext查询失败：", err)
+		return
+	}
+	for i, e := range errs {
+		if e != nil {
+			t.Errorf("断面InterOrNext查询第%d个点失败: %v", i, e)
+		}
+	}
+	fmt.Printf("ReadSection(InterOrNext): bool=%v@%v, float=%v@%v\n",
+		ptvqs[0].TVQ.Value.IntValue, ptvqs[0].TVQ.Timestamp.Format(time.RFC3339Nano),
+		ptvqs[1].TVQ.Value.FloatValue, ptvqs[1].TVQ.Timestamp.Format(time.RFC3339Nano))
+	if ptvqs[0].TVQ.Value.IntValue != 1 || ptvqs[0].TVQ.Timestamp.Unix() != midTime.Unix() {
+		t.Errorf("bool点插值应返回1@midTime，实际: Time=%v, Value=%v", ptvqs[0].TVQ.Timestamp, ptvqs[0].TVQ.Value.IntValue)
+	}
+	if ptvqs[1].TVQ.Value.FloatValue != 2.0 || ptvqs[1].TVQ.Timestamp.Unix() != midTime.Unix() {
+		t.Errorf("float点插值应返回2.0@midTime，实际: Time=%v, Value=%v", ptvqs[1].TVQ.Timestamp, ptvqs[1].TVQ.Value.FloatValue)
+	}
+
+	// Inter 无法插值场景：查询时间早于最早数据。服务器 Inter 此时不报"找不到数据"，
+	// 而是返回 BAD 品质的值（不触发 Next 回退，这是服务器语义），
+	// 这里验证断面路径与单点路径行为一致且逐点不报错
+	earlyTime := now.Add(-100 * time.Second)
+	ptvqs, errs, err = conn.ReadSection([]*PointInfo{bInfo, fInfo}, RtdbHisModeInterOrNext, earlyTime)
+	if err != nil {
+		t.Error("断面InterOrNext早于最早数据查询失败：", err)
+		return
+	}
+	for i, e := range errs {
+		if e != nil {
+			t.Errorf("断面InterOrNext早于最早数据查询第%d个点失败: %v", i, e)
+		}
+	}
+	fmt.Printf("ReadSection(InterOrNext@early): bool=%v@%v(Q=%d), float=%v@%v(Q=%d)\n",
+		ptvqs[0].TVQ.Value.IntValue, ptvqs[0].TVQ.Timestamp.Format(time.RFC3339Nano), ptvqs[0].TVQ.Quality,
+		ptvqs[1].TVQ.Value.FloatValue, ptvqs[1].TVQ.Timestamp.Format(time.RFC3339Nano), ptvqs[1].TVQ.Quality)
+	single, err := conn.ReadValue(fInfo, RtdbHisModeInterOrNext, earlyTime)
+	if err != nil {
+		t.Error("float ReadValue InterOrNext早于最早数据读取失败：", err)
+		return
+	}
+	if !ptvqs[1].TVQ.Timestamp.Equal(single.TVQ.Timestamp) || ptvqs[1].TVQ.Value.FloatValue != single.TVQ.Value.FloatValue || ptvqs[1].TVQ.Quality != single.TVQ.Quality {
+		t.Errorf("断面与单点InterOrNext行为应一致，断面: %v/%v/Q%d, 单点: %v/%v/Q%d",
+			ptvqs[1].TVQ.Timestamp, ptvqs[1].TVQ.Value.FloatValue, ptvqs[1].TVQ.Quality,
+			single.TVQ.Timestamp, single.TVQ.Value.FloatValue, single.TVQ.Quality)
+	}
+
+	// ReadValue 单点路径同样验证 InterOrNext
+	ptvq, err := conn.ReadValue(bInfo, RtdbHisModeInterOrNext, midTime)
+	if err != nil {
+		t.Error("bool ReadValue InterOrNext读取失败：", err)
+		return
+	}
+	if ptvq.TVQ.Value.IntValue != 1 || ptvq.TVQ.Timestamp.Unix() != midTime.Unix() {
+		t.Errorf("bool ReadValue InterOrNext应返回1@midTime，实际: Time=%v, Value=%v", ptvq.TVQ.Timestamp, ptvq.TVQ.Value.IntValue)
+	}
+	fmt.Println("InterOrNext断面查询测试完成")
 }
