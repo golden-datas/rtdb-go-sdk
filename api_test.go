@@ -5521,14 +5521,20 @@ func prepareTestDatetimeHistoryData(t *testing.T, handle ConnectHandle, pid Poin
 	for i := 0; i < count; i++ {
 		ids[i] = pid
 		dts[i] = start + TimestampType(i*10)
-		dtValues[i] = time.Unix(int64(dts[i]), 0).Format("2006-01-02 15:04:05")
+		// 服务端默认解析格式为 "yyyy-mm-dd hh:mm:ss.000"（见 rtdbapi.h），需带毫秒
+		dtValues[i] = time.Unix(int64(dts[i]), 0).Format("2006-01-02 15:04:05.000")
 		quals[i] = 0
 		subs[i] = 0
 	}
 
-	_, err := RawRtdbhPutArchivedDatetimeValues64Warp(handle, ids, dts, subs, dtValues, quals)
+	errs, err := RawRtdbhPutArchivedDatetimeValues64Warp(handle, ids, dts, subs, dtValues, quals)
 	if !RteIsOk(err) {
 		return now, err
+	}
+	for i, e := range errs {
+		if !RteIsOk(e) {
+			t.Logf("写入第%d条datetime历史数据失败: %s", i, e)
+		}
 	}
 	_, _ = RawRtdbhFlushArchivedValuesWarp(handle, pid)
 	return now, RteOk
@@ -8808,7 +8814,7 @@ func TestRawRtdbbGetMetaSyncInfoWarp(t *testing.T) {
 	}
 
 	// TC-SYNC-03 获取不存在的节点：传 999 应该被拒绝
-	fmt.Println("【步骤4】测试获取不存在的节点（预期：返回错误）")
+	fmt.Println("【步骤 4】测试获取不存在的节点（预期：返回错误）")
 	_, _, err = RawRtdbbGetMetaSyncInfoWarp(handle, 999)
 	if RteIsOk(err) {
 		fmt.Println("  结果：失败 —— 不存在的节点居然通过了！")
@@ -8817,4 +8823,123 @@ func TestRawRtdbbGetMetaSyncInfoWarp(t *testing.T) {
 		fmt.Printf("  结果：通过 —— 返回了预期的错误：%s\n", err)
 	}
 	fmt.Println("【全部测试完成】")
+}
+
+// TC-DATETIME-INTERP-01 测试 datetime 类型插值查询功能
+func TestDatetimeInterpQuery(t *testing.T) {
+	fmt.Println("=== 测试 DATETIME 类型插值查询 ===")
+	fmt.Println("【步骤 1】连接并登录（预期：成功）")
+	handle := connectAndLogin(t)
+	defer disconnect(t, handle)
+	fmt.Println("  结果：通过 —— 登录成功")
+
+	fmt.Println("【步骤 2】创建临时表（预期：成功）")
+	tbl, err := createCleanTempTable(handle, "TestTblDttmInterp", "测试 datetime 插值查询")
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建临时表失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 临时表 ID=%d\n", tbl.ID)
+	defer func() {
+		fmt.Println("【清理】删除临时表（预期：成功）")
+		rte := RawRtdbbRemoveTableByIdWarp(handle, tbl.ID)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理临时表失败：%s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 临时表已删除")
+		}
+	}()
+
+	fmt.Println("【步骤 3】创建 datetime 类型标签点（预期：成功）")
+	pid, err := createTestPointOfType(t, handle, "TestPtDttmInterp", tbl.ID, RtdbTypeDatetime)
+	if !RteIsOk(err) {
+		fmt.Printf("  结果：失败 —— %s\n", err)
+		t.Error("创建 datetime 标签点失败:", err)
+		return
+	}
+	fmt.Printf("  结果：通过 —— 标签点 ID=%d\n", pid)
+	defer func() {
+		fmt.Println("【清理】删除标签点（预期：成功）")
+		rte := RawRtdbbRemovePointByIdWarp(handle, pid)
+		if !RteIsOk(rte) {
+			fmt.Printf("  结果：失败 —— %s\n", rte)
+			t.Logf("清理标签点失败：%s", rte)
+		} else {
+			fmt.Println("  结果：通过 —— 标签点已删除")
+		}
+	}()
+
+	fmt.Println("【步骤 4】通过快照路径写入两条 datetime 数据（预期：成功）")
+	// 注：测试服务器上补写历史接口（put_archived/put_single）的数据不可读，
+	// 而快照路径（时间戳递增且晚于初始快照）可靠落库，故用快照写入准备数据
+	now := TimestampType(time.Now().Unix())
+	t1, t2 := now+10, now+30
+	v1, v2 := "2026-07-22 10:56:40.000", "2026-07-22 10:57:00.000"
+	sErrs, err := RawRtdbsPutDatetimeSnapshots64Warp(handle, []PointID{pid}, []TimestampType{t1}, []SubtimeType{0}, []string{v1}, []Quality{0})
+	if !RteIsOk(err) || !RteIsOk(sErrs[0]) {
+		fmt.Printf("  结果：失败 —— %s / %s\n", err, sErrs[0])
+		t.Error("写入第一条 datetime 快照失败")
+		return
+	}
+	sErrs, err = RawRtdbsPutDatetimeSnapshots64Warp(handle, []PointID{pid}, []TimestampType{t2}, []SubtimeType{0}, []string{v2}, []Quality{0})
+	if !RteIsOk(err) || !RteIsOk(sErrs[0]) {
+		fmt.Printf("  结果：失败 —— %s / %s\n", err, sErrs[0])
+		t.Error("写入第二条 datetime 快照失败")
+		return
+	}
+	fmt.Printf("  结果：通过 —— 已写入 t1=%d(%s)、t2=%d(%s)\n", t1, v1, t2, v2)
+
+	fmt.Println("【步骤 4.5】范围读回，验证写入值（预期：含两条写入记录）")
+	rDts, _, rBlobs, _, rErr := RawRtdbhGetArchivedDatetimeValues64Warp(handle, pid, 10, 0, 0, 0, 0, 1)
+	if !RteIsOk(rErr) {
+		fmt.Printf("  结果：失败 —— %s\n", rErr)
+		t.Errorf("读回 datetime 历史数据失败：%s", rErr)
+		return
+	}
+	found := map[string]bool{}
+	for i := range rDts {
+		fmt.Printf("  记录[%d] 时间戳=%d, 值=%s\n", i, rDts[i], string(rBlobs[i]))
+		found[string(rBlobs[i])] = true
+	}
+	if !found[v1] || !found[v2] {
+		t.Errorf("写入值读回不一致：期望包含 %s 和 %s", v1, v2)
+		return
+	}
+	fmt.Println("  结果：通过 —— 两条写入值均可读回")
+
+	// 在两条数据中间时刻查询，验证各模式行为
+	midTime := t1 + 10
+	fmt.Printf("【步骤 5】在中间时刻 %d 验证各查询模式（底层接口仅支持 Next/Previous/Exact）\n", midTime)
+
+	fmt.Println("【步骤 6a】插值模式（预期：不支持的标签点类型）")
+	_, _, blob, quality, err := RawRtdbhGetSingleDatetimeValue64Warp(handle, pid, RtdbHisModeInter, midTime, 0, 1)
+	if !RteIsOk(err) {
+		fmt.Printf("  ✓ 插值模式按预期报错 —— %s\n", err)
+	} else {
+		fmt.Printf("  插值模式意外成功 —— 值=%s, 品质=%d\n", string(blob), quality)
+	}
+
+	fmt.Println("【步骤 6b】Exact 模式读中间时刻（预期：找不到需要的数据）")
+	_, _, _, _, err = RawRtdbhGetSingleDatetimeValue64Warp(handle, pid, RtdbHisModeExact, midTime, 0, 1)
+	if err == RteDataNotFound {
+		fmt.Println("  ✓ Exact 模式按预期返回找不到数据")
+	} else {
+		t.Errorf("Exact 模式预期返回 RteDataNotFound，实际：%s", err)
+	}
+
+	fmt.Println("【步骤 6c】Previous 模式读中间时刻（预期：返回上一条 t1 的值，即插值降级策略）")
+	dtOut, _, blob, quality, err := RawRtdbhGetSingleDatetimeValue64Warp(handle, pid, RtdbHisModePrevious, midTime, 0, 1)
+	if !RteIsOk(err) {
+		fmt.Printf("  ✗ Previous 模式失败 —— %s\n", err)
+		t.Errorf("Previous 模式失败：%s", err)
+	} else {
+		fmt.Printf("  ✓ Previous 模式成功 —— 时间戳=%d, 值=%s, 品质=%d\n", dtOut, string(blob), quality)
+		if dtOut != t1 || string(blob) != v1 {
+			t.Errorf("Previous 模式应返回 t1=%d 的值 %s，实际：时间戳=%d, 值=%s", t1, v1, dtOut, string(blob))
+		}
+	}
+
+	fmt.Println("=== 测试完成 ===")
 }

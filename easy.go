@@ -3438,7 +3438,21 @@ func (c *RtdbConnect) ReadValue(info *PointInfo, mode RtdbHisMode, timestamp tim
 		ts := RtdbTimestampToGoTime(dt, ms)
 		return NewPTVQ(info, NewTvqNamed(ts, info.ValueType, data, quality)), nil
 	case RtdbTypeDatetime:
+		// 底层 C API rtdbh_get_single_datetime_value64 只支持 Next/Previous/Exact 三种模式（见 api.h），
+		// 传入其它模式会返回错误或无效数据。因此：
+		// - Inter/InterOrNext 参照 GEMS 客户端行为降级为取上一个值（Exact 未命中再 Previous）
+		// - ExactOrPrev/ExactOrNext 用 Exact + Previous/Next 两步模拟
+		fallbackMode := RtdbHisMode(-1)
+		switch mode {
+		case RtdbHisModeInter, RtdbHisModeInterOrNext, RtdbHisModeExactOrPrev:
+			mode, fallbackMode = RtdbHisModeExact, RtdbHisModePrevious
+		case RtdbHisModeExactOrNext:
+			mode, fallbackMode = RtdbHisModeExact, RtdbHisModeNext
+		}
 		dt, ms, data, quality, rte := RawRtdbhGetSingleDatetimeValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime, int16(info.DateTimeFormat))
+		if rte == RteDataNotFound && fallbackMode != RtdbHisMode(-1) {
+			dt, ms, data, quality, rte = RawRtdbhGetSingleDatetimeValue64Warp(c.ConnectHandle, info.ID, fallbackMode, datetime, subtime, int16(info.DateTimeFormat))
+		}
 		if !RteIsOk(rte) {
 			return PTVQ{}, rte.GoError()
 		}

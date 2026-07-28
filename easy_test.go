@@ -1809,3 +1809,79 @@ func TestRtdbConnect_SubscribeConnectEvents(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	fmt.Printf("API调用事件订阅测试完成，共收到%d条订阅通知\n", receivedCount)
 }
+
+// datetime类型插值查询测试：验证插值模式自动降级为ExactOrPrev不再报"不支持的标签点类型"
+func TestRtdbConnect_ReadValueDatetimeInter(t *testing.T) {
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
+	if err != nil {
+		t.Fatal("登录用户失败", err)
+	}
+	defer func() { _ = conn.Logout() }()
+
+	// 创建表
+	table, err := conn.CreateTable("ttdtinter", "datetime插值测试表")
+	if err != nil {
+		t.Error("创建表失败：", err)
+		return
+	}
+	defer func() { _ = conn.DeleteTable(table.ID) }()
+
+	// 添加datetime类型的点
+	info := NewPointInfo("dt01", table.ID, ValueTypeDatetime, PointBase, RtdbPrecisionNano, "", "datetime插值测试点")
+	pInfo, err := conn.AddPoint(info)
+	if err != nil {
+		t.Error("添加点失败: ", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(pInfo.ID) }()
+
+	// 写入两条相隔20秒的datetime数据。注意：时间戳需晚于点创建时的初始快照，
+	// 使写入走快照路径落库（测试服务器上补写历史路径的数据不可见）
+	now := time.Now()
+	t1 := now.Add(10 * time.Second)
+	t2 := now.Add(30 * time.Second)
+	tvqs := []TVQ{
+		NewTvqDatetime(t1, "2026-07-22 10:56:40.000", Quality(0)),
+		NewTvqDatetime(t2, "2026-07-22 10:57:00.000", Quality(0)),
+	}
+	errs, err := conn.WriteValues(pInfo, false, tvqs)
+	if err != nil {
+		t.Error("写入datetime历史数据失败：", err)
+		return
+	}
+	for i, e := range errs {
+		if e != nil {
+			t.Errorf("写入第%d条datetime数据失败: %v", i, e)
+		}
+	}
+	if _, err := conn.FlushArchivedValues(pInfo); err != nil {
+		t.Error("flush archived values err: ", err)
+		return
+	}
+
+	// 关键测试：在两条数据中间时刻用插值模式读取，修复前报"不支持的标签点类型"
+	midTime := now.Add(20 * time.Second)
+	ptvq, err := conn.ReadValue(pInfo, RtdbHisModeInter, midTime)
+	if err != nil {
+		t.Error("插值模式读取datetime失败：", err)
+		return
+	}
+	fmt.Printf("ReadValue(Inter): Time=%v, Value=%v, Quality=%d\n",
+		ptvq.TVQ.Timestamp.Format(time.RFC3339Nano),
+		ptvq.TVQ.Value.StringValue, ptvq.TVQ.Quality)
+	// 降级为ExactOrPrev后应返回上一条数据的值
+	if ptvq.TVQ.Value.StringValue != "2026-07-22 10:56:40.000" {
+		t.Errorf("插值降级后应返回上一个值，实际返回: %v", ptvq.TVQ.Value.StringValue)
+	}
+
+	// InterOrNext 模式同样验证
+	ptvq, err = conn.ReadValue(pInfo, RtdbHisModeInterOrNext, midTime)
+	if err != nil {
+		t.Error("InterOrNext模式读取datetime失败：", err)
+		return
+	}
+	fmt.Printf("ReadValue(InterOrNext): Time=%v, Value=%v, Quality=%d\n",
+		ptvq.TVQ.Timestamp.Format(time.RFC3339Nano),
+		ptvq.TVQ.Value.StringValue, ptvq.TVQ.Quality)
+	fmt.Println("datetime插值查询降级测试完成")
+}
