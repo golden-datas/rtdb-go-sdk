@@ -2250,3 +2250,76 @@ func TestRtdbConnect_ReadSectionInterOrNext(t *testing.T) {
 	}
 	fmt.Println("InterOrNext断面查询测试完成")
 }
+
+// ReadPlot datetime 测试：底层绘图接口支持 datetime（以整型毫秒时间戳返回），
+// 修复前 easy 层类型 switch 漏了 datetime 分支，数据被静默丢弃返回空列表
+func TestRtdbConnect_ReadPlotDatetime(t *testing.T) {
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
+	if err != nil {
+		t.Fatal("登录用户失败", err)
+	}
+	defer func() { _ = conn.Logout() }()
+
+	table, err := conn.CreateTable("ttdtplot", "datetime绘图测试表")
+	if err != nil {
+		t.Error("创建表失败：", err)
+		return
+	}
+	defer func() { _ = conn.DeleteTable(table.ID) }()
+
+	pInfo, err := conn.AddPoint(NewPointInfo("dt01", table.ID, ValueTypeDatetime, PointBase, RtdbPrecisionNano, "", "datetime绘图测试点"))
+	if err != nil {
+		t.Error("添加datetime点失败: ", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(pInfo.ID) }()
+
+	// 写入两条数据（时间戳晚于初始快照，走快照路径落库）
+	now := time.Now()
+	t1 := now.Add(10 * time.Second)
+	t2 := now.Add(30 * time.Second)
+	if _, err := conn.WriteValues(pInfo, false, []TVQ{
+		NewTvqDatetime(t1, "2026-07-22 10:56:40.000", Quality(0)),
+		NewTvqDatetime(t2, "2026-07-22 10:57:00.000", Quality(0)),
+	}); err != nil {
+		t.Error("写入datetime数据失败：", err)
+		return
+	}
+	if _, err := conn.FlushArchivedValues(pInfo); err != nil {
+		t.Error("flush archived values err: ", err)
+		return
+	}
+
+	// 关键测试：绘图查询覆盖写入区间，修复前返回空列表
+	ptvqs, err := conn.ReadPlot(pInfo, 100, now, now.Add(60*time.Second))
+	if err != nil {
+		t.Error("datetime绘图查询失败：", err)
+		return
+	}
+	if len(ptvqs.TVQs) == 0 {
+		t.Error("datetime绘图查询返回空列表，应返回写入的数据")
+		return
+	}
+	for _, tvq := range ptvqs.TVQs {
+		fmt.Printf("ReadPlot(datetime): Time=%v, Value=%q, Quality=%d\n",
+			tvq.Timestamp.Format(time.RFC3339Nano), tvq.Value.StringValue, tvq.Quality)
+	}
+	// 服务器 plot 接口按区间抽稀（float 点同样会丢中间值），不能断言返回全部写入值；
+	// 这里断言：好品质的返回值必须是正确格式化的时间字符串，且至少命中一条写入值
+	found := false
+	for _, tvq := range ptvqs.TVQs {
+		if tvq.Quality != Quality(0) {
+			continue
+		}
+		if _, perr := time.Parse("2006-01-02 15:04:05.000", tvq.Value.StringValue); perr != nil {
+			t.Errorf("绘图返回值应为格式化时间字符串，实际: %q", tvq.Value.StringValue)
+		}
+		if tvq.Value.StringValue == "2026-07-22 10:56:40.000" || tvq.Value.StringValue == "2026-07-22 10:57:00.000" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("绘图结果中未找到任何写入的datetime值")
+	}
+	fmt.Println("datetime绘图查询测试完成")
+}

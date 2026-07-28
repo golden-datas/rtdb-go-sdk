@@ -3637,6 +3637,12 @@ func (c *RtdbConnect) ReadPlot(info *PointInfo, interval int32, start time.Time,
 	if !RteIsOk(rte) {
 		return PTVQs{}, rte.GoError()
 	}
+	// datetime 点的绘图值由底层以整型毫秒时间戳返回(states)，
+	// 需按标签点时间格式转换为与其他读取接口一致的字符串
+	datetimeLayout := "2006-01-02 15:04:05.000"
+	if info.DateTimeFormat == DatetimeFmtSlash {
+		datetimeLayout = "2006/01/02 15:04:05.000"
+	}
 	tvqs := make([]TVQ, 0)
 	for i := 0; i < len(dt); i++ {
 		ts := RtdbTimestampToGoTime(dt[i], ms[i])
@@ -3672,6 +3678,8 @@ func (c *RtdbConnect) ReadPlot(info *PointInfo, interval int32, start time.Time,
 			tvqs = append(tvqs, NewTvqFp32(ts, float32(values[i]), q))
 		case RtdbTypeFp64:
 			tvqs = append(tvqs, NewTvqFp64(ts, values[i], q))
+		case RtdbTypeDatetime:
+			tvqs = append(tvqs, NewTvqDatetime(ts, time.UnixMilli(states[i]).Format(datetimeLayout), q))
 		}
 	}
 	return NewPTVQs(info, tvqs), nil
