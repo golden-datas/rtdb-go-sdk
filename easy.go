@@ -3359,6 +3359,32 @@ func (c *RtdbConnect) ReadLast(info *PointInfo) (PTVQ, error) {
 	return ptvqs[0], nil
 }
 
+// hisModeForSingleRead 将组合查询模式拆分为底层历史读取接口支持的基础模式与未命中时的回退模式。
+// 底层单值/断面历史读取接口最多只支持 Next/Previous/Exact/Inter 四种模式（见 api.h），
+// blob/string/datetime/自定义类型接口更是只支持前三种，传入组合模式（ExactOrPrev/ExactOrNext/InterOrNext）
+// 不会报错但会静默返回无效数据（时间戳=查询时间、值=0），因此组合模式需由 SDK 拆成
+// "基础模式 + 未命中回退"两步查询模拟。interSupported 表示底层接口是否原生支持 Inter，
+// 不支持时 Inter 参照 GEMS 客户端行为降级为取上一个值（阶梯保持语义）。
+// 返回的回退模式为 -1 表示无需回退。
+func hisModeForSingleRead(mode RtdbHisMode, interSupported bool) (RtdbHisMode, RtdbHisMode) {
+	switch mode {
+	case RtdbHisModeExactOrPrev:
+		return RtdbHisModeExact, RtdbHisModePrevious
+	case RtdbHisModeExactOrNext:
+		return RtdbHisModeExact, RtdbHisModeNext
+	case RtdbHisModeInterOrNext:
+		if interSupported {
+			return RtdbHisModeInter, RtdbHisModeNext
+		}
+		return RtdbHisModeExact, RtdbHisModePrevious
+	case RtdbHisModeInter:
+		if !interSupported {
+			return RtdbHisModeExact, RtdbHisModePrevious
+		}
+	}
+	return mode, RtdbHisMode(-1)
+}
+
 // ReadValue 读取单个TVQ
 //
 // input:
@@ -3373,7 +3399,12 @@ func (c *RtdbConnect) ReadValue(info *PointInfo, mode RtdbHisMode, timestamp tim
 	datetime, subtime := GoTimeToRtdbTimestamp(timestamp)
 	switch rtdbType {
 	case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
-		dt, ms, value, state, quality, rte := RawRtdbhGetSingleValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime)
+		// 数值型单值接口原生支持 Inter，组合模式拆成两步查询
+		primary, fallback := hisModeForSingleRead(mode, true)
+		dt, ms, value, state, quality, rte := RawRtdbhGetSingleValue64Warp(c.ConnectHandle, info.ID, primary, datetime, subtime)
+		if rte == RteDataNotFound && fallback != RtdbHisMode(-1) {
+			dt, ms, value, state, quality, rte = RawRtdbhGetSingleValue64Warp(c.ConnectHandle, info.ID, fallback, datetime, subtime)
+		}
 		if !RteIsOk(rte) {
 			return PTVQ{}, rte.GoError()
 		}
@@ -3411,14 +3442,24 @@ func (c *RtdbConnect) ReadValue(info *PointInfo, mode RtdbHisMode, timestamp tim
 			return NewPTVQ(info, NewTvqFp64(ts, value, quality)), nil
 		}
 	case RtdbTypeCoor:
-		dt, ms, x, y, quality, rte := RawRtdbhGetSingleCoorValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime)
+		// 坐标型单值接口原生支持 Inter，组合模式拆成两步查询
+		primary, fallback := hisModeForSingleRead(mode, true)
+		dt, ms, x, y, quality, rte := RawRtdbhGetSingleCoorValue64Warp(c.ConnectHandle, info.ID, primary, datetime, subtime)
+		if rte == RteDataNotFound && fallback != RtdbHisMode(-1) {
+			dt, ms, x, y, quality, rte = RawRtdbhGetSingleCoorValue64Warp(c.ConnectHandle, info.ID, fallback, datetime, subtime)
+		}
 		if !RteIsOk(rte) {
 			return PTVQ{}, rte.GoError()
 		}
 		ts := RtdbTimestampToGoTime(dt, ms)
 		return NewPTVQ(info, NewTvqCoordinates(ts, x, y, quality)), nil
 	case RtdbTypeString, RtdbTypeBlob:
-		dt, ms, blob, quality, rte := RawRtdbhGetSingleBlobValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime, c.StringBlobMaxLen)
+		// blob/string 单值接口只支持 Next/Previous/Exact，Inter 及组合模式拆成两步查询
+		primary, fallback := hisModeForSingleRead(mode, false)
+		dt, ms, blob, quality, rte := RawRtdbhGetSingleBlobValue64Warp(c.ConnectHandle, info.ID, primary, datetime, subtime, c.StringBlobMaxLen)
+		if rte == RteDataNotFound && fallback != RtdbHisMode(-1) {
+			dt, ms, blob, quality, rte = RawRtdbhGetSingleBlobValue64Warp(c.ConnectHandle, info.ID, fallback, datetime, subtime, c.StringBlobMaxLen)
+		}
 		if !RteIsOk(rte) {
 			return PTVQ{}, rte.GoError()
 		}
@@ -3431,27 +3472,25 @@ func (c *RtdbConnect) ReadValue(info *PointInfo, mode RtdbHisMode, timestamp tim
 			return NewPTVQ(info, NewTvqBlob(ts, blob, quality)), nil
 		}
 	case RtdbTypeNamedT:
-		dt, ms, data, quality, rte := RawRtdbhGetSingleNamedTypeValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime, info.NamedType.Length)
+		// 自定义类型单值接口只支持 Next/Previous/Exact，Inter 及组合模式拆成两步查询
+		primary, fallback := hisModeForSingleRead(mode, false)
+		dt, ms, data, quality, rte := RawRtdbhGetSingleNamedTypeValue64Warp(c.ConnectHandle, info.ID, primary, datetime, subtime, info.NamedType.Length)
+		if rte == RteDataNotFound && fallback != RtdbHisMode(-1) {
+			dt, ms, data, quality, rte = RawRtdbhGetSingleNamedTypeValue64Warp(c.ConnectHandle, info.ID, fallback, datetime, subtime, info.NamedType.Length)
+		}
 		if !RteIsOk(rte) {
 			return PTVQ{}, rte.GoError()
 		}
 		ts := RtdbTimestampToGoTime(dt, ms)
 		return NewPTVQ(info, NewTvqNamed(ts, info.ValueType, data, quality)), nil
 	case RtdbTypeDatetime:
-		// 底层 C API rtdbh_get_single_datetime_value64 只支持 Next/Previous/Exact 三种模式（见 api.h），
-		// 传入其它模式会返回错误或无效数据。因此：
+		// datetime 单值接口只支持 Next/Previous/Exact 三种模式（见 api.h）：
 		// - Inter/InterOrNext 参照 GEMS 客户端行为降级为取上一个值（Exact 未命中再 Previous）
 		// - ExactOrPrev/ExactOrNext 用 Exact + Previous/Next 两步模拟
-		fallbackMode := RtdbHisMode(-1)
-		switch mode {
-		case RtdbHisModeInter, RtdbHisModeInterOrNext, RtdbHisModeExactOrPrev:
-			mode, fallbackMode = RtdbHisModeExact, RtdbHisModePrevious
-		case RtdbHisModeExactOrNext:
-			mode, fallbackMode = RtdbHisModeExact, RtdbHisModeNext
-		}
-		dt, ms, data, quality, rte := RawRtdbhGetSingleDatetimeValue64Warp(c.ConnectHandle, info.ID, mode, datetime, subtime, int16(info.DateTimeFormat))
-		if rte == RteDataNotFound && fallbackMode != RtdbHisMode(-1) {
-			dt, ms, data, quality, rte = RawRtdbhGetSingleDatetimeValue64Warp(c.ConnectHandle, info.ID, fallbackMode, datetime, subtime, int16(info.DateTimeFormat))
+		primary, fallback := hisModeForSingleRead(mode, false)
+		dt, ms, data, quality, rte := RawRtdbhGetSingleDatetimeValue64Warp(c.ConnectHandle, info.ID, primary, datetime, subtime, int16(info.DateTimeFormat))
+		if rte == RteDataNotFound && fallback != RtdbHisMode(-1) {
+			dt, ms, data, quality, rte = RawRtdbhGetSingleDatetimeValue64Warp(c.ConnectHandle, info.ID, fallback, datetime, subtime, int16(info.DateTimeFormat))
 		}
 		if !RteIsOk(rte) {
 			return PTVQ{}, rte.GoError()
@@ -3905,9 +3944,31 @@ func (c *RtdbConnect) ReadSection(infos []*PointInfo, mode RtdbHisMode, timestam
 	numberPtvqs := make([]PTVQ, 0)
 	numberRtes := make([]RtdbError, 0)
 	if len(numberInfos) != 0 {
-		dt, ms, values, states, qualities, rtes, rte := RawRtdbhGetCrossSectionValues64Warp(c.ConnectHandle, numberIds, mode, datetime, subtime)
+		// 断面接口只支持 Next/Previous/Exact/Inter 四种模式（见 api.h），
+		// 组合模式先用基础模式批量查询，未命中的点再用回退模式批量补查一次
+		primary, fallback := hisModeForSingleRead(mode, true)
+		dt, ms, values, states, qualities, rtes, rte := RawRtdbhGetCrossSectionValues64Warp(c.ConnectHandle, numberIds, primary, datetime, subtime)
 		if !RteIsOk(rte) {
 			return nil, nil, rte.GoError()
+		}
+		if fallback != RtdbHisMode(-1) {
+			retryIds := make([]PointID, 0)
+			retryPos := make([]int, 0)
+			for i, e := range rtes {
+				if e == RteDataNotFound {
+					retryIds = append(retryIds, numberIds[i])
+					retryPos = append(retryPos, i)
+				}
+			}
+			if len(retryIds) != 0 {
+				dt2, ms2, values2, states2, qualities2, rtes2, rte2 := RawRtdbhGetCrossSectionValues64Warp(c.ConnectHandle, retryIds, fallback, datetime, subtime)
+				if !RteIsOk(rte2) {
+					return nil, nil, rte2.GoError()
+				}
+				for j, pos := range retryPos {
+					dt[pos], ms[pos], values[pos], states[pos], qualities[pos], rtes[pos] = dt2[j], ms2[j], values2[j], states2[j], qualities2[j], rtes2[j]
+				}
+			}
 		}
 		numberRtes = rtes
 

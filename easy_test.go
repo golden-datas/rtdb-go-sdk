@@ -1885,3 +1885,219 @@ func TestRtdbConnect_ReadValueDatetimeInter(t *testing.T) {
 		ptvq.TVQ.Value.StringValue, ptvq.TVQ.Quality)
 	fmt.Println("datetime插值查询降级测试完成")
 }
+
+// datetime类型断面插值查询测试：验证ReadSection插值模式下混合点（float+datetime）不再报"不支持的标签点类型"
+func TestRtdbConnect_ReadSectionDatetimeInter(t *testing.T) {
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
+	if err != nil {
+		t.Fatal("登录用户失败", err)
+	}
+	defer func() { _ = conn.Logout() }()
+
+	table, err := conn.CreateTable("ttdtsect", "datetime断面插值测试表")
+	if err != nil {
+		t.Error("创建表失败：", err)
+		return
+	}
+	defer func() { _ = conn.DeleteTable(table.ID) }()
+
+	// 同时创建 float 点与 datetime 点，复现混合断面场景
+	fInfo, err := conn.AddPoint(NewPointInfo("f01", table.ID, ValueTypeFloat64, PointBase, RtdbPrecisionNano, "", "断面测试float点"))
+	if err != nil {
+		t.Error("添加float点失败: ", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(fInfo.ID) }()
+	dtInfo, err := conn.AddPoint(NewPointInfo("dt01", table.ID, ValueTypeDatetime, PointBase, RtdbPrecisionNano, "", "断面测试datetime点"))
+	if err != nil {
+		t.Error("添加datetime点失败: ", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(dtInfo.ID) }()
+
+	// 写入两条数据（时间戳晚于初始快照，走快照路径落库）
+	now := time.Now()
+	t1 := now.Add(10 * time.Second)
+	t2 := now.Add(30 * time.Second)
+	if _, err := conn.WriteValues(fInfo, false, []TVQ{
+		NewTvqFloat64(t1, 1.5, Quality(0)),
+		NewTvqFloat64(t2, 2.5, Quality(0)),
+	}); err != nil {
+		t.Error("写入float数据失败：", err)
+		return
+	}
+	if _, err := conn.WriteValues(dtInfo, false, []TVQ{
+		NewTvqDatetime(t1, "2026-07-22 10:56:40.000", Quality(0)),
+		NewTvqDatetime(t2, "2026-07-22 10:57:00.000", Quality(0)),
+	}); err != nil {
+		t.Error("写入datetime数据失败：", err)
+		return
+	}
+
+	// 关键测试：断面插值查询，修复前datetime点报"不支持的标签点类型"
+	midTime := now.Add(20 * time.Second)
+	ptvqs, errs, err := conn.ReadSection([]*PointInfo{fInfo, dtInfo}, RtdbHisModeInter, midTime)
+	if err != nil {
+		t.Error("断面插值查询失败：", err)
+		return
+	}
+	for i, e := range errs {
+		if e != nil {
+			t.Errorf("断面插值查询第%d个点失败: %v", i, e)
+		}
+	}
+	fmt.Printf("ReadSection(Inter): float=%v, datetime=%v\n",
+		ptvqs[0].TVQ.Value.FloatValue, ptvqs[1].TVQ.Value.StringValue)
+	// datetime点插值降级后应返回上一条数据的值
+	if ptvqs[1].TVQ.Value.StringValue != "2026-07-22 10:56:40.000" {
+		t.Errorf("断面插值降级后应返回上一个值，实际返回: %v", ptvqs[1].TVQ.Value.StringValue)
+	}
+	fmt.Println("datetime断面插值查询测试完成")
+}
+
+// 数值型点 ExactOrPrev/ExactOrNext 测试：底层单值/断面接口不支持组合模式，
+// 修复前传入组合模式会静默返回无效数据（时间戳=查询时间、值=0）
+func TestRtdbConnect_ReadValueExactOrPrevNext(t *testing.T) {
+	conn, err := Login(Hostname, Port, Username, Password, RtdbPrecisionNano)
+	if err != nil {
+		t.Fatal("登录用户失败", err)
+	}
+	defer func() { _ = conn.Logout() }()
+
+	table, err := conn.CreateTable("ttexor", "组合模式查询测试表")
+	if err != nil {
+		t.Error("创建表失败：", err)
+		return
+	}
+	defer func() { _ = conn.DeleteTable(table.ID) }()
+
+	// 复现截图场景：float64 点 + int16 点
+	fInfo, err := conn.AddPoint(NewPointInfo("f01", table.ID, ValueTypeFloat64, PointBase, RtdbPrecisionNano, "", "组合模式测试float点"))
+	if err != nil {
+		t.Error("添加float点失败: ", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(fInfo.ID) }()
+	iInfo, err := conn.AddPoint(NewPointInfo("i01", table.ID, ValueTypeInt16, PointBase, RtdbPrecisionNano, "", "组合模式测试int16点"))
+	if err != nil {
+		t.Error("添加int16点失败: ", err)
+		return
+	}
+	defer func() { _ = conn.DeletePoint(iInfo.ID) }()
+
+	// 写入两条数据（时间戳晚于初始快照，走快照路径落库）
+	now := time.Now()
+	t1 := now.Add(10 * time.Second)
+	t2 := now.Add(30 * time.Second)
+	if _, err := conn.WriteValues(fInfo, false, []TVQ{
+		NewTvqFloat64(t1, 1.5, Quality(0)),
+		NewTvqFloat64(t2, 2.5, Quality(0)),
+	}); err != nil {
+		t.Error("写入float数据失败：", err)
+		return
+	}
+	if _, err := conn.WriteValues(iInfo, false, []TVQ{
+		NewTvqInt16(t1, 11, Quality(0)),
+		NewTvqInt16(t2, 22, Quality(0)),
+	}); err != nil {
+		t.Error("写入int16数据失败：", err)
+		return
+	}
+
+	// 中间时刻无精确命中数据，验证回退逻辑
+	midTime := now.Add(20 * time.Second)
+
+	// ExactOrPrev 应返回上一条数据（t1）
+	ptvq, err := conn.ReadValue(fInfo, RtdbHisModeExactOrPrev, midTime)
+	if err != nil {
+		t.Error("float ExactOrPrev读取失败：", err)
+		return
+	}
+	fmt.Printf("float ExactOrPrev: Time=%v, Value=%v\n", ptvq.TVQ.Timestamp.Format(time.RFC3339Nano), ptvq.TVQ.Value.FloatValue)
+	if ptvq.TVQ.Value.FloatValue != 1.5 || ptvq.TVQ.Timestamp.Unix() != t1.Unix() {
+		t.Errorf("float ExactOrPrev应返回t1的值1.5，实际: Time=%v, Value=%v", ptvq.TVQ.Timestamp, ptvq.TVQ.Value.FloatValue)
+	}
+
+	// ExactOrNext 应返回下一条数据（t2）
+	ptvq, err = conn.ReadValue(fInfo, RtdbHisModeExactOrNext, midTime)
+	if err != nil {
+		t.Error("float ExactOrNext读取失败：", err)
+		return
+	}
+	fmt.Printf("float ExactOrNext: Time=%v, Value=%v\n", ptvq.TVQ.Timestamp.Format(time.RFC3339Nano), ptvq.TVQ.Value.FloatValue)
+	if ptvq.TVQ.Value.FloatValue != 2.5 || ptvq.TVQ.Timestamp.Unix() != t2.Unix() {
+		t.Errorf("float ExactOrNext应返回t2的值2.5，实际: Time=%v, Value=%v", ptvq.TVQ.Timestamp, ptvq.TVQ.Value.FloatValue)
+	}
+
+	// int16 点同样验证
+	ptvq, err = conn.ReadValue(iInfo, RtdbHisModeExactOrPrev, midTime)
+	if err != nil {
+		t.Error("int16 ExactOrPrev读取失败：", err)
+		return
+	}
+	fmt.Printf("int16 ExactOrPrev: Time=%v, Value=%v\n", ptvq.TVQ.Timestamp.Format(time.RFC3339Nano), ptvq.TVQ.Value.IntValue)
+	if ptvq.TVQ.Value.IntValue != 11 || ptvq.TVQ.Timestamp.Unix() != t1.Unix() {
+		t.Errorf("int16 ExactOrPrev应返回t1的值11，实际: Time=%v, Value=%v", ptvq.TVQ.Timestamp, ptvq.TVQ.Value.IntValue)
+	}
+	ptvq, err = conn.ReadValue(iInfo, RtdbHisModeExactOrNext, midTime)
+	if err != nil {
+		t.Error("int16 ExactOrNext读取失败：", err)
+		return
+	}
+	fmt.Printf("int16 ExactOrNext: Time=%v, Value=%v\n", ptvq.TVQ.Timestamp.Format(time.RFC3339Nano), ptvq.TVQ.Value.IntValue)
+	if ptvq.TVQ.Value.IntValue != 22 || ptvq.TVQ.Timestamp.Unix() != t2.Unix() {
+		t.Errorf("int16 ExactOrNext应返回t2的值22，实际: Time=%v, Value=%v", ptvq.TVQ.Timestamp, ptvq.TVQ.Value.IntValue)
+	}
+
+	// 精确命中时 ExactOrPrev 应直接返回命中的数据（验证不误触回退）
+	ptvq, err = conn.ReadValue(fInfo, RtdbHisModeExactOrPrev, t1)
+	if err != nil {
+		t.Error("float ExactOrPrev精确命中读取失败：", err)
+		return
+	}
+	if ptvq.TVQ.Value.FloatValue != 1.5 {
+		t.Errorf("float ExactOrPrev精确命中应返回1.5，实际: %v", ptvq.TVQ.Value.FloatValue)
+	}
+
+	// 断面查询同样验证组合模式（断面接口也不支持组合模式，需回退补查）
+	ptvqs, errs, err := conn.ReadSection([]*PointInfo{fInfo, iInfo}, RtdbHisModeExactOrPrev, midTime)
+	if err != nil {
+		t.Error("断面ExactOrPrev查询失败：", err)
+		return
+	}
+	for i, e := range errs {
+		if e != nil {
+			t.Errorf("断面ExactOrPrev查询第%d个点失败: %v", i, e)
+		}
+	}
+	fmt.Printf("ReadSection(ExactOrPrev): float=%v@%v, int16=%v@%v\n",
+		ptvqs[0].TVQ.Value.FloatValue, ptvqs[0].TVQ.Timestamp.Format(time.RFC3339Nano),
+		ptvqs[1].TVQ.Value.IntValue, ptvqs[1].TVQ.Timestamp.Format(time.RFC3339Nano))
+	if ptvqs[0].TVQ.Value.FloatValue != 1.5 || ptvqs[0].TVQ.Timestamp.Unix() != t1.Unix() {
+		t.Errorf("断面ExactOrPrev float点应返回t1的值1.5，实际: Time=%v, Value=%v", ptvqs[0].TVQ.Timestamp, ptvqs[0].TVQ.Value.FloatValue)
+	}
+	if ptvqs[1].TVQ.Value.IntValue != 11 || ptvqs[1].TVQ.Timestamp.Unix() != t1.Unix() {
+		t.Errorf("断面ExactOrPrev int16点应返回t1的值11，实际: Time=%v, Value=%v", ptvqs[1].TVQ.Timestamp, ptvqs[1].TVQ.Value.IntValue)
+	}
+
+	ptvqs, errs, err = conn.ReadSection([]*PointInfo{fInfo, iInfo}, RtdbHisModeExactOrNext, midTime)
+	if err != nil {
+		t.Error("断面ExactOrNext查询失败：", err)
+		return
+	}
+	for i, e := range errs {
+		if e != nil {
+			t.Errorf("断面ExactOrNext查询第%d个点失败: %v", i, e)
+		}
+	}
+	fmt.Printf("ReadSection(ExactOrNext): float=%v@%v, int16=%v@%v\n",
+		ptvqs[0].TVQ.Value.FloatValue, ptvqs[0].TVQ.Timestamp.Format(time.RFC3339Nano),
+		ptvqs[1].TVQ.Value.IntValue, ptvqs[1].TVQ.Timestamp.Format(time.RFC3339Nano))
+	if ptvqs[0].TVQ.Value.FloatValue != 2.5 || ptvqs[0].TVQ.Timestamp.Unix() != t2.Unix() {
+		t.Errorf("断面ExactOrNext float点应返回t2的值2.5，实际: Time=%v, Value=%v", ptvqs[0].TVQ.Timestamp, ptvqs[0].TVQ.Value.FloatValue)
+	}
+	if ptvqs[1].TVQ.Value.IntValue != 22 || ptvqs[1].TVQ.Timestamp.Unix() != t2.Unix() {
+		t.Errorf("断面ExactOrNext int16点应返回t2的值22，实际: Time=%v, Value=%v", ptvqs[1].TVQ.Timestamp, ptvqs[1].TVQ.Value.IntValue)
+	}
+	fmt.Println("组合模式查询测试完成")
+}
