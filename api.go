@@ -8963,7 +8963,12 @@ func RawRtdbbSearchRecycledPointsInBatchesWarp(handle ConnectHandle, start int32
 	defer C.free(unsafe.Pointer(cInstrument))
 	cMode := C.rtdb_int32(mode)
 	ids := make([]PointID, count)
-	cIds := (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
+	var cIds *C.rtdb_int32
+	if len(ids) > 0 {
+		cIds = (*C.rtdb_int32)(unsafe.Pointer(&ids[0]))
+	} else {
+		cIds = nil
+	}
 	cCount := C.rtdb_int32(len(ids))
 	err := C.rtdbb_search_recycled_points_in_batches_warp(cHandle, cStart, cTagMask, cFullMask, cSource, cUnit, cDesc, cInstrument, cMode, cIds, &cCount)
 	return ids[:cCount], RtdbError(err)

@@ -2664,19 +2664,25 @@ func (c *RtdbConnect) GetRecycledPoints(start int32, count int32) (int32, []*Poi
 		return 0, nil, nil, rte.GoError()
 	}
 	ids = SafeSlice(ids, start, count)
-	infos := make([]*PointInfo, 0)
-	errs := make([]error, 0)
+	
+	// 处理空结果情况
+	if len(ids) == 0 {
+		return count, []*PointInfo{}, []error{}, nil
+	}
+
+	infos := make([]*PointInfo, 0, len(ids))
+	errS := make([]error, 0, len(ids))
 	for _, id := range ids {
 		base, scan, calc, rte := RawRtdbbGetRecycledMaxPointPropertyWarp(c.ConnectHandle, id)
 		info, _ := PointInfoFromRaw(c.ConnectHandle, base, scan, calc, true)
 		infos = append(infos, info)
 		if !RteIsOk(rte) {
-			errs = append(errs, rte.GoError())
+			errS = append(errS, rte.GoError())
 		} else {
-			errs = append(errs, nil)
+			errS = append(errS, nil)
 		}
 	}
-	return count, infos, errs, nil
+	return count, infos, errS, nil
 }
 
 // RecoverPoint 从回收站中恢复点到某个表
@@ -2727,20 +2733,25 @@ func (c *RtdbConnect) SearchRecycledPoint(start int32, count int32, tagMask, tab
 	maxCount = int32(len(ids))
 	rtnIds := SafeSlice(ids, start, count)
 
-	infos := make([]*PointInfo, 0)
-	errs := make([]error, 0)
+	// 处理空结果情况
+	if len(rtnIds) == 0 {
+		return maxCount, []*PointInfo{}, []error{}, nil
+	}
+
+	infos := make([]*PointInfo, 0, len(rtnIds))
+	errS := make([]error, 0, len(rtnIds))
 	for _, id := range rtnIds {
 		base, scan, calc, rte := RawRtdbbGetRecycledMaxPointPropertyWarp(c.ConnectHandle, id)
 		info, _ := PointInfoFromRaw(c.ConnectHandle, base, scan, calc, true)
 		infos = append(infos, info)
 		if !RteIsOk(rte) {
-			errs = append(errs, rte.GoError())
+			errS = append(errS, rte.GoError())
 		} else {
-			errs = append(errs, nil)
+			errS = append(errS, nil)
 		}
 	}
 
-	return maxCount, infos, errs, nil
+	return maxCount, infos, errS, nil
 }
 
 // GetPointCountFromValueType 获取某个数据类型的点个数 (可以是内置类型，也可以是自定义类型)
