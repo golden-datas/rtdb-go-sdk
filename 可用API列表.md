@@ -82,7 +82,7 @@
 1. ReadPlot  读取用于绘图的TVQ
 1. ReadTimed  获取差值，每个差值都需要指定一个确定的时间戳
 1. ReadInterpo  获取差值, 会自动将start、end等分成count个时间戳，然后取这些时间戳的差值
-1. ReadInterval  读取从start开始的等间隔差值
+1. ReadInterval  读取从 start 开始的等间隔差值
 1. ReadSection  读取断面
 1. ReadSummary  获取统计值 (从start到end的统计值)
 1. ReadBatchesSummary  获取等间隔统计值 (在start和end之间，按照interval作为时间间隔计算每个间隔的统计值)

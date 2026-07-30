@@ -9128,7 +9128,7 @@ output:
 func (c *RtdbConnect) ReadInterval(info *PointInfo, filter string, start time.Time, interval time.Duration, count int32) (PTVQs, error)
 ```
 
-ReadInterval 读取从start开始的等间隔差值
+ReadInterval 读取从 start 开始的等间隔差值
 
 input:
 
