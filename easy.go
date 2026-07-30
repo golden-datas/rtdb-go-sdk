@@ -3702,9 +3702,17 @@ func (c *RtdbConnect) ReadTimed(info *PointInfo, timestamps []time.Time) (PTVQs,
 		datetimes = append(datetimes, dt)
 		subtimes = append(subtimes, ms)
 	}
+
+	// datetime 点的定时插值结果由底层以整型毫秒时间戳返回 (states)，
+	// 需按标签点时间格式转换为与其他读取接口一致的字符串
+	datetimeLayout := "2006-01-02 15:04:05.000"
+	if info.DateTimeFormat == DatetimeFmtSlash {
+		datetimeLayout = "2006/01/02 15:04:05.000"
+	}
+
 	tvqs := make([]TVQ, 0)
 	switch rtdbType {
-	case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
+	case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64, RtdbTypeDatetime:
 		values, states, qualities, rte := RawRtdbhGetTimedValues64Warp(c.ConnectHandle, info.ID, datetimes, subtimes)
 		if !RteIsOk(rte) {
 			return PTVQs{}, rte.GoError()
@@ -3743,6 +3751,8 @@ func (c *RtdbConnect) ReadTimed(info *PointInfo, timestamps []time.Time) (PTVQs,
 				tvqs = append(tvqs, NewTvqFp32(ts, float32(values[i]), q))
 			case RtdbTypeFp64:
 				tvqs = append(tvqs, NewTvqFp64(ts, values[i], q))
+			case RtdbTypeDatetime:
+				tvqs = append(tvqs, NewTvqDatetime(ts, time.UnixMilli(states[i]).Format(datetimeLayout), q))
 			}
 		}
 		return NewPTVQs(info, tvqs), nil
