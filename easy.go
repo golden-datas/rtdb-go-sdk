@@ -3794,8 +3794,15 @@ func (c *RtdbConnect) ReadInterpo(info *PointInfo, count int32, start time.Time,
 		return PTVQs{}, rte.GoError()
 	}
 
+	// datetime 点的插值结果由底层以整型毫秒时间戳返回 (states)，
+	// 需按标签点时间格式转换为与其他读取接口一致的字符串
+	datetimeLayout := "2006-01-02 15:04:05.000"
+	if info.DateTimeFormat == DatetimeFmtSlash {
+		datetimeLayout = "2006/01/02 15:04:05.000"
+	}
+
 	switch rtdbType {
-	case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
+	case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64, RtdbTypeDatetime:
 		tvqs := make([]TVQ, 0)
 		for i := 0; i < len(dt); i++ {
 			ts := RtdbTimestampToGoTime(dt[i], ms[i])
@@ -3831,6 +3838,8 @@ func (c *RtdbConnect) ReadInterpo(info *PointInfo, count int32, start time.Time,
 				tvqs = append(tvqs, NewTvqFp32(ts, float32(values[i]), q))
 			case RtdbTypeFp64:
 				tvqs = append(tvqs, NewTvqFp64(ts, values[i], q))
+			case RtdbTypeDatetime:
+				tvqs = append(tvqs, NewTvqDatetime(ts, time.UnixMilli(states[i]).Format(datetimeLayout), q))
 			}
 		}
 		return NewPTVQs(info, tvqs), nil
@@ -3839,7 +3848,7 @@ func (c *RtdbConnect) ReadInterpo(info *PointInfo, count int32, start time.Time,
 	}
 }
 
-// ReadInterval 读取从start开始的等间隔差值
+// ReadInterval 读取从 start 开始的等间隔差值
 //
 // input:
 //   - info 标签点信息
@@ -3871,8 +3880,15 @@ func (c *RtdbConnect) ReadInterval(info *PointInfo, filter string, start time.Ti
 		return PTVQs{}, rte.GoError()
 	}
 
+	// datetime 点的等间隔结果由底层以整型毫秒时间戳返回 (states)，
+	// 需按标签点时间格式转换为与其他读取接口一致的字符串
+	datetimeLayout := "2006-01-02 15:04:05.000"
+	if info.DateTimeFormat == DatetimeFmtSlash {
+		datetimeLayout = "2006/01/02 15:04:05.000"
+	}
+
 	switch rtdbType {
-	case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64:
+	case RtdbTypeBool, RtdbTypeUint8, RtdbTypeInt8, RtdbTypeChar, RtdbTypeUint16, RtdbTypeInt16, RtdbTypeUint32, RtdbTypeInt32, RtdbTypeInt64, RtdbTypeReal16, RtdbTypeReal32, RtdbTypeReal64, RtdbTypeFp16, RtdbTypeFp32, RtdbTypeFp64, RtdbTypeDatetime:
 		tvqs := make([]TVQ, 0)
 		for i := 0; i < len(dt); i++ {
 			ts := RtdbTimestampToGoTime(dt[i], ms[i])
@@ -3908,6 +3924,8 @@ func (c *RtdbConnect) ReadInterval(info *PointInfo, filter string, start time.Ti
 				tvqs = append(tvqs, NewTvqFp32(ts, float32(values[i]), q))
 			case RtdbTypeFp64:
 				tvqs = append(tvqs, NewTvqFp64(ts, values[i], q))
+			case RtdbTypeDatetime:
+				tvqs = append(tvqs, NewTvqDatetime(ts, time.UnixMilli(states[i]).Format(datetimeLayout), q))
 			}
 		}
 		return NewPTVQs(info, tvqs), nil
